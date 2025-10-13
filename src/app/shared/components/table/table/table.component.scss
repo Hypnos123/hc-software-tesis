@@ -1,0 +1,79 @@
+.estadoActivo {
+  background-color: rgb(177, 247, 177);
+  color: rgb(34, 133, 34);
+  width: 100px;
+  text-align: center;
+  padding: 5px 20px;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.estadoInactivo{
+  background-color: rgb(247, 177, 177);
+  color: rgb(133, 34, 34);
+  padding: 5px 20px;
+  width: 145px;
+  text-align: center;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.estadoAmarillo {
+  background-color: rgb(247, 246, 177);
+  color: rgb(133, 115, 34);
+  padding: 5px 20px;
+  text-align: center;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.estadoVerde {
+  background-color: rgb(177, 247, 177);
+  color: rgb(34, 133, 34);
+  text-align: center;
+  padding: 5px 20px;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.estadoAzul {
+  background-color: rgb(177, 191, 247);
+  color: rgb(34, 57, 133);
+  text-align: center;
+  padding: 5px 20px;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.estadoRojo{
+  background-color: rgb(247, 177, 177);
+  color: rgb(133, 34, 34);
+  text-align: center;
+  padding: 5px 20px;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+
+.caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-direction: row-reverse;
+
+  &__search {
+    display: flex;
+    align-items: center;
+    column-gap: 10px;
+  }
+}
+
+.text-right {
+  justify-content: right;
+}
+
+.tipoPago {
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+}

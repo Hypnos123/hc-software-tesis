@@ -1,0 +1,26 @@
+<button
+  appStyleButton
+  pButton
+  *ngIf="isRouter"
+  type="button"
+  iconPos="left"
+  [clase]="clase"
+  [label]="label"
+  [icon]="icono"
+  [routerLink]="router"
+  [disabled]="isDisabled"
+></button>
+
+<button
+  appStyleButton
+  pButton
+  *ngIf="!isRouter"
+  [type]="tipo"
+  iconPos="left"
+  [clase]="clase"
+  [label]="label"
+  [icon]="icono"
+  [disabled]="isDisabled"
+  [pTooltip]="tooltip"
+  (click)="ejecutarEventoClick()"
+></button>

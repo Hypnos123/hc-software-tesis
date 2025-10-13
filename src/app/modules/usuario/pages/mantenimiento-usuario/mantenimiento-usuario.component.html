@@ -1,0 +1,129 @@
+<form (ngSubmit)="guardarElemento()" [formGroup]="usuarioForm">
+  <h2>{{titulo}}</h2>
+  <br>
+  <section class="container-form t-col-2 t-col-sm-1">
+    <div class="form">
+      <span class="form-text">Usuario:</span>
+      <input id="usuario" type="text" toUpperCase formControlName="usuario" pInputText />
+
+      <div class="validation" *ngIf="usuario?.invalid && (usuario?.dirty || usuario?.touched)">
+        <small *ngIf="usuario?.errors?.['required']" class="p-error">Usuario es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Contraseña:</span>
+      <input id="contrasena" type="text" formControlName="contrasena" autocomplete="off" pInputText toUpperCase />
+      <div class="validation" *ngIf="contrasena?.invalid && (contrasena?.dirty || contrasena?.touched)">
+        <small *ngIf="contrasena?.errors?.['required']" class="p-error">Contraseña es obligatorio</small>
+        <small *ngIf="contrasena?.errors?.['minlength'] || contrasena?.errors?.['maxlength']" class="p-error">Contraseña
+          debe tener máximo 20 dígitos</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Tipo Usuario:</span>
+      <p-dropdown [options]="listaTipoUsuario" formControlName="tipoUsuario" optionLabel="tipoUsuario"
+        placeholder="Seleccione"></p-dropdown>
+      <div class="validation" *ngIf="tipoUsuario?.invalid && (tipoUsuario?.dirty || tipoUsuario?.touched)">
+        <small *ngIf="tipoUsuario?.errors?.['required']" class="p-error">Tipo Usuario es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Empleado:</span>
+      <div class="t-col-auto-2 t-col-sm-1 t-gap-sm">
+        <div class="md:col-4">
+          <div class="p-inputgroup">
+            <button pButton (click)="showBuscadorDeEmpleado($event)" type="button" icon="pi pi-search"></button>
+            <div class="form" style="width: 200px">
+              <input id="numEmpleado" type="text" toUpperCase formControlName="numEmpleado"
+                (keypress)="buscarEmpleado($event)" pInputText numbersOnly />
+
+              <div class="validation" *ngIf="numEmpleado?.dirty || numEmpleado?.touched">
+                <small *ngIf="numEmpleado?.errors?.['required']" class="p-error">DNI Empleado es obligatorio</small>
+              </div>
+              <div class="validation">
+                <small *ngIf="isDNIEmpleadoInvalid && !numEmpleado?.errors?.['required']" class="p-error">DNI de
+                  Empleado no
+                  existe</small>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <input id="datosEmpleado" type="text" toUpperCase formControlName="datosEmpleado" pInputText />
+      </div>
+    </div>
+  </section>
+  <br>
+  <section class="container-form t-col-sm-1">
+    <p-pickList [source]="listaPorAsignar" [showSourceControls]="false" [showTargetControls]="false"
+      [target]="listaAsignados" sourceHeader="Por asignar" targetHeader="Asignados" [dragdrop]="true"
+      [responsive]="true" [sourceStyle]="{'height':'15rem'}" [targetStyle]="{'height':'15rem'}" filterBy="nombre"
+      sourceFilterPlaceholder="Buscar" targetFilterPlaceholder="Buscar">
+      <ng-template let-item pTemplate="item">
+        <div class="product-item">
+          <h5 class="mb-2">{{item.nombre}}</h5>
+        </div>
+      </ng-template>
+    </p-pickList>
+  </section>
+
+  <br>
+  <div class="container-opciones">
+    <app-button [label]="'Regresar'" [router]="'/usuarios'" [icono]="'pi pi-arrow-left'"
+      [estiloBoton]="'p-button-outlined p-button-secondary'">
+    </app-button>
+    <app-button [label]="'Guardar'" [icono]="'pi pi-check'" [tipo]="'submit'"
+      [isDisabled]="!usuarioForm.valid || listaAsignados.length === 0">
+    </app-button>
+  </div>
+</form>
+
+
+
+<!-- #MODAL BUSCAR EMPÑLEADO -->
+<p-dialog header="Lista de Empleados" [(visible)]="isBuscadorDeEmpleado" [modal]="true" [style]="{ width: '50vw' }"
+  [draggable]="false" [resizable]="false">
+  <p><b>Seleccione un empleado:</b></p>
+  <br>
+  <p-table #dt [columns]="colsEmpleado" selectionMode="single" [value]="listaEmpleados" dataKey="numDocumento"
+    [rows]="6" [paginator]="true" [globalFilterFields]="[
+      'nombre',
+      'numDocumento',
+      'tipoDocumento',
+      'cargo',
+      'apellido'
+    ]" [rowHover]="true" [scrollable]="true" responsiveLayout="scroll" (onRowSelect)="onRowEmpleadoSelected($event)">
+    <ng-template pTemplate="caption">
+      <div class="caption">
+        <span class="caption__search">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" toUpperCase (input)="dt.filterGlobal($any($event.target).value, 'contains')"
+            placeholder="Buscar..." />
+        </span>
+      </div>
+    </ng-template>
+    <ng-template pTemplate="header" let-columns>
+      <tr>
+        <th *ngFor="let col of columns">
+          {{ col.header }}
+        </th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-rowData let-columns="columns">
+      <tr [pSelectableRow]="rowData" (dblclick)="putEmpleadoSeleccionado()">
+        <td *ngFor="let col of columns">
+          {{ rowData[col.field] }}
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <ng-template pTemplate="footer">
+    <p-button icon="pi pi-check" (click)="putEmpleadoSeleccionado()" label="Seleccionar" styleClass="p-button-text">
+    </p-button>
+  </ng-template>
+</p-dialog>
+<!-- #END MODAL BUSCAR EMPLEADO -->

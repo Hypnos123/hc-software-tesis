@@ -2,8 +2,10 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    "baseUrl": "src",
     "outDir": "./dist/out-tsc",
-    "strict": true,
+    "strict": false,
+    "strictNullChecks": false,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
@@ -18,15 +20,22 @@
     "target": "ES2022",
     "module": "ES2022",
     "useDefineForClassFields": false,
-    "lib": [
-      "ES2022",
-      "dom"
-    ]
+    "lib": ["ES2022", "dom"],
+    "paths": {
+      "@app/*": ["app/*"],
+      "@shared/*": ["app/modules/shared/*"],
+      "@validators/*": ["app/modules/shared/validators/*"],
+      "@services/*": ["app/modules/shared/services/*"],
+      "@directives/*": ["app/modules/shared/directives/*"],
+      "@pipes/*": ["app/modules/shared/pipes/*"]
+    }
   },
+  "include": ["src/**/*.d.ts", "src/**/*.ts"],
   "angularCompilerOptions": {
+    "strict": false,
     "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictTemplates": true
+    "strictInjectionParameters": false,
+    "strictInputAccessModifiers": false,
+    "strictTemplates": false
   }
 }

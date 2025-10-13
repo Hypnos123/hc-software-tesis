@@ -1,0 +1,10 @@
+<section style="display: flex; width: 100%;">
+  <app-sidebar (onToggleSideNav)="onToggleSideNav($event)"></app-sidebar>
+
+  <div class="content-wrapper">
+    <app-navbar></app-navbar>
+    <app-body [collapsed]="isSideNavCollapsed" [screenWidth]="screenWidth"></app-body>
+    <app-footer></app-footer>
+  </div>
+
+</section>

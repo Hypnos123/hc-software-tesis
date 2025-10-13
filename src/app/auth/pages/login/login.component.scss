@@ -1,0 +1,76 @@
+@import 'variables';
+
+.login {
+  width: 100%;
+  height: 100vh;
+  background-image: url("/assets/images/fondo2.png");
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: center;
+  background-size: cover;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+
+  @media (min-width: 800px) {
+    justify-content: end;
+
+  }
+
+
+  form {
+    background-color: white;
+    padding: 40px 50px;
+    height: 420px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+
+    @media (min-width: 900px) {
+      margin-right: 15rem;
+    }
+
+    .form {
+      width: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      position: relative;
+      text-align: start;
+
+      .validation {
+        position: absolute;
+        bottom: -18px;
+      }
+
+      .form-text {
+        padding-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .p-inputtext {
+        width: 100%;
+      }
+    }
+
+    .logo {
+      width: 20rem;
+      margin-bottom: 20px;
+    }
+  }
+}
+
+.password {
+  position: relative;
+
+  .toggle-password {
+    i {
+      position: absolute;
+      font-size: 20px;
+      right: 12px;
+      bottom: 12px;
+      color: grey;
+    }
+  }
+}
+

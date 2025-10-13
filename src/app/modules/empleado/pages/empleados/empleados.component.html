@@ -1,0 +1,20 @@
+<div class="t-flex-start">
+  <h2>Lista de Empleados</h2>
+  <app-button
+    [label]="'Agregar'"
+    [router]="'./mantenimiento-empleado'"
+    [icono]="'pi pi-plus'"
+  ></app-button>
+</div>
+<br>
+<section class="container-table">
+  <app-table
+    *ngIf="isCargado"
+    [listaElementos]="listaElementos"
+    [columnas]="colsVisibles"
+    [filas]="10"
+    [isOpcionEliminar]="true"
+    [listaElementosAFiltrar]="['numDocumento', 'tipoDocumento','nombre', 'apellido']"
+    (eventoAccion)="eventoAccion($event)"
+  ></app-table>
+</section>

@@ -1,0 +1,166 @@
+<p-table #dt styleClass="p-datatable-striped" [id]="dt" [value]="listaElementos" [columns]="columnas" [rows]="filas"
+  [paginator]="isPaginador" [globalFilterFields]="listaElementosAFiltrar"
+  [responsiveLayout]="tipoResponsivo ? 'stack' : 'scroll'" scrollHeight="flex" [rowHover]="isHoverAFila" dataKey="id"
+  [scrollable]="true" [style]="{width: '100%', height: 'calc(100vh - 240px)'}"
+  [showCurrentPageReport]="isCantidadElementos">
+  <ng-template pTemplate="caption">
+    <div class="caption">
+      <ng-container *ngIf="isMostrarExportacion">
+        <button type="button" pButton pRipple icon="pi pi-file-excel" (click)="exportExcel()"
+          class="p-button-success mr-2" pTooltip="XLS" tooltipPosition="bottom"></button>
+      </ng-container>
+      <span class="caption__search">
+        <ng-container *ngIf="isMostrarBuscador">
+          Buscar
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input pInputText type="text" toUpperCase
+              (input)="dt.filterGlobal($any($event.target).value, 'contains')" />
+          </span>
+        </ng-container>
+      </span>
+    </div>
+
+  </ng-template>
+
+  <ng-template pTemplate="header" let-columns>
+    <tr>
+      <th style="text-align: center; justify-content: center;" *ngFor="let col of columns"
+        pSortableColumn="{{ col.field }}">
+        {{ col.header }} <p-sortIcon *ngIf="isSorting" field="{{ col.field }}"></p-sortIcon>
+      </th>
+      <th *ngIf="isMostrarAcciones" [ngStyle]="{'min-width': anchoColumna}"
+        style="text-align: center; justify-content: center;" pFrozenColumn [frozen]="true" alignFrozen="right">Opciones</th>
+      <th *ngIf="isMostrarMasOpciones" [ngStyle]="{'min-width': anchoColumna}"
+        style="text-align: center; justify-content: center;" pFrozenColumn [frozen]="true" alignFrozen="right">Opciones</th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-rowData let-columns="columns">
+    <tr [pSelectableRow]="rowData">
+      <td style="min-width: 120px; word-break: break-all; text-align: center; justify-content: center;"
+        *ngFor="let col of columns">
+        <span *ngIf="isSubtitulo" class="p-column-title">{{ col.header }}</span>
+
+        <div [ngSwitch]="col.field">
+          <div *ngSwitchCase="'precio'">
+            {{ rowData[col.field] | currency: "S/" }}
+          </div>
+
+          <div *ngSwitchCase="'descuentoTotal'">
+            {{ rowData[col.field] | currency: "S/" }}
+          </div>
+
+          <div *ngSwitchCase="'total'">
+            {{ rowData[col.field] | currency: "S/" }}
+          </div>
+
+          <div *ngSwitchCase="'subTotal'">
+            {{ rowData[col.field] | currency: "S/" }}
+          </div>
+
+          <div *ngSwitchCase="'estado'">
+            <div [ngClass]="
+                  rowData[col.field]
+                      ? 'estadoActivo'
+                      : 'estadoInactivo'
+                  ">
+              {{ rowData[col.field] | flags: col.field }}
+            </div>
+
+
+          </div>
+
+          <div *ngSwitchCase="'estadoAtencionAnalisis'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] }}
+          </div>
+
+          <div *ngSwitchCase="'estadoPago'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] }}
+          </div>
+
+          <div *ngSwitchCase="'estadoOrden'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] }}
+          </div>
+
+          <div *ngSwitchCase="'isparavender'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] | flags: col.field }}
+          </div>
+
+          <div *ngSwitchCase="'estadoEnvio'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] }}
+          </div>
+
+          <div *ngSwitchCase="'estadoVenta'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] }}
+          </div>
+
+          <div *ngSwitchCase="'isCaja'" [value]="rowData[col.field]" appStyleEstado>
+            {{ rowData[col.field] | flags: col.field }}
+          </div>
+
+          <div *ngSwitchCase="'tipoPago'" class="tipoPago">
+            <ng-container *ngIf="rowData[col.field]; else noData">
+              <img [src]="rowData[col.field] | tipoPagoIcon" width="24" height="24" alt="{{ rowData[col.field] }}">
+              {{ rowData[col.field] | uppercase }}
+            </ng-container>
+            <ng-template #noData>
+              <span class="text-muted">-</span>
+            </ng-template>
+          </div>
+
+
+
+          <div style="word-break: break-all;" *ngSwitchDefault>
+            {{ !col.subField && !col.subField2 ? rowData[col.field] :
+            !col.subField2 ? rowData[col.field][col.subField] :
+            rowData[col.field][col.subField][col.subField2] }}
+          </div>
+        </div>
+      </td>
+      <td *ngIf="isMostrarAcciones" class="t-flex-start" style="justify-content: center; column-gap: 10px;"
+      pFrozenColumn [frozen]="true" alignFrozen="right">
+        <app-button *ngIf="isOpcionEditar" [icono]="'pi pi-pencil'" [estiloBoton]="'rounded'"
+          (eventoClick)="esUnaAccion('editar', rowData)"></app-button>
+        <app-button *ngIf="isOpcionEliminar" [icono]="'pi pi-trash'" [estiloBoton]="'rounded-danger'"
+          (eventoClick)="esUnaAccion('eliminar', rowData)"></app-button>
+      </td>
+
+      <td *ngIf="isMostrarMasOpciones" class="t-flex-start" [ngStyle]="{'min-width': anchoColumna}"
+        style="justify-content: center;" pFrozenColumn [frozen]="true" alignFrozen="right">
+        <ng-container *ngFor="let x of acciones">
+          <app-button
+            *ngIf="((x.evento !== 'imprimir') || (rowData.estadoPago !== 'PENDIENTE' || rowData.estadoAtencionAnalisis === 'COMPLETADO')) &&
+            (x.evento !== 'pagar' || rowData.estadoPago !== 'PAGADO') &&
+            x.estado"
+            [icono]="x.icono"
+            [estiloBoton]="x.clase"
+            (eventoClick)="esUnaAccion(x.evento, rowData, $event)"
+            [isDisabled]="x.isDisabled"
+            [tooltip]="x.tooltip">
+          </app-button>
+        </ng-container>
+      </td>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="summary">
+    En total hay {{ listaElementos ? listaElementos.length : 0 }} registros.
+  </ng-template>
+
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="6">{{mesajeNotItems}}</td>
+    </tr>
+  </ng-template>
+
+
+  <ng-template pTemplate="footer" *ngIf="footer">
+    <tr>
+      <td colspan="4" class="text-right">Total</td>
+      <td colspan="1">{{total | currency: 'S/'}}</td>
+    </tr>
+  </ng-template>
+
+</p-table>

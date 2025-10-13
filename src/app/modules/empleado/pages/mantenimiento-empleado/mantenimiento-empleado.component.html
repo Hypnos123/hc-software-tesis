@@ -1,0 +1,86 @@
+<form (ngSubmit)="guardarElemento()" [formGroup]="empleadoForm">
+  <h2>{{titulo}}</h2>
+  <br>
+  <section class="container-form t-col-2 t-col-sm-1">
+    <div class="form">
+      <span class="form-text">Tipo Documento:*</span>
+      <p-dropdown [options]="tipoDocumentos" formControlName="tipoDocumento" optionLabel="tipo" placeholder="Seleccione"></p-dropdown>
+      <div class="validation" *ngIf="tipoDocumento?.invalid && (tipoDocumento?.dirty || tipoDocumento?.touched)">
+        <small *ngIf="tipoDocumento?.errors?.['required']" class="p-error">Tipo Documento es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Nro Documento:*</span>
+      <input id="numDocumento" type="text" toUpperCase formControlName="numDocumento" minlength="8" maxlength="11" pInputText numbersOnly/>
+      <div class="validation" *ngIf="numDocumento?.invalid && (numDocumento?.dirty || numDocumento?.touched)">
+        <small *ngIf="numDocumento?.errors?.['required']" class="p-error">Nro Documento es obligatorio</small>
+        <small *ngIf="numDocumento?.errors?.['dniInvalido']" class="p-error">{{ numDocumento?.errors?.['dniInvalido'] }}</small>
+        <small *ngIf="numDocumento?.errors?.['ceInvalido']" class="p-error">{{ numDocumento?.errors?.['ceInvalido'] }}</small>
+      </div>
+    </div>
+
+
+    <div class="form">
+      <span class="form-text">Nombre:*</span>
+      <input id="descripcion" type="text" toUpperCase formControlName="nombre" pInputText />
+      <div class="validation" *ngIf="nombre?.invalid && (nombre?.dirty || nombre?.touched)">
+        <small *ngIf="nombre?.errors?.['required']" class="p-error">Nomnbre es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Apellido:*</span>
+      <input id="descripcion" type="text" toUpperCase formControlName="apellido" pInputText />
+      <div class="validation" *ngIf="apellido?.invalid && (apellido?.dirty || apellido?.touched)">
+        <small *ngIf="apellido?.errors?.['required']" class="p-error">Apellido es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Dirección:*</span>
+      <input id="descripcion" type="text" toUpperCase formControlName="direccion" pInputText />
+      <div class="validation" *ngIf="direccion?.invalid && (direccion?.dirty || direccion?.touched)">
+        <small *ngIf="direccion?.errors?.['required']" class="p-error">Dirección es obligatorio</small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Teléfono:*</span>
+      <input id="telefono" type="text" formControlName="telefono" minlength="6" maxlength="6" pInputText numbersOnly/>
+      <div class="validation" *ngIf="telefono?.invalid && (telefono?.dirty || telefono?.touched)">
+        <small *ngIf="telefono?.errors?.['required']" class="p-error">Teléfono es obligatorio</small>
+        <small *ngIf="telefono?.errors?.['minlength'] || telefono?.errors?.['maxlength']" class="p-error">Teléfono debe tener 6 dígitos</small>
+      </div>
+    </div>
+
+
+    <div class="form">
+      <span class="form-text">Celular:*</span>
+      <input id="celular" type="text" formControlName="celular" minlength="9" maxlength="9" pInputText numbersOnly/>
+      <div class="validation" *ngIf="celular?.invalid && (celular?.dirty || celular?.touched)">
+        <small *ngIf="celular?.errors?.['required']" class="p-error">Celular es obligatorio</small>
+        <small *ngIf="celular?.hasError('pattern')" class="p-error">
+          El celular debe empezar con 9 y tener un total de 9 dígitos.
+        </small>
+      </div>
+    </div>
+
+    <div class="form">
+      <span class="form-text">Tipo Cargo:*</span>
+      <p-dropdown [options]="tipoCargos" formControlName="cargo" optionLabel="tipo" placeholder="Seleccione"></p-dropdown>
+      <div class="validation" *ngIf="cargo?.invalid && (cargo?.dirty || cargo?.touched)">
+        <small *ngIf="cargo?.errors?.['required']" class="p-error">Cargo es obligatorio</small>
+      </div>
+    </div>
+
+  </section>
+
+  <br>
+  <div class="container-opciones">
+    <app-button [label]="'Regresar'" [router]="'/empleados'" [icono]="'pi pi-arrow-left'" [estiloBoton]="'p-button-outlined p-button-secondary'" >
+    </app-button>
+    <app-button [label]="'Guardar'" [icono]="'pi pi-check'" [tipo]="'submit'" [isDisabled]="!empleadoForm.valid">
+    </app-button>
+  </div>
+</form>

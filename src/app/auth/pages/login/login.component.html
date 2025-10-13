@@ -1,0 +1,37 @@
+<section class="login">
+
+  <form (ngSubmit)="iniciarSesion()" [formGroup]="loginForm">
+
+    <h1>Iniciar Sesión</h1>
+    <br>
+
+    <div class="form">
+      <span class="form-text">Usuario:</span>
+      <input id="usuario" type="text" toUpperCase formControlName="usuario" autocomplete="off" pInputText />
+      <div class="validation" *ngIf="usuario?.invalid && (usuario?.dirty || usuario?.touched)">
+        <small *ngIf="usuario?.errors?.['required']" class="p-error">Usuario es obligatorio</small>
+      </div>
+    </div>
+    <br>
+    <br>
+    <div class="form">
+      <span class="form-text">Contraseña:</span>
+      <input id="contrasena" #clave type="password" formControlName="contrasena" autocomplete="new-password"
+        pInputText />
+      <div class="validation" *ngIf="contrasena?.invalid && (contrasena?.dirty || contrasena?.touched)">
+        <small *ngIf="contrasena?.errors?.['required']" class="p-error">Contraseña es obligatorio</small>
+      </div>
+      <div class="password">
+        <span toggle="#password-field" class="toggle-password" (click)="viewPassword(clave)"> <i [class]="iconEye"></i>
+        </span>
+      </div>
+    </div>
+    <br>
+    <br>
+    <p-button [style]="{'width':'60%'}" styleClass="p-button-lg" label="Ingresar"
+       [type]="'submit'" [disabled]="!loginForm.valid"></p-button>
+  </form>
+</section>
+
+
+<app-loading *ngIf="isLoading"></app-loading>
