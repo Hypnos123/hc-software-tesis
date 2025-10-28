@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IEmpleado } from '@app/modules/empleado/models/empleado';
 import { EmpleadoService } from '@app/modules/empleado/services/empleado.service';
@@ -7,14 +7,31 @@ import { IColumnasTabla } from '@app/shared/models/columnas';
 import { Observable } from 'rxjs';
 import { ITipoUsuario, IMenu, IUsuario, IDetallePermiso } from '../../models/usuario';
 import { UsuarioService } from '../../services/usuario.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { DropdownModule } from 'primeng/dropdown';
+import { PickListModule } from 'primeng/picklist';
+import { ButtonComponent } from '@app/shared/components';
+import { DialogModule } from 'primeng/dialog';
+import { TableModule } from 'primeng/table';
+import { CommonModule } from '@angular/common';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
   selector: 'app-mantenimiento-usuario',
   templateUrl: './mantenimiento-usuario.component.html',
   styleUrls: ['./mantenimiento-usuario.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [
+    CommonModule,
+    DropdownModule,
+    PickListModule,
+    ReactiveFormsModule,
+    ButtonModule,
+    DialogModule,
+    TableModule,
+    InputTextModule,
+    ButtonComponent
+  ]
 })
 export class MantenimientoUsuarioComponent implements OnInit {
 
@@ -71,7 +88,8 @@ export class MantenimientoUsuarioComponent implements OnInit {
 
     this.listaTipoUsuario = [
       { tipoUsuario: 'ADMINISTRADOR' },
-      { tipoUsuario: 'LABORATORISTA' }
+      { tipoUsuario: 'DOCTOR' },
+      { tipoUsuario: 'ENFERMERO' }
     ]
 
   }

@@ -1,17 +1,18 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
 import { IAuth } from '@app/auth/models/auth';
+import { CommonModule } from '@angular/common';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, ReactiveFormsModule, ButtonModule]
 })
 export class LoginComponent implements OnInit {
   iconEye: string = 'pi pi-eye';
@@ -24,8 +25,7 @@ export class LoginComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    +
-      this.loginForm.reset();
+    this.loginForm.reset();
   }
 
   loginForm = this.fb.group({

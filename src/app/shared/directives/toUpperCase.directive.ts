@@ -9,13 +9,17 @@ export class ToUpperCaseDirective {
 
   @HostListener('input', ['$event'])
   onInput(event: Event) {
-    const input = this.el.nativeElement;
-    const upperCaseValue = input.value.toUpperCase();
+    const input = this.el.nativeElement as HTMLInputElement;
+    const currentValue = input.value;
+    const upperCaseValue = currentValue.toUpperCase();
 
-    this.renderer.setProperty(input, 'value', upperCaseValue);
+    // Solo actualiza si realmente hay un cambio
+    if (currentValue !== upperCaseValue) {
+      this.renderer.setProperty(input, 'value', upperCaseValue);
 
-    // Disparar evento 'input' para actualizar el FormControl en Angular
-    const eventInit = new Event('input', { bubbles: true });
-    input.dispatchEvent(eventInit);
+      // Esto actualizará el FormControl solo una vez
+      const eventInit = new Event('input', { bubbles: true });
+      input.dispatchEvent(eventInit);
+    }
   }
 }

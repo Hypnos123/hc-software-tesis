@@ -1,11 +1,13 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { SHARED_ALL } from './shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { LoaderComponent } from './shared/components';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SHARED_ALL],
+  imports: [CommonModule, RouterOutlet, LoaderComponent, ToastModule, ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })

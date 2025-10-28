@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { LoaderService } from '../../services/loader.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-loader',
   templateUrl: './loader.component.html',
   styleUrls: ['./loader.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule]
 })
 export class LoaderComponent {
   isLoading: boolean = true;

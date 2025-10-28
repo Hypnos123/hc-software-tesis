@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '@app/auth/services/auth.service';
@@ -6,7 +7,8 @@ import { AuthService } from '@app/auth/services/auth.service';
   selector: 'app-navbar-template',
   templateUrl: './navbar-template.component.html',
   styleUrls: ['./navbar-template.component.scss'],
-  standalone: true
+  standalone: true,
+  imports: [CommonModule]
 })
 export class NavbarTemplateComponent implements OnInit {
 

@@ -3,13 +3,16 @@ import { MensajesGlobales } from '@app/global/mensajes';
 import { IColumnasTabla } from '@app/shared/models/columnas';
 import { IButton } from '../models/table';
 import { saveAs } from 'file-saver';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { FlagsPipe } from '@app/shared/pipes';
 
 @Component({
   selector: 'app-table',
   templateUrl: './table.component.html',
   styleUrls: ['./table.component.scss'],
-  imports: [SHARED_ALL],
+  imports: [CommonModule, TableModule, ButtonModule, FlagsPipe],
   standalone: true
 })
 export class TableComponent implements OnInit {

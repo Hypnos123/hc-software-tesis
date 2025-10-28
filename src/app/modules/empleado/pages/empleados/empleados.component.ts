@@ -5,13 +5,14 @@ import { IEmpleado } from '../../models/empleado';
 import { EmpleadoService } from '../../services/empleado.service';
 import { IColumnasTabla } from '../../../../shared/models/columnas';
 import { MensajesSwalService } from '../../../../shared/services/mensajes-swal.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { ButtonComponent, TableComponent } from '@app/shared/components';
 
 @Component({
   selector: 'app-empleados',
   templateUrl: './empleados.component.html',
   styleUrls: ['./empleados.component.scss'],
-  imports: [SHARED_ALL],
+  imports: [CommonModule, ButtonComponent, TableComponent],
   standalone: true
 })
 export class EmpleadosComponent implements OnInit {

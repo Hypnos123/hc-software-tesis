@@ -5,6 +5,7 @@ import { tap } from 'rxjs/operators';
 import { IAuth, IAuthSuccess } from '../models/auth';
 import { StorageService } from '@app/shared/services/storage.service';
 import { environment } from 'environments/environment';
+import { getLogin } from '@app/mocks/mocks';
 
 @Injectable({
   providedIn: 'root',
@@ -38,9 +39,9 @@ export class AuthService {
   }
 
   login(header: IAuth): Observable<IAuthSuccess[]> {
-    return this.http
-      .post<IAuthSuccess[]>(`${this.URLServicio}usuario/getLogin`, header)
-      .pipe(
+    //return this.http.post<IAuthSuccess[]>(`${this.URLServicio}usuario/getLogin`, header)
+    return of(getLogin())
+    .pipe(
         tap((auth) => {
           this._auth = auth[0];
         }),

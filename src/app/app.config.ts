@@ -1,14 +1,18 @@
 import { provideHttpClient } from '@angular/common/http';
-import { ApplicationConfig } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { ApplicationConfig, LOCALE_ID } from '@angular/core';
+import { provideRouter, withHashLocation } from '@angular/router';
 import { routes } from './app.routes';
-import { provideShared, SHARED_ALL, SHARED_PROVIDERS } from './shared/shared.config';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { CurrencyPipe } from '@angular/common';
+import { MessageService } from 'primeng/api';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(routes),
-    provideShared(),
-    ...SHARED_PROVIDERS,
+    provideRouter(routes, withHashLocation()),
     provideHttpClient(),
+    provideAnimations(),
+    { provide: LOCALE_ID, useValue: 'es-PE' },
+    MessageService,
+    CurrencyPipe
   ]
 };

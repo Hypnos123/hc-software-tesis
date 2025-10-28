@@ -3,12 +3,14 @@ import { Router } from '@angular/router';
 import { MensajesSwalService } from '../../services/mensajes-swal.service';
 import { AuthService } from '@app/auth/services/auth.service';
 import { MensajesGlobales } from '@app/global/mensajes';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-navbar',
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.scss'],
-  standalone: true
+  standalone: true,
+  imports: [CommonModule]
 })
 export class NavbarComponent implements OnInit {
   constructor(private router: Router, private authService: AuthService, private mensajeSwal: MensajesSwalService) { }

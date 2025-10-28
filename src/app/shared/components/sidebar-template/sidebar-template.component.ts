@@ -1,14 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import { IItemMenu } from '../sidebar/models/sidebar';
 import { AuthService } from '@app/auth/services/auth.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-sidebar-template',
   templateUrl: './sidebar-template.component.html',
   styleUrls: ['./sidebar-template.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, RouterModule]
 })
 export class SidebarTemplateComponent implements OnInit {
 

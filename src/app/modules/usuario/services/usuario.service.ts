@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { IDetallePermiso, IMenu, IUsuario } from '../models/usuario';
 import { IResponse } from '@app/global/response';
 import { environment } from 'environments/environment';
+import { getAllUsuarios } from '@app/mocks/mocks';
 
 @Injectable({
   providedIn: 'root'
@@ -15,6 +16,7 @@ export class UsuarioService {
   constructor( private httpClient:HttpClient) { }
 
   getAll():Observable<IUsuario[]> {
+    return of(getAllUsuarios())
     return this.httpClient.get<IUsuario[]>(`${this.URLServicio}usuario/getAllActive`);
   }
 

@@ -1,5 +1,9 @@
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { SidebarComponent } from '../sidebar/sidebar.component';
+import { FooterComponent } from '../footer/footer.component';
+import { NavbarComponent } from '../navbar/navbar.component';
+import { BodyComponent } from '../body/body.component';
 
 interface SideNavToggle {
   screenWidth: number;
@@ -10,7 +14,7 @@ interface SideNavToggle {
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, SidebarComponent, FooterComponent, NavbarComponent, BodyComponent]
 })
 export class LayoutComponent implements OnInit {
 

@@ -1,12 +1,13 @@
+import { CommonModule } from '@angular/common';
 import { Component, Input, OnInit } from '@angular/core';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-body',
   templateUrl: './body.component.html',
   styleUrls: ['./body.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, RouterModule]
 })
 export class BodyComponent implements OnInit {
 

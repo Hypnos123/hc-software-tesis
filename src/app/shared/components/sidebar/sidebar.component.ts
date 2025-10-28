@@ -2,7 +2,8 @@ import { animate, keyframes, style, transition, trigger } from '@angular/animati
 import { Component, EventEmitter, HostListener, OnInit, Output, Renderer2 } from '@angular/core';
 import { IItemMenu } from './models/sidebar';
 import { AuthService } from '@app/auth/services/auth.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 
 interface SideNavToggle {
   screenWidth: number;
@@ -38,7 +39,7 @@ interface SideNavToggle {
     ])
   ],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, RouterModule]
 })
 export class SidebarComponent implements OnInit {
 

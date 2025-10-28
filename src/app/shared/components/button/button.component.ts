@@ -1,17 +1,19 @@
+import { CommonModule } from '@angular/common';
 import {
   Component, EventEmitter,
   Input,
   OnInit,
   Output
 } from '@angular/core';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { RouterModule } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-button',
   templateUrl: './button.component.html',
   styleUrls: ['./button.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [CommonModule, ButtonModule, RouterModule]
 })
 export class ButtonComponent implements OnInit {
   @Output() eventoClick = new EventEmitter<any>();

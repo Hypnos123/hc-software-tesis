@@ -1,18 +1,23 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { Observable } from 'rxjs';
 import { IUsuario } from '../../models/usuario';
 import { UsuarioService } from '../../services/usuario.service';
 import { IColumnasTabla } from '@app/shared/models/columnas';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { CommonModule } from '@angular/common';
+import { ButtonComponent, TableComponent } from '@app/shared/components';
 
 @Component({
   selector: 'app-usuarios',
   templateUrl: './usuarios.component.html',
   styleUrls: ['./usuarios.component.scss'],
   standalone: true,
-  imports: [SHARED_ALL]
+  imports: [
+    CommonModule,
+    ButtonComponent,
+    TableComponent,
+  ]
 })
 export class UsuariosComponent implements OnInit {
 
@@ -48,6 +53,7 @@ export class UsuariosComponent implements OnInit {
   getAllElementos() {
     const obs = new Observable<boolean>((observer) => {
       this.usuarioService.getAll().subscribe((resp) => {
+        console.log('Elementos:', resp);
         this.listaElementos = resp;
         observer.next(true);
       });

@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IEmpleado } from '../../models/empleado';
 import { EmpleadoService } from '../../services/empleado.service';
@@ -7,13 +7,15 @@ import { PATTERNS } from '@app/global/pattern';
 import { IColumnasTabla } from '@app/shared/models/columnas';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { documentoValidator } from '@app/shared/validators/validators';
-import { SHARED_ALL } from '@app/shared/shared.config';
+import { DropdownModule } from 'primeng/dropdown';
+import { ButtonComponent } from '@app/shared/components';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-mantenimiento-empleado',
   templateUrl: './mantenimiento-empleado.component.html',
   styleUrls: ['./mantenimiento-empleado.component.scss'],
-  imports: [SHARED_ALL],
+  imports: [CommonModule, DropdownModule, ButtonComponent, ReactiveFormsModule],
   standalone: true
 })
 export class MantenimientoEmpleadoComponent implements OnInit {
