@@ -6,13 +6,14 @@ import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service'
 import { IAuth } from '@app/auth/models/auth';
 import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonModule]
+  imports: [CommonModule, ReactiveFormsModule, ButtonModule, InputTextModule]
 })
 export class LoginComponent implements OnInit {
   iconEye: string = 'pi pi-eye';

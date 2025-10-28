@@ -11,7 +11,31 @@ export const getLogin = () => {
       {
         nombre: 'Usuarios',
         ruta: '/usuarios',
+        idMenu: 1,
+        imagen: 'assets/icons/users.svg'
+      },
+      {
+        nombre: 'Consultas',
+        ruta: '/consultas',
         idMenu: 2,
+        imagen: 'assets/icons/users.svg'
+      },
+      {
+        nombre: 'Historia Clinica',
+        ruta: '/historia-clinica',
+        idMenu: 3,
+        imagen: 'assets/icons/users.svg'
+      },
+      {
+        nombre: 'Pacientes',
+        ruta: '/pacientes',
+        idMenu: 4,
+        imagen: 'assets/icons/users.svg'
+      },
+      {
+        nombre: 'Empleados',
+        ruta: '/empleados',
+        idMenu: 5,
         imagen: 'assets/icons/users.svg'
       },
     ],
