@@ -32,6 +32,7 @@ export class LoginComponent implements OnInit {
   loginForm = this.fb.group({
     usuario: [null, [Validators.required]],
     contrasena: [null, [Validators.required]],
+    recordarme: [false],
   });
 
   get usuario() {
@@ -41,6 +42,8 @@ export class LoginComponent implements OnInit {
   get contrasena() {
     return this.loginForm.get('contrasena');
   }
+
+  
 
 
   iniciarSesion() {

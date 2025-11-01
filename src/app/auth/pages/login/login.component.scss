@@ -1,76 +1,147 @@
-@import 'variables';
+:host { 
+  display:block; 
+  height:100vh; }
 
-.login {
-  width: 100%;
-  height: 100vh;
-  background-image: url("/assets/images/fondo2.png");
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-position: center;
-  background-size: cover;
-  display: grid;
-  align-items: center;
-  justify-content: center;
-
-  @media (min-width: 800px) {
-    justify-content: end;
-
-  }
-
-
-  form {
-    background-color: white;
-    padding: 40px 50px;
-    height: 420px;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-
-    @media (min-width: 900px) {
-      margin-right: 15rem;
-    }
-
-    .form {
-      width: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr;
-      position: relative;
-      text-align: start;
-
-      .validation {
-        position: absolute;
-        bottom: -18px;
-      }
-
-      .form-text {
-        padding-bottom: 10px;
-        font-weight: 600;
-      }
-
-      .p-inputtext {
-        width: 100%;
-      }
-    }
-
-    .logo {
-      width: 20rem;
-      margin-bottom: 20px;
-    }
-  }
+.login-wrap {
+  min-height: 100vh;
+  height:100%; 
+  display:grid; 
+  grid-template-columns: minmax(380px, 560px) 1fr;
+  background:#f5f7fb;
+  overflow: hidden;
 }
 
-.password {
+.card {
+  background:#fff;  
+  margin:24px; 
+  padding:32px 36px; 
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+  display:flex; 
+  flex-direction:column; 
+  justify-content:center;
+}
+
+.brand { 
+  display:flex; 
+  align-items:center; 
+  gap:10px; 
+  margin-bottom:8px;
+  
+.logo { 
+  width:28px;
+  height:28px; 
+  display:grid; 
+  place-items:center;
+    
+  
+svg { 
+  fill:#1e88e5;
+  width:100%; 
+  height:100%; }
+
+  }
+  
+  .title { 
+    margin:0; 
+    font-weight:800; 
+    letter-spacing:.5px; }
+}
+
+.subtitle { 
+   margin:6px 0 2px; 
+   font-weight:600; 
+   color:#2f3b52; }
+
+.hint{ 
+  margin:0 0 18px; 
+  color:#8a96a8; 
+}
+
+.field{ margin-bottom:14px; }
+
+.input{
   position: relative;
+  
+  input{
+    width: 100%;
+    padding: 14px 44px 14px 14px; 
+    border: 1px solid #e2e8f0;
+    border-radius:12px; 
+    background:#fff; 
+    outline: none; 
+    font-size:15px;
+    transition: border .2s, box-shadow .2s;
+    &:focus{ border-color:#90caf9; 
+             box-shadow:0 0 0 4px rgba(144,202,249,.25); }
+  }
 
-  .toggle-password {
-    i {
-      position: absolute;
-      font-size: 20px;
-      right: 12px;
-      bottom: 12px;
-      color: grey;
-    }
+  .icon {
+    position: absolute; 
+    right:12px; 
+    top:50%; 
+    transform:translateY(-50%);
+    display: grid; 
+    place-items: center; 
+    width:22px;height:22px; 
+    opacity:.75;
+    svg{ width:100%; 
+         height:100%; 
+         fill:#6b7a90; }
+  }
+  .btn-eye{ background:transparent; 
+            border:0; 
+            cursor:pointer; 
+            padding:0; }
+}
+
+.error{ 
+  color:#e53935; 
+  font-size:12px; 
+  margin-top:6px; 
+  display:block; }
+
+.row.options{
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+  margin:8px 0 18px;
+
+  .remember{ 
+    display:flex; 
+    align-items:center; 
+    gap:8px; 
+    color:#475569; }
+
+  .link{ 
+    color:#1e88e5; 
+    text-decoration:none; 
+    font-size:14px;
+    &:hover{ text-decoration:underline; }
   }
 }
 
+/* Botón estilo mockup */
+:host ::ng-deep .btn-ingresar .p-button{
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-weight: 700;
+  background: linear-gradient(180deg,#7db7ff,#5aa5ff);
+  border: 0;
+  color: #fff;
+}
+
+.hero{
+  min-height: 100vh;   /* clave */
+  background: url('/assets/images/FondoHospital.jpg') center/cover no-repeat;
+  position: relative;
+}
+
+/* Responsive */
+@media (max-width: 900px){
+  .login-wrap{ grid-template-columns:1fr; }
+  .hero{ display:none; }
+  .card{ margin:12px; }
+}

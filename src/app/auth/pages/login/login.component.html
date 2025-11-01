@@ -1,37 +1,84 @@
 <section class="login">
-
-  <form (ngSubmit)="iniciarSesion()" [formGroup]="loginForm">
-
-    <h1>Iniciar Sesión</h1>
-    <br>
-
-    <div class="form">
-      <span class="form-text">Usuario:</span>
-      <input id="usuario" type="text" toUpperCase formControlName="usuario" autocomplete="off" pInputText />
-      <div class="validation" *ngIf="usuario?.invalid && (usuario?.dirty || usuario?.touched)">
-        <small *ngIf="usuario?.errors?.['required']" class="p-error">Usuario es obligatorio</small>
-      </div>
-    </div>
-    <br>
-    <br>
-    <div class="form">
-      <span class="form-text">Contraseña:</span>
-      <input id="contrasena" #clave type="password" formControlName="contrasena" autocomplete="new-password"
-        pInputText />
-      <div class="validation" *ngIf="contrasena?.invalid && (contrasena?.dirty || contrasena?.touched)">
-        <small *ngIf="contrasena?.errors?.['required']" class="p-error">Contraseña es obligatorio</small>
-      </div>
-      <div class="password">
-        <span toggle="#password-field" class="toggle-password" (click)="viewPassword(clave)"> <i [class]="iconEye"></i>
+  <div class="login-wrap">
+    <!-- Lado izquierdo -->
+    <section class="card">
+      <header class="brand">
+        <span class="logo">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11 2h2v7h7v2h-7v9h-2v-9H4V9h7V2z"></path>
+          </svg>
         </span>
-      </div>
-    </div>
-    <br>
-    <br>
-    <p-button [style]="{'width':'60%'}" styleClass="p-button-lg" label="Ingresar"
-       [type]="'submit'" [disabled]="!loginForm.valid"></p-button>
-  </form>
-</section>
+        <h1 class="title">SAN JOSE</h1>
+      </header>
 
+      <h2 class="subtitle">Bienvenido a las historias clínicas</h2>
+      <p class="hint">Por favor ingrese sus credenciales</p>
+
+      <form (ngSubmit)="iniciarSesion()" [formGroup]="loginForm">
+
+        <!-- Usuario -->
+        <div class="field">
+          <div class="input">
+            <input id="usuario" type="text" toUpperCase
+              formControlName="usuario" autocomplete="off"
+              pInputText placeholder="Ingrese su usuario"/>
+              
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.33 0-8 2.17-8 4.5V21h16v-2.5C20 16.17 16.33 14 12 14Z"
+                />
+              </svg>
+            </span>
+          </div>
+          <small
+            class="error"
+            *ngIf="usuario?.invalid && (usuario?.dirty || usuario?.touched)"
+          >
+            El usuario es obligatorio
+          </small>
+        </div>
+
+        <!-- Contraseña -->
+        <div class="field">
+          <div class="input">
+            <input id="contrasena" #clave type="password"
+              formControlName="contrasena" autocomplete="new-password"
+              pInputText placeholder="Ingrese su contraseña"/>
+
+            <button type="button" class="icon btn-eye"
+              (click)="viewPassword(clave)" aria-label="ver contraseña">
+              <i [class]="iconEye"></i>
+            </button>
+          </div>
+
+          <small
+            class="error"
+            *ngIf="contrasena?.invalid && (contrasena?.dirty || contrasena?.touched)">
+            La contraseña es obligatoria
+          </small>
+        </div>
+
+        <!-- Opciones -->
+        <div class="row options">
+          <label class="remember">
+            <input type="checkbox" formControlName="recordarme" />
+            <span>Recuérdame</span>
+          </label>
+          <a class="link" routerLink="/recuperar">¿Olvidó su contraseña?</a>
+        </div>
+
+        <p-button class="btn-ingresar"
+          label="Ingresar" [disabled]="!loginForm.valid || isLoading"
+          [loading]="isLoading" type="submit"
+          styleClass="p-button-lg w-full">
+        </p-button>
+      </form>
+    </section>
+
+    <!-- Fondo derecha -->
+    <aside class="hero" aria-hidden="true"></aside>
+  </div>
+</section>
 
 <app-loading *ngIf="isLoading"></app-loading>
