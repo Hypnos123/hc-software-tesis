@@ -28,6 +28,12 @@ export const routes: Routes = [
         // canLoad: [AuthGuard],
         // canActivate: [AuthGuard]
       },
+      {
+        path: 'pacientes',
+        loadChildren: () => import('./modules/usuario/usuario.routes').then(r => r.USUARIO_ROUTES),
+        // canLoad: [AuthGuard],
+        // canActivate: [AuthGuard]
+      },
     ]
   }
 ];

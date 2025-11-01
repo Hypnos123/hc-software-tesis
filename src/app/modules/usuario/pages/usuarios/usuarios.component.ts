@@ -7,6 +7,7 @@ import { IColumnasTabla } from '@app/shared/models/columnas';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent, TableComponent } from '@app/shared/components';
+import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
   selector: 'app-usuarios',
@@ -17,6 +18,7 @@ import { ButtonComponent, TableComponent } from '@app/shared/components';
     CommonModule,
     ButtonComponent,
     TableComponent,
+    InputTextModule
   ]
 })
 export class UsuariosComponent implements OnInit {

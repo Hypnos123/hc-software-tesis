@@ -44,10 +44,8 @@ export class AuthService {
     .pipe(
         tap((auth) => {
           this._auth = auth[0];
-        }),
-        tap((auth: any) => {
           this.storageService.setItem('token', auth[0], true);
-        })
+        }),
       );
   }
 
