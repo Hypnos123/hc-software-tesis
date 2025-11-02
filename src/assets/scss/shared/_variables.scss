@@ -1,9 +1,17 @@
-$primaryColor: #071F5B;
-$secondaryColor: #F79619;
 
-$primaryTransparentColor: #22418D;
-$secondaryTransparentColor: #fabd6b;
+$primaryTransparentColor: rgba(255, 255, 255, 1);
+$secondaryTransparentColor:  rgba(255, 255, 255, 0.889);
 
 $whiteColor: #ffffff;
 
 
+$primaryColor: rgba(49, 131, 215, 1) !default;
+$secondaryColor: rgba(255, 255, 255, 1);
+
+$primaryLightColor: scale-color($primaryColor, $lightness: 60%) !default;
+$primaryDarkColor: scale-color($primaryColor, $lightness: -10%) !default;
+$primaryDarkerColor: scale-color($primaryColor, $lightness: -20%) !default;
+$primaryTextColor: #1b1b1c !default;
+
+$highlightBg: $primaryColor;
+$highlightTextColor: $primaryTextColor;

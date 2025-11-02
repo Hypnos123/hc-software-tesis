@@ -1,11 +1,10 @@
-@import 'variables';
+@import "variables";
 
 .td-navbar {
   width: 100%;
   height: 40px;
   top: 0;
-  background-color: darken($secondaryColor, 5%);
-  color: #fff;
+  background-color: $secondaryColor;
   display: flex;
   justify-content: end;
   align-items: center;
@@ -23,6 +22,7 @@
 
   .nav-link:hover {
     background-color: $secondaryTransparentColor;
+    color: rgba(8, 132, 230, 1);
     border-radius: 5%;
     cursor: pointer;
   }
