@@ -7,12 +7,14 @@ import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { FlagsPipe } from '@app/shared/pipes';
+import { ButtonComponent } from '../../button/button.component';
+import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
   selector: 'app-table',
   templateUrl: './table.component.html',
   styleUrls: ['./table.component.scss'],
-  imports: [CommonModule, TableModule, ButtonModule, FlagsPipe],
+  imports: [CommonModule, TableModule, ButtonModule, InputTextModule, FlagsPipe, ButtonComponent],
   standalone: true
 })
 export class TableComponent implements OnInit {

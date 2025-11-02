@@ -1143,6 +1143,7 @@ p-inputswitch.ng-dirty.ng-invalid > .p-inputswitch {
 .p-input-icon-left > i:first-of-type {
   left: 0.75rem;
   color: #6c757d;
+  top: 1rem;
 }
 
 .p-input-icon-left > .p-inputtext {
