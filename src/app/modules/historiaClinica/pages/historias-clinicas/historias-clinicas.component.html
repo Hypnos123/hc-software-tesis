@@ -1,0 +1,97 @@
+<div class="t-flex-start">
+  <h2>Historias Clinicas</h2>
+  <app-button
+    [label]="'Agregar HC'"
+    [router]="'./mantenimiento-historias-clinicas'"
+    [icono]="'pi pi-plus'"
+  ></app-button>
+</div>
+
+<br>
+<br>
+
+
+<div class="card">
+  <div class="toolbar">
+    <p-iconField iconPosition="left">
+      <input pInputText type="text"
+             [(ngModel)]="searchValue"
+             (input)="dt.filterGlobal($event.target.value,'contains')"
+             placeholder="Buscar"/>
+    </p-iconField>
+  </div>
+
+  <p-table
+    #dt
+    [value]="rows"
+    [(selection)]="selected"
+    dataKey="id"
+    [rowHover]="true"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10,25,50]"
+    [loading]="loading"
+    [filterDelay]="0"
+    [globalFilterFields]="globalFields"
+    [responsiveLayout]="'scroll'"
+    styleClass="hc-table">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="id" style="width: 80px">
+          ID <p-sortIcon field="id" />
+          <p-columnFilter field="id" display="menu" class="ml-auto"/>
+        </th>
+
+        <th pSortableColumn="paciente.apellidos" style="width: 260px;">
+          Paciente <p-sortIcon field="paciente.apellidos" />
+          <p-columnFilter field="paciente.apellidos" display="menu" class="ml-auto"/>
+        </th>
+
+        <th pSortableColumn="dni" style="width: 150px">
+          DNI <p-sortIcon field="dni" />
+          <p-columnFilter field="dni" display="menu" class="ml-auto"/>
+        </th>
+
+        <th pSortableColumn="edad" style="width: 100px">
+          Edad <p-sortIcon field="edad" />
+          <p-columnFilter field="edad" display="menu" class="ml-auto"/>
+        </th>
+
+        <th pSortableColumn="fechaCreacion" style="width: 190px">
+          Fecha creación <p-sortIcon field="fechaCreacion" />
+          <p-columnFilter field="fechaCreacion" display="menu" class="ml-auto"/>
+        </th>
+
+        <th pSortableColumn="ultimaActualizacion" style="width: 210px">
+          Última Actualización <p-sortIcon field="ultimaActualizacion" />
+          <p-columnFilter field="ultimaActualizacion" display="menu" class="ml-auto"/>
+        </th>
+
+        <th style="width:120px; text-align:center">Opciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-r>
+      <tr>
+        <td>{{ r.id }}</td>
+        <td class="two-lines">
+          <div>{{ r.paciente.apellidos }}</div>
+          <div>{{ r.paciente.nombres }}</div>
+        </td>
+        <td>{{ r.dni }}</td>
+        <td>{{ r.edad }}</td>
+        <td>{{ r.fechaCreacion | date:'dd/MM/yyyy - HH:mm' }}</td>
+        <td>{{ r.ultimaActualizacion | date:'dd/MM/yyyy - HH:mm' }}</td>
+        <td class="acciones">
+          <button pButton icon="pi pi-eye" class="p-button-rounded p-button-text" pTooltip="Ver" (click)="ver(r)"></button>
+          <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-text" pTooltip="Editar" (click)="editar(r)"></button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="7">Sin historias clínicas.</td></tr>
+    </ng-template>
+  </p-table>
+</div>

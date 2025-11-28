@@ -15,9 +15,17 @@ import { InputIconModule } from 'primeng/inputicon';
 import { PaginatorModule } from 'primeng/paginator';
 import { TooltipModule } from 'primeng/tooltip';
 
+interface HCRow {
+  id: number;
+  paciente: { apellidos: string; nombres: string };
+  dni: string;
+  edad: number;
+  fechaCreacion: string;       
+  ultimaActualizacion: string; 
+}
 
 @Component({
-  selector: 'app-pacientes',
+  selector: 'app-historias-clinicas',
   standalone: true,
   imports: [
     CommonModule,
@@ -36,51 +44,27 @@ import { TooltipModule } from 'primeng/tooltip';
     TooltipModule,
     ButtonComponent
   ],
-  templateUrl: './pacientes.component.html',
-  styleUrl: './pacientes.component.scss'
+  templateUrl: './historias-clinicas.component.html',
+  styleUrl: './historias-clinicas.component.scss'
 })
-export class PacientesComponent {
-
-  customers: any[] = [];
-  selectedCustomers: any[] = [];
+export class HistoriasClinicasComponent {
   loading = false;
   searchValue = '';
-  activityValues: number[] = [0, 100];
+  selected: HCRow[] = [];
 
-  constructor() {
-    this.customers =[
-  {
-    id: 1,
-    apellidos: 'Mendoza Davalos',
-    nombres: 'Josefina Vera',
-    edad: 41,
-    dni: '74526981',
-    fechaRegistro: '2024-11-20T18:00:00'
-  },
-  {
-    id: 2,
-    apellidos: 'Quispe Huamán',
-    nombres: 'Luis Alberto',
-    edad: 29,
-    dni: '42831659',
-    fechaRegistro: '2024-10-05T09:35:00'
-  },
-  {
-    id: 3,
-    apellidos: 'Rojas Salazar',
-    nombres: 'María Elena',
-    edad: 36,
-    dni: '76351844',
-    fechaRegistro: '2024-09-12T14:12:00'
-  }
-];
-    // coloca data de prueba aquí si quieres
-  }
+  // 👉 mismo estilo de datos que Pacientes
+  rows: HCRow[] = [
+    { id: 1, paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera' },
+     dni: '74526981', edad: 41, fechaCreacion: '2024-11-20', ultimaActualizacion: '2024-11-20' },
+    { id: 2, paciente: { apellidos: 'Quispe Huamán', nombres: 'Luis Alberto' },
+     dni: '42831659', edad: 29, fechaCreacion: '2024-10-05', ultimaActualizacion: '2024-11-15' },
+    { id: 3, paciente: { apellidos: 'Rojas Salazar', nombres: 'María Elena' },
+     dni: '76351844', edad: 36, fechaCreacion: '2024-09-12', ultimaActualizacion: '2024-10-01' }
+  ];
 
- clear(table: any) {
-    table.clear();
-    this.searchValue = '';
-    this.activityValues = [0, 100];
-  }
+  globalFields = ['paciente.apellidos','paciente.nombres','dni'];
 
+  clear(dt: any) { dt.clear(); this.searchValue = ''; }
+  ver(row: HCRow) {}
+  editar(row: HCRow) {}
 }

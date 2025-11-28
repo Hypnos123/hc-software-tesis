@@ -1,1 +1,113 @@
-<p>pacientes works!</p>
+<div class="t-flex-start">
+  <h2>Consultar Paciente</h2>
+  <app-button
+    [label]="'Agregar Pacientes'"
+    [router]="'./mantenimiento-paciente'"
+    [icono]="'pi pi-plus'"
+  ></app-button>
+</div>
+
+<br>
+<br>
+
+<p-table
+    #dt
+    [value]="customers"
+    [(selection)]="selectedCustomers"
+    dataKey="id"
+    [rowHover]="true"
+    [rows]="10"
+    [showCurrentPageReport]="true"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    [loading]="loading"
+    [paginator]="true"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+    [filterDelay]="0"
+    [globalFilterFields]="['name', 'country.name', 'date','balance', 'representative.name', 'status']"
+>
+
+<ng-template pTemplate="caption">
+ <div class="flex align-items-center" style="gap: 12px;">
+    <p-iconField iconPosition="left">
+      <input pInputText type="text"
+             [(ngModel)]="searchValue"
+             (input)="dt.filterGlobal($event.target.value,'contains')"
+             placeholder="Buscar"/>
+    </p-iconField>
+  </div>
+</ng-template>
+
+    <ng-template pTemplate="header">
+  <tr>
+    <th style="width:4rem"></th>
+
+    <th pSortableColumn="id">
+      ID
+      <p-sortIcon field="id"></p-sortIcon>
+      <p-columnFilter field="id" display="menu"></p-columnFilter>
+    </th>
+
+    <th pSortableColumn="apellidos">
+      Apellidos
+      <p-sortIcon field="apellidos"></p-sortIcon>
+      <p-columnFilter field="apellidos" display="menu"></p-columnFilter>
+    </th>
+
+    <th pSortableColumn="nombres">
+      Nombres
+      <p-sortIcon field="nombres"></p-sortIcon>
+      <p-columnFilter field="nombres" display="menu"></p-columnFilter>
+    </th>
+
+    <th pSortableColumn="edad">
+      Edad
+      <p-sortIcon field="edad"></p-sortIcon>
+      <p-columnFilter field="edad" display="menu"></p-columnFilter>
+    </th>
+
+    <th pSortableColumn="dni">
+      DNI
+      <p-sortIcon field="dni"></p-sortIcon>
+      <p-columnFilter field="dni" display="menu"></p-columnFilter>
+    </th>
+
+    <th pSortableColumn="fechaRegistro">
+      Fecha Registro
+      <p-sortIcon field="fechaRegistro"></p-sortIcon>
+      <p-columnFilter field="fechaRegistro" display="menu"></p-columnFilter>
+    </th>
+
+    <th style="text-align:center">
+      Opciones
+    </th>
+  </tr>
+</ng-template>
+
+   <ng-template pTemplate="body" let-row>
+  <tr class="p-selectable-row">
+    <td></td>
+
+    <td>{{ row.id }}</td>
+    <td>{{ row.apellidos }}</td>
+    <td>{{ row.nombres }}</td>
+    <td>{{ row.edad }}</td>
+    <td>{{ row.dni }}</td>
+    <td>{{ row.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
+
+    <td style="text-align:center">
+      <p-button icon="pi pi-eye"
+                severity="info"
+                styleClass="p-button-rounded p-button-text"></p-button>
+
+      <p-button icon="pi pi-pencil"
+                severity="info"
+                styleClass="p-button-rounded p-button-text"></p-button>
+    </td>
+  </tr>
+</ng-template>
+    <ng-template pTemplate="emptymessage">
+        <tr>
+            <td colspan="8">No customers found.</td>
+        </tr>
+    </ng-template>
+</p-table>

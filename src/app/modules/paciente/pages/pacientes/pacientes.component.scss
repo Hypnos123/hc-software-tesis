@@ -1,0 +1,34 @@
+.page-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.page-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  .lbl-buscar {
+    font-weight: 600;
+    color: #2b2b2b;
+  }
+
+  .p-inputtext {
+    width: 240px;
+    border-radius: 10px;
+  }
+}
+
+.pacientes-table {
+  th {
+    font-weight: 700;
+  }
+  .col-acciones {
+    text-align: center;
+    button { margin: 0 4px; }
+  }
+}

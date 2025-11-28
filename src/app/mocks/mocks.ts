@@ -2,41 +2,42 @@
 export const getLogin = () => {
   return [{
     usuario: {
-      apellido: 'Munayco',
+      apellido: '1',
       idUsuario: 101,
-      nombre: 'Kristel',
+      nombre: 'Usuario',
       tipoUsuario: 'Administrador'
     },
+
     detallePermisos: [
       {
         nombre: 'Usuarios',
         ruta: '/usuarios',
         idMenu: 1,
-        imagen: 'assets/icons/users.svg'
+        imagen: 'pi pi-user'
       },
       {
         nombre: 'Consultas',
         ruta: '/consultas',
         idMenu: 2,
-        imagen: 'assets/icons/users.svg'
+        imagen: 'pi pi-address-book'
       },
       {
         nombre: 'Historia Clinica',
-        ruta: '/historia-clinica',
+        ruta: '/historiaClinica',
         idMenu: 3,
-        imagen: 'assets/icons/users.svg'
+        imagen: 'pi pi-file-check'
       },
       {
         nombre: 'Pacientes',
-        ruta: '/pacientes',
+        ruta: '/paciente',
         idMenu: 4,
-        imagen: 'assets/icons/users.svg'
+        imagen: 'pi pi-users'
       },
       {
         nombre: 'Empleados',
         ruta: '/empleados',
         idMenu: 5,
-        imagen: 'assets/icons/users.svg'
+        imagen: 'pi pi-user-edit'
       },
     ],
     mensaje: 'Autenticación exitosa'

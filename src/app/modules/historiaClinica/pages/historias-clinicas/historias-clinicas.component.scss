@@ -1,0 +1,45 @@
+.page-header { 
+    gap: 12px; 
+    margin-bottom: 12px; 
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+
+  .p-inputtext {
+     width: 260px;
+     border-radius: 10px; 
+    }
+}
+
+.hc-table {
+  th { 
+    font-weight: 700; 
+}
+}
+
+.two-lines { 
+    line-height: 1.15; 
+}
+.acciones { 
+    text-align: center; 
+}
+.acciones :where(button) {
+     margin: 0 4px;
+     }
+
+
+:host ::ng-deep th.paciente-col,
+:host ::ng-deep td.paciente-col {
+  width: 240px !important;
+  max-width: 240px;
+}

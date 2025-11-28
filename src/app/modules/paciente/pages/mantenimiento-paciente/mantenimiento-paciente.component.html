@@ -1,10 +1,6 @@
 <div class="t-flex-start">
-  <h2>Lista de Empleados</h2>
-  <app-button
-    [label]="'Agregar'"
-    [router]="'./mantenimiento-paciente'"
-    [icono]="'pi pi-plus'"
-  ></app-button>
+  <h2>Nuevo Paciente</h2>
+ 
 </div>
 <br>
 <section class="container-table">
@@ -18,3 +14,12 @@
     (eventoAccion)="eventoAccion($event)"
   ></app-table>
 </section>
+
+
+<br>
+  <div class="container-opciones">
+    <app-button [label]="'Regresar'" [router]="'/paciente'" [icono]="'pi pi-arrow-left'" [estiloBoton]="'p-button-outlined p-button-secondary'" >
+    </app-button>
+    <!-- <app-button [label]="'Guardar'" [icono]="'pi pi-check'" [tipo]="'submit'" [isDisabled]="!empleadoForm.valid">
+    </app-button> -->
+  </div>
