@@ -1,0 +1,52 @@
+h2 { 
+    margin-bottom: 12px; 
+}
+
+.Subtitulo{
+  color: #2e68e5d2;
+}
+
+p-fieldset {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+
+  .col { 
+    display: flex;
+    flex-direction: column;
+    gap: 6px; 
+   }
+
+  .col-3 { 
+    grid-column: span 3; 
+    }
+
+  .col-4 {
+     grid-column: span 4; 
+    }
+  
+  .col-5 {
+     grid-column: span 5;
+   }
+   
+  :where(.p-inputtext, .p-inputtextarea, .p-calendar input, .p-dropdown) {
+    border-radius: 8px;
+  }
+}
+
+.footer-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .link { 
+    color: #2563eb;
+    cursor: pointer;
+    font-weight: 600; }
+}

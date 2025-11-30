@@ -1,8 +1,103 @@
 <div class="t-flex-start">
   <h2>Consultas por Atender</h2>
   <app-button
-    [label]="'Agregar'"
-    [router]="'./mantenimiento-usuario'"
-    [icono]="'pi pi-plus'"
+    [label]="'Actualizar'"
+    [router]="'./mantenimiento-consultas'"
+    [icono]="'pi pi-sync'"
   ></app-button>
+</div>
+
+<br>
+<br>
+
+<div class="card">
+  <div class="toolbar">
+    <div class="filtro">
+      <span class="lbl">Filtro</span>
+      <p-dropdown
+        [options]="estadoOptions"
+        [(ngModel)]="estadoSeleccionado"
+        placeholder="Todos"
+        (onChange)="onFilterEstado(dt)">
+      </p-dropdown>
+    </div>
+  </div>
+
+  <p-table
+    #dt
+    [value]="rows"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10,25,50]"
+    [loading]="loading"
+    [responsiveLayout]="'scroll'"
+    [rowHover]="true"
+    [filterDelay]="0"
+    [globalFilterFields]="['paciente.apellidos','paciente.nombres','motivo','estado']"
+    styleClass="consultas-table">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 100px" pSortableColumn="id">
+          ID <p-sortIcon field="id"></p-sortIcon>
+        </th>
+
+        <th pSortableColumn="paciente.apellidos" style="width: 160px">
+          Paciente <p-sortIcon field="paciente.apellidos"></p-sortIcon>
+        </th>
+
+        <th style="width: 120px" pSortableColumn="edad">
+          Edad <p-sortIcon field="edad"></p-sortIcon>
+        </th>
+
+        <th style="width: 180px" pSortableColumn="motivo">
+          Motivo Consulta <p-sortIcon field="motivo"></p-sortIcon>
+        </th>
+
+        <th style="width: 180px" pSortableColumn="fechaRegistro">
+          Fecha Registro <p-sortIcon field="fechaRegistro"></p-sortIcon>
+        </th>
+
+        <th style="width: 140px" pSortableColumn="estado">
+          Estado <p-sortIcon field="estado"></p-sortIcon>
+        </th>
+
+        <th style="width: 120px; text-align:center">Opciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-r>
+      <tr>
+        <td>{{ r.id }}</td>
+
+        <td class="two-lines">
+          <div>{{ r.paciente.apellidos }}</div>
+          <div>{{ r.paciente.nombres }}</div>
+        </td>
+
+        <td>{{ r.edad }}</td>
+        <td class="wrap">{{ r.motivo }}</td>
+        <td>{{ r.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
+
+        <td>
+          <p-tag [value]="r.estado" [severity]="getSeverity(r.estado)"></p-tag>
+        </td>
+
+        <td class="acciones">
+          <button pButton icon="pi pi-eye"
+                  class="p-button-rounded p-button-text"
+                  pTooltip="Ver" (click)="ver(r)"></button>
+
+          <button *ngIf="r.estado==='Por atender'"
+                  pButton icon="pi pi-users"
+                  class="p-button-rounded p-button-text"
+                  pTooltip="Asignar" (click)="asignar(r)"></button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="7">No hay consultas por atender.</td></tr>
+    </ng-template>
+  </p-table>
 </div>

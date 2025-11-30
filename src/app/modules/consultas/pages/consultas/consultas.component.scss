@@ -1,0 +1,53 @@
+.page-header { 
+    gap: 12px;
+    margin-bottom: 12px; 
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+
+  .filtro {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .lbl { 
+        font-weight: 600; 
+        color: #2b2b2b; 
+    }
+    ::ng-deep .p-dropdown { 
+        min-width: 170px; 
+    }
+  }
+}
+
+.consultas-table {
+  th { 
+    font-weight: 700; 
+}
+}
+
+.two-lines {
+     line-height: 1.15; 
+}
+
+.wrap {
+     white-space: normal; 
+}
+
+.acciones { 
+    text-align: center; 
+}
+
+.acciones :where(button) {
+     margin: 0 4px; 
+}
