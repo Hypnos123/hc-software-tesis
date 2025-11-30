@@ -20,7 +20,7 @@ interface ConsultaRow {
   paciente: { apellidos: string; nombres: string };
   edad: number;
   motivo: string;
-  fechaRegistro: string; 
+  fechaRegistro: string;
   estado: 'Por atender' | 'Atendido';
 }
 
@@ -72,13 +72,13 @@ export class ConsultasComponent {
   // para filtro por estado usando p-table
   onFilterEstado(dt: any) {
     if (this.estadoSeleccionado) dt.filter(this.estadoSeleccionado, 'estado', 'equals');
-    else dt.clear(); 
+    else dt.clear();
   }
 
-  ver(row: ConsultaRow) { 
-    
+  ver(row: ConsultaRow) {
+
   }
-  asignar(row: ConsultaRow) { 
+  asignar(row: ConsultaRow) {
    }
 
 }

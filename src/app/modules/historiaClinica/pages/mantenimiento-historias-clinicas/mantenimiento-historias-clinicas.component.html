@@ -1,7 +1,7 @@
 
 <h2 class="Subtitulo">Nueva Historia Clinica</h2>
 
-<!-- Seleccionar Paciente -->
+<div [formGroup]="frm">
 <p-fieldset legend="Seleccionar Paciente">
   <div class="form-grid">
     <div class="col col-3">
@@ -85,4 +85,7 @@
   <button pButton type="button" label="Guardar" icon="pi pi-check"
           (click)="guardar()" [disabled]="frm.invalid"></button>
 </div>
+
+</div>
+<!-- Seleccionar Paciente -->
 
