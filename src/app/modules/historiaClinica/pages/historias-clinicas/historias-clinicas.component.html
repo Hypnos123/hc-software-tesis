@@ -83,10 +83,26 @@
         <td>{{ r.edad }}</td>
         <td>{{ r.fechaCreacion | date:'dd/MM/yyyy - HH:mm' }}</td>
         <td>{{ r.ultimaActualizacion | date:'dd/MM/yyyy - HH:mm' }}</td>
-        <td class="acciones">
-          <button pButton icon="pi pi-eye" class="p-button-rounded p-button-text" pTooltip="Ver" (click)="ver(r)"></button>
-          <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-text" pTooltip="Editar" (click)="editar(r)"></button>
-        </td>
+
+       <td class="acciones">
+      <button
+        pButton
+        icon="pi pi-eye"
+        class="p-button-rounded p-button-text"
+        pTooltip="Ver"
+        (click)="verHistoria(r.id)">
+      </button>
+
+      <button
+        pButton
+        icon="pi pi-pencil"
+        class="p-button-rounded p-button-text"
+        pTooltip="Editar"
+        (click)="editar(r)">
+      </button>
+    </td>
+
+        
       </tr>
     </ng-template>
 

@@ -62,6 +62,7 @@ export const routes: Routes = [
           import('./modules/empleado/empleado.routes').then(
             (r) => r.EMPLEADO_ROUTES
           ),
+          
         // canLoad: [AuthGuard],
         // canActivate: [AuthGuard]
       },

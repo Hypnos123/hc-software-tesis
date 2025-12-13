@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ButtonComponent, TableComponent } from '@app/shared/components';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { FieldsetModule } from 'primeng/fieldset';
 import { InputTextModule } from 'primeng/inputtext';
@@ -18,6 +19,8 @@ interface Opcion {
     CommonModule,
     ReactiveFormsModule,
     FieldsetModule,
+    ButtonComponent,
+    TableComponent,
     InputTextModule,
     CalendarModule,
     DropdownModule,
@@ -70,7 +73,5 @@ export class MantenimientoHistoriasClinicasComponent {
     console.log('HC a guardar', payload);
   }
 
-  volver() {
-   
-  }
+  
 }

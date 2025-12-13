@@ -11,16 +11,9 @@
 <br>
 
 <p-table
-    #dt
-    [value]="customers"
-    [(selection)]="selectedCustomers"
-    dataKey="id"
-    [rowHover]="true"
-    [rows]="10"
-    [showCurrentPageReport]="true"
-    [rowsPerPageOptions]="[10, 25, 50]"
-    [loading]="loading"
-    [paginator]="true"
+    #dt [value]="customers" [(selection)]="selectedCustomers"
+    dataKey="id" [rowHover]="true" [rows]="10" [showCurrentPageReport]="true"
+    [rowsPerPageOptions]="[10, 25, 50]" [loading]="loading" [paginator]="true"
     currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
     [filterDelay]="0"
     [globalFilterFields]="['name', 'country.name', 'date','balance', 'representative.name', 'status']"
@@ -80,6 +73,7 @@
     <th style="text-align:center">
       Opciones
     </th>
+
   </tr>
 </ng-template>
 
@@ -95,15 +89,15 @@
     <td>{{ row.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
 
     <td style="text-align:center">
-      <p-button icon="pi pi-eye"
-                severity="info"
-                styleClass="p-button-rounded p-button-text"></p-button>
+      <p-button icon="pi pi-eye" severity="info" styleClass="p-button-rounded p-button-text" (click)="verPaciente()">
+      </p-button>
 
-      <p-button icon="pi pi-pencil"
-                severity="info"
-                styleClass="p-button-rounded p-button-text"></p-button>
+      <p-button icon="pi pi-pencil" severity="info" styleClass="p-button-rounded p-button-text">
+      </p-button>
     </td>
+
   </tr>
+
 </ng-template>
     <ng-template pTemplate="emptymessage">
         <tr>

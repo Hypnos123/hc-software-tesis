@@ -14,6 +14,7 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { PaginatorModule } from 'primeng/paginator';
 import { TooltipModule } from 'primeng/tooltip';
+import { Router } from '@angular/router';
 
 interface HCRow {
   id: number;
@@ -48,11 +49,16 @@ interface HCRow {
   styleUrl: './historias-clinicas.component.scss'
 })
 export class HistoriasClinicasComponent {
+
+  constructor(private router: Router) {}
+
+ verHistoria(id: number) {
+  this.router.navigate(['/historiaClinica', 'historias-clinicas', 'ver', id]);
+}
   loading = false;
   searchValue = '';
   selected: HCRow[] = [];
 
-  // 👉 mismo estilo de datos que Pacientes
   rows: HCRow[] = [
     { id: 1, paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera' },
      dni: '74526981', edad: 41, fechaCreacion: '2024-11-20', ultimaActualizacion: '2024-11-20' },

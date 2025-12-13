@@ -80,8 +80,9 @@
 
 <!-- Footer acciones -->
 <div class="footer-actions">
-  <a class="link" (click)="volver()">← Inicio</a>
-
+  <app-button [label]="'Regresar'" 
+  [router]="'/historiaClinica'" [icono]="'pi pi-arrow-left'" [estiloBoton]="'p-button-outlined p-button-secondary'" >
+    </app-button>
   <button pButton type="button" label="Guardar" icon="pi pi-check"
           (click)="guardar()" [disabled]="frm.invalid"></button>
 </div>

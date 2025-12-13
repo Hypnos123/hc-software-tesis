@@ -14,6 +14,8 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { PaginatorModule } from 'primeng/paginator';
 import { TooltipModule } from 'primeng/tooltip';
+import { Router } from '@angular/router';
+
 
 
 @Component({
@@ -47,7 +49,7 @@ export class PacientesComponent {
   searchValue = '';
   activityValues: number[] = [0, 100];
 
-  constructor() {
+  constructor(private router: Router) {
     this.customers =[
   {
     id: 1,
@@ -74,7 +76,7 @@ export class PacientesComponent {
     fechaRegistro: '2024-09-12T14:12:00'
   }
 ];
-    // coloca data de prueba aquí si quieres
+
   }
 
  clear(table: any) {
@@ -82,5 +84,14 @@ export class PacientesComponent {
     this.searchValue = '';
     this.activityValues = [0, 100];
   }
+
+  verPaciente() {
+    this.router.navigate(['/paciente/mantenimiento-paciente']);
+  }
+
+  
+  
+
+  
 
 }
