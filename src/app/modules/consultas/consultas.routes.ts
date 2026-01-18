@@ -4,6 +4,6 @@ import { ConsultasComponent } from "./pages/consultas/consultas.component";
 
 export const CONSULTAS_ROUTES: Routes = [
   { path: '', component: ConsultasComponent },
-  { path: 'mantenimiento-usuario', component: MantenimientoConsultasComponent },
-  { path: 'mantenimiento-usuario/:id', component: MantenimientoConsultasComponent },
+  { path: 'mantenimiento-consultas', component: MantenimientoConsultasComponent },
+  { path: 'mantenimiento-consultas/:id', component: MantenimientoConsultasComponent },
 ];

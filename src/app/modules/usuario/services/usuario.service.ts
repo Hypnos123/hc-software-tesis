@@ -25,6 +25,7 @@ export class UsuarioService {
   }
 
   getFindById(id: number):Observable<IUsuario[]> {
+    return of([getAllUsuarios()[0]])
     return this.httpClient.get<IUsuario[]>(`${this.URLServicio}usuario/findById/${id}`);
   }
 

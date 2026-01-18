@@ -1,4 +1,4 @@
-<p-table #dt styleClass="p-datatable-striped" [id]="dt" [value]="listaElementos" [columns]="columnas" [rows]="filas"
+<p-table #dt [id]="dt" [value]="listaElementos" [columns]="columnas" [rows]="filas"
   [paginator]="isPaginador" [globalFilterFields]="listaElementosAFiltrar"
   [responsiveLayout]="tipoResponsivo ? 'stack' : 'scroll'" scrollHeight="flex" [rowHover]="isHoverAFila" dataKey="id"
   [scrollable]="true" [style]="{width: '100%', height: 'calc(100vh - 240px)'}"
@@ -29,7 +29,7 @@
         pSortableColumn="{{ col.field }}">
         {{ col.header }} <p-sortIcon *ngIf="isSorting" field="{{ col.field }}"></p-sortIcon>
       </th>
-      <th *ngIf="isMostrarAcciones" [ngStyle]="{'min-width': anchoColumna}"
+      <th *ngIf="!isMostrarMasOpciones" [ngStyle]="{'min-width': anchoColumna}"
         style="text-align: center; justify-content: center;" pFrozenColumn [frozen]="true" alignFrozen="right">Opciones</th>
       <th *ngIf="isMostrarMasOpciones" [ngStyle]="{'min-width': anchoColumna}"
         style="text-align: center; justify-content: center;" pFrozenColumn [frozen]="true" alignFrozen="right">Opciones</th>
@@ -118,9 +118,9 @@
           </div>
         </div>
       </td>
-      <td *ngIf="isMostrarAcciones" class="t-flex-start" style="justify-content: center; column-gap: 10px;"
+      <td *ngIf="!isMostrarMasOpciones" class="t-flex-start" style="justify-content: center; column-gap: 10px;"
       pFrozenColumn [frozen]="true" alignFrozen="right">
-        <app-button *ngIf="isOpcionEditar" [icono]="'pi pi-pencil'" [estiloBoton]="'rounded'"
+        <app-button *ngIf="isOpcionEditar" [icono]="'pi pi-pencil'" [estiloBoton]="but"
           (eventoClick)="esUnaAccion('editar', rowData)"></app-button>
         <app-button *ngIf="isOpcionEliminar" [icono]="'pi pi-trash'" [estiloBoton]="'rounded-danger'"
           (eventoClick)="esUnaAccion('eliminar', rowData)"></app-button>

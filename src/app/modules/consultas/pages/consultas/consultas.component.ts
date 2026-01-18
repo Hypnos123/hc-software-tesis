@@ -14,6 +14,8 @@ import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { PaginatorModule } from 'primeng/paginator';
 import { TooltipModule } from 'primeng/tooltip';
+import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
+import { Router } from '@angular/router';
 
 interface ConsultaRow {
   id: number;
@@ -50,10 +52,10 @@ interface ConsultaRow {
 export class ConsultasComponent {
 
   rows: ConsultaRow[] = [
-    { id: 1, paciente: { apellidos: 'Herrera Muñoz',  nombres: 'Juan Pablo'   }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
-    { id: 2, paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera'}, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido'    },
-    { id: 3, paciente: { apellidos: 'Rojas Salazar',   nombres: 'María Elena'  }, edad: 36, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido'    },
-     { id: 4, paciente: { apellidos: 'Herrera Muñoz',  nombres: 'Juan Pablo'   }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
+    { id: 1, paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
+    { id: 2, paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido' },
+    { id: 3, paciente: { apellidos: 'Rojas Salazar', nombres: 'María Elena' }, edad: 36, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido' },
+    { id: 4, paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
   ];
 
   estadoOptions = [
@@ -64,6 +66,11 @@ export class ConsultasComponent {
   estadoSeleccionado: string | null = null;
 
   loading = false;
+
+  constructor(
+    private router: Router,
+    private readonly servicioMensajesSwal: MensajesSwalService
+  ) { }
 
   getSeverity(estado: ConsultaRow['estado']) {
     return estado === 'Por atender' ? 'warning' : 'success';
@@ -76,9 +83,11 @@ export class ConsultasComponent {
   }
 
   ver(row: ConsultaRow) {
-
+    const id = row.id;
+    this.router.navigateByUrl(`consultas/mantenimiento-consultas/${id}`);
   }
+
   asignar(row: ConsultaRow) {
-   }
+  }
 
 }

@@ -105,12 +105,10 @@ html {
 
 .container-form,
 .container-table {
-  padding: 2em;
-  border-radius: 20px;
-  gap: 20px 40px;
-  background-color: $whiteColor;
-  box-shadow: 0px 0.5px 7px 0px #ebebeb;
-
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
   .form {
     width: 100%;
     display: grid;
@@ -226,11 +224,3 @@ td {
 .p-datatable-scrollable .p-datatable-tbody::-webkit-scrollbar:vertical {
   width: 10px;
 }
-
-.p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
-  background: #e8f1ff !important;
-}
-
-// .p-datatable .p-datatable-header {
-//   background: #ebebf0 !important;
-// }

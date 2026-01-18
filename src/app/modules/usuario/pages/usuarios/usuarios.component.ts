@@ -8,6 +8,7 @@ import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service'
 import { CommonModule } from '@angular/common';
 import { ButtonComponent, TableComponent } from '@app/shared/components';
 import { InputTextModule } from 'primeng/inputtext';
+import { IButton } from '@app/shared/components/table/models/table';
 
 @Component({
   selector: 'app-usuarios',
@@ -27,6 +28,7 @@ export class UsuariosComponent implements OnInit {
   cols: IColumnasTabla[] = [];
   colsVisibles: IColumnasTabla[] = [];
   isCargado: boolean = false;
+  acciones: IButton[] = [];
 
   constructor(
     private usuarioService: UsuarioService,
@@ -37,6 +39,17 @@ export class UsuariosComponent implements OnInit {
 
   ngOnInit(): void {
     this.getAllElementos();
+
+
+    this.acciones = [
+      {
+        icono: 'pi pi-search',
+        clase: 'rounded',
+        evento: 'mostrar',
+        estado: true,
+        tooltip: 'Mostrar detalle'
+      },
+    ]
   }
 
   getColumnasTabla() {
@@ -86,6 +99,7 @@ export class UsuariosComponent implements OnInit {
 
 
   eventoAccion(datos: any) {
+
     const { tipo, data } = datos;
     switch (tipo) {
       case 'editar':

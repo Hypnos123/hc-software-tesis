@@ -32,10 +32,11 @@ export class ButtonComponent implements OnInit {
     if (this.router != '/') {
       this.isRouter = true;
     }
+      console.log(this.estiloBoton);
 
     switch (this.estiloBoton) {
       case 'rounded':
-        this.clase = 'p-button-rounded';
+        this.clase = 'p-button-rounded p-button-text';
         break;
 
       case 'text':

@@ -1,59 +1,42 @@
-.estadoActivo {
-  background-color: rgb(177, 247, 177);
-  color: rgb(34, 133, 34);
-  width: 100px;
-  text-align: center;
-  padding: 5px 20px;
-  font-weight: 500;
-  border-radius: 50px;
+@mixin estado-base {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.estadoInactivo{
-  background-color: rgb(247, 177, 177);
-  color: rgb(133, 34, 34);
-  padding: 5px 20px;
-  width: 145px;
-  text-align: center;
-  font-weight: 500;
-  border-radius: 50px;
+@mixin estado($bg-color, $text-color: #212529) {
+  @include estado-base;
+  background-color: $bg-color;
+  color: $text-color;
+}
+
+.estadoActivo {
+  @include estado(#11b82c, #ffffff);
+}
+
+.estadoInactivo {
+  @include estado(rgb(255, 51, 51), #ffffff);
 }
 
 .estadoAmarillo {
-  background-color: rgb(247, 246, 177);
-  color: rgb(133, 115, 34);
-  padding: 5px 20px;
-  text-align: center;
-  font-weight: 500;
-  border-radius: 50px;
+  @include estado(#ffc107);
 }
 
 .estadoVerde {
-  background-color: rgb(177, 247, 177);
-  color: rgb(34, 133, 34);
-  text-align: center;
-  padding: 5px 20px;
-  font-weight: 500;
-  border-radius: 50px;
+  @include estado(#149629, #ffffff);
 }
 
 .estadoAzul {
-  background-color: rgb(177, 191, 247);
-  color: rgb(34, 57, 133);
-  text-align: center;
-  padding: 5px 20px;
-  font-weight: 500;
-  border-radius: 50px;
+  @include estado(rgb(34, 57, 133), #ffffff);
 }
 
-.estadoRojo{
-  background-color: rgb(247, 177, 177);
-  color: rgb(133, 34, 34);
-  text-align: center;
-  padding: 5px 20px;
-  font-weight: 500;
-  border-radius: 50px;
+.estadoRojo {
+  @include estado(rgb(255, 51, 51), #ffffff);
 }
-
 
 .caption {
   display: flex;

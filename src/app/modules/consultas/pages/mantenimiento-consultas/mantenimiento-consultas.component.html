@@ -1,1 +1,230 @@
-<p>mantenimiento-consultas works!</p>
+<h1>Historia Clinica: <span>JUAN PABLO HERRERA MUÑOZ</span></h1>
+
+<form [formGroup]="frm" class="page">
+
+  <p-tabView [(activeIndex)]="activeIndex" (onChange)="onTabChange($event)">
+
+    <!-- TAB 1: Datos paciente -->
+    <p-tabPanel header="Datos Completos">
+      <div class="card">
+        <h3>Datos de paciente</h3>
+        <br>
+        <div formGroupName="datos" class="grid">
+
+          <div class="col col-4">
+            <label>Fecha Ingreso</label>
+            <p-calendar formControlName="fechaIngreso" [showIcon]="true" dateFormat="dd/mm/yy"></p-calendar>
+          </div>
+
+          <div class="col col-4">
+            <label>DNI</label>
+            <input pInputText type="text" formControlName="dni">
+          </div>
+
+          <div class="col col-4">
+            <label>Apellidos</label>
+            <input pInputText type="text" formControlName="apellidos">
+          </div>
+
+          <div class="col col-4">
+            <label>Nombres</label>
+            <input pInputText type="text" formControlName="nombres">
+          </div>
+
+          <div class="col col-4">
+            <label>Estado Civil</label>
+            <input pInputText type="text" formControlName="estadoCivil">
+          </div>
+
+          <div class="col col-4">
+            <label>Edad</label>
+            <input pInputText type="number" formControlName="edad">
+          </div>
+
+          <div class="col col-4">
+            <label>Fech. Nacimiento</label>
+            <p-calendar formControlName="fechaNac" [showIcon]="true" dateFormat="dd/mm/yy"></p-calendar>
+          </div>
+
+          <div class="col col-4">
+            <label>Sexo</label>
+            <p-dropdown formControlName="sexo" [options]="sexo_Opcion" optionLabel="label" optionValue="value"
+              placeholder="Seleccionar"></p-dropdown>
+          </div>
+
+          <div class="col col-6">
+            <label>Direccion</label>
+            <input pInputText type="text" formControlName="direccion">
+          </div>
+
+          <div class="col col-3">
+            <label>Distrito</label>
+            <input pInputText type="text" formControlName="distrito">
+          </div>
+
+          <div class="col col-3">
+            <label>Traido por</label>
+            <input pInputText type="text" formControlName="traidoPor">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Antecedentes personales</h3>
+        <br>
+        <div formGroupName="antecedentes" class="grid">
+          <div class="col col-4">
+            <label>Alimentacion</label>
+            <input pInputText formControlName="alimentacion">
+          </div>
+          <div class="col col-4">
+            <label>Habitos</label>
+            <input pInputText formControlName="habitos">
+          </div>
+          <div class="col col-4">
+            <label>Vivienda</label>
+            <input pInputText formControlName="vivienda">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+
+        <h3>Antecedentes fisiologicos</h3>
+
+        <div formGroupName="antecedentes" class="grid">
+          <div class="col col-4">
+            <label>Desarrollo Psicomotor</label>
+            <input pInputText formControlName="desarrolloPsico">
+          </div>
+          <div class="col col-4">
+            <label>Vacunas</label>
+            <input pInputText formControlName="vacunas">
+          </div>
+
+          <div class="col col-4">
+            <label>Educacion</label>
+            <p-dropdown formControlName="educacion" [options]="educacion_Opcion" optionLabel="label" optionValue="value"
+              placeholder="Seleccionar"></p-dropdown>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+
+        <h3>Antecedentes patologicos</h3>
+
+        <div formGroupName="antecedentes" class="grid">
+          <div class="col col-4">
+            <label>Enfermedades previas</label>
+            <input pInputText formControlName="enfermedadesPrev">
+          </div>
+          <div class="col col-4">
+            <label>Cirugias previas</label>
+            <input pInputText formControlName="cirugiasPrevias">
+          </div>
+          <div class="col col-4">
+            <label>Alergia Medicamentos</label>
+            <input pInputText formControlName="alergiasMedicamentos">
+          </div>
+        </div>
+
+      </div>
+    </p-tabPanel>
+
+    <!-- TAB 2: Antecedentes paciente -->
+    <p-tabPanel header="Consultas Completas">
+      <div class="card">
+        <h3>Antecedentes personales</h3>
+
+        <div formGroupName="antecedentes" class="grid">
+          <div class="col col-4">
+            <label>Alimentacion</label>
+            <input pInputText formControlName="alimentacion">
+          </div>
+          <div class="col col-4">
+            <label>Habitos</label>
+            <input pInputText formControlName="habitos">
+          </div>
+          <div class="col col-4">
+            <label>Vivienda</label>
+            <input pInputText formControlName="vivienda">
+          </div>
+        </div>
+
+
+        <div class="card_1">
+          <h3>Antecedentes fisiologicos</h3>
+
+          <div formGroupName="antecedentes" class="grid">
+            <div class="col col-4">
+              <label>Desarrollo Psicomotor</label>
+              <input pInputText formControlName="desarrolloPsico">
+            </div>
+            <div class="col col-4">
+              <label>Vacunas</label>
+              <input pInputText formControlName="vacunas">
+            </div>
+
+            <div class="col col-4">
+              <label>Educacion</label>
+              <p-dropdown formControlName="educacion" [options]="educacion_Opcion" optionLabel="label"
+                optionValue="value" placeholder="Seleccionar"></p-dropdown>
+            </div>
+          </div>
+        </div>
+
+
+        <h3>Antecedentes patologicos</h3>
+
+        <div formGroupName="antecedentes" class="grid">
+          <div class="col col-4">
+            <label>Enfermedades previas</label>
+            <input pInputText formControlName="enfermedadesPrev">
+          </div>
+          <div class="col col-4">
+            <label>Cirugias previas</label>
+            <input pInputText formControlName="cirugiasPrevias">
+          </div>
+          <div class="col col-4">
+            <label>Alergia Medicamentos</label>
+            <input pInputText formControlName="alergiasMedicamentos">
+          </div>
+        </div>
+
+      </div>
+
+    </p-tabPanel>
+
+  </p-tabView>
+
+</form>
+
+
+
+<br>
+
+<div class="container-opciones">
+
+  <app-button [label]="'Regresar'" [router]="'/paciente'" [icono]="'pi pi-arrow-left'"
+    [estiloBoton]="'p-button-outlined p-button-secondary'">
+  </app-button>
+
+  <button pButton label="Guardar" icon="pi pi-save" class="btn-guardar" (click)="abrirConfirmacion()"
+    [disabled]="frm.invalid">
+  </button>
+
+</div>
+
+<p-dialog header="Confirmación" [(visible)]="mostrarConfirmacion" [modal]="true" [closable]="false"
+  [style]="{width: '350px'}">
+
+  <div class="confirm-body">
+    <i class="pi pi-question-circle icon"></i>
+    <p>¿Desea generar nuevo paciente?</p>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton label="Si" icon="pi pi-check" class="p-button-primary" (click)="confirmar()"></button>
+    <button pButton label="No" icon="pi pi-times" class="p-button-danger" (click)="cancelar()"></button>
+  </ng-template>
+</p-dialog>
