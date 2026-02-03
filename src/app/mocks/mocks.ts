@@ -90,3 +90,32 @@ export const getAllUsuarios = () => {
 
 }
 
+
+export const getConsultas = () => {
+  return [
+  {
+    "id": 3,
+    "paciente": "Mendoza Davalos Josefina Vera",
+    "dni": "74526981",
+    "especialidad": "Medicina General",
+    "doctor": "Marcos Chavez",
+    "fechaCreacion": "20/11/2024 - 18:00"
+  },
+  {
+    "id": 2,
+    "paciente": "Mendoza Davalos Josefina Vera",
+    "dni": "74526981",
+    "especialidad": "Medicina General",
+    "doctor": "Marcos Chavez",
+    "fechaCreacion": "20/11/2024 - 18:00"
+  },
+  {
+    "id": 1,
+    "paciente": "Mendoza Davalos Josefina Vera",
+    "dni": "74526981",
+    "especialidad": "Medicina General",
+    "doctor": "Marcos Chavez",
+    "fechaCreacion": "20/11/2024 - 18:00"
+  }
+]
+}
