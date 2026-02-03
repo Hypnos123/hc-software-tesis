@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ConsultaService } from '../../services/consultas.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { CommonModule } from '@angular/common';
-import { ButtonComponent } from '@app/shared/components';
+import { ButtonComponent, TableComponent } from '@app/shared/components';
 import { ButtonModule } from 'primeng/button';
 import { CalendarModule } from 'primeng/calendar';
 import { DialogModule } from 'primeng/dialog';
@@ -12,6 +12,11 @@ import { DropdownModule } from 'primeng/dropdown';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { TabViewModule } from 'primeng/tabview';
+import { IColumnasTabla } from '@app/shared/models/columnas';
+import { IButton } from '@app/shared/components/table/models/table';
+import { Observable } from 'rxjs';
+import { IConsulta } from '../../models/consultas';
+import { TooltipModule } from 'primeng/tooltip';
 
 @Component({
   selector: 'app-mantenimiento-consultas',
@@ -27,13 +32,19 @@ import { TabViewModule } from 'primeng/tabview';
     ButtonModule,
     InputTextareaModule,
     DialogModule,
+    TableComponent
   ],
   templateUrl: './mantenimiento-consultas.component.html',
   styleUrl: './mantenimiento-consultas.component.scss'
 })
-export class MantenimientoConsultasComponent {
+export class MantenimientoConsultasComponent implements OnInit {
   activeIndex = 0;
   mostrarConfirmacion = false;
+  isCargado: boolean = false;
+  cols: IColumnasTabla[] = [];
+  colsVisibles: IColumnasTabla[] = [];
+  acciones: IButton[] = [];
+  listaElementos: IConsulta[] = [];
 
   frm: FormGroup = this.fb.group({
     datos: this.fb.group({
@@ -86,6 +97,51 @@ export class MantenimientoConsultasComponent {
     private readonly servicioMensajesSwal: MensajesSwalService
   ) { }
 
+  ngOnInit(): void {
+    this.getAllElementos();
+
+
+    this.acciones = [
+      {
+        icono: 'pi pi-eye',
+        clase: 'rounded',
+        evento: 'ver',
+        estado: true,
+        tooltip: 'Ver consulta'
+      },
+    ]
+  }
+
+  getColumnasTabla() {
+    this.cols = [
+      { field: 'id', header: 'ID', visibility: true, formatoFecha: '' },
+      { field: 'paciente', header: 'Paciente', visibility: true, formatoFecha: '' },
+      { field: 'dni', header: 'DNI', visibility: true, formatoFecha: '' },
+      { field: 'especialidad', header: 'Especialidad Requerida', visibility: true, formatoFecha: '' },
+      { field: 'doctor', header: 'Doctor Responsable', visibility: true, formatoFecha: '' },
+      { field: 'fechaCreacion', header: 'Fecha creación', visibility: true, formatoFecha: '' },
+    ];
+
+    this.colsVisibles = this.cols.filter((x) => x.visibility == true);
+  }
+
+
+  getAllElementos() {
+    const obs = new Observable<boolean>((observer) => {
+      this.consultaService.getAllActivos().subscribe((resp) => {
+        console.log('Elementos:', resp);
+        this.listaElementos = resp;
+        observer.next(true);
+      });
+    });
+
+    obs.subscribe((res) => {
+      if (res) {
+        this.isCargado = res;
+        this.getColumnasTabla();
+      }
+    });
+  }
 
   onTabChange(e: any) {
     if (e.index === 1 && this.frm.get('datos')?.invalid) {
@@ -94,7 +150,7 @@ export class MantenimientoConsultasComponent {
     }
   }
 
-    abrirConfirmacion() {
+  abrirConfirmacion() {
     if (this.frm.invalid) {
       this.frm.markAllAsTouched();
       return;
@@ -109,5 +165,24 @@ export class MantenimientoConsultasComponent {
 
   cancelar() {
     this.mostrarConfirmacion = false;
+  }
+
+    eventoAccion(datos: any) {
+
+    const { tipo, data } = datos;
+    switch (tipo) {
+      case 'ver':
+        this.verElemento(data);
+        break;
+
+      default:
+        console.log('Acción no aplicada');
+        break;
+    }
+  }
+
+  verElemento(data: any) {
+    const id = data.id;
+    this.router.navigateByUrl(`consultas/lista-consultas/detalle/${id}`);
   }
 }

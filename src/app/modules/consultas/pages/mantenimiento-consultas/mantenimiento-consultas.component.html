@@ -133,65 +133,18 @@
 
     <!-- TAB 2: Antecedentes paciente -->
     <p-tabPanel header="Consultas Completas">
-      <div class="card">
-        <h3>Antecedentes personales</h3>
 
-        <div formGroupName="antecedentes" class="grid">
-          <div class="col col-4">
-            <label>Alimentacion</label>
-            <input pInputText formControlName="alimentacion">
-          </div>
-          <div class="col col-4">
-            <label>Habitos</label>
-            <input pInputText formControlName="habitos">
-          </div>
-          <div class="col col-4">
-            <label>Vivienda</label>
-            <input pInputText formControlName="vivienda">
-          </div>
-        </div>
-
-
-        <div class="card_1">
-          <h3>Antecedentes fisiologicos</h3>
-
-          <div formGroupName="antecedentes" class="grid">
-            <div class="col col-4">
-              <label>Desarrollo Psicomotor</label>
-              <input pInputText formControlName="desarrolloPsico">
-            </div>
-            <div class="col col-4">
-              <label>Vacunas</label>
-              <input pInputText formControlName="vacunas">
-            </div>
-
-            <div class="col col-4">
-              <label>Educacion</label>
-              <p-dropdown formControlName="educacion" [options]="educacion_Opcion" optionLabel="label"
-                optionValue="value" placeholder="Seleccionar"></p-dropdown>
-            </div>
-          </div>
-        </div>
-
-
-        <h3>Antecedentes patologicos</h3>
-
-        <div formGroupName="antecedentes" class="grid">
-          <div class="col col-4">
-            <label>Enfermedades previas</label>
-            <input pInputText formControlName="enfermedadesPrev">
-          </div>
-          <div class="col col-4">
-            <label>Cirugias previas</label>
-            <input pInputText formControlName="cirugiasPrevias">
-          </div>
-          <div class="col col-4">
-            <label>Alergia Medicamentos</label>
-            <input pInputText formControlName="alergiasMedicamentos">
-          </div>
-        </div>
-
-      </div>
+  <app-table
+    *ngIf="isCargado"
+    [listaElementos]="listaElementos"
+    [columnas]="colsVisibles"
+    [filas]="10"
+    [listaElementosAFiltrar]="['usuario', 'contrasena', 'tipoUsuario','apellidoYNombre']"
+    [isOpcionEliminar]="true"
+    [isMostrarMasOpciones]="true"
+    [acciones]="acciones"
+    (eventoAccion)="eventoAccion($event)"
+  ></app-table>
 
     </p-tabPanel>
 
