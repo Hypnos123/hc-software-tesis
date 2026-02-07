@@ -70,6 +70,7 @@ export class DetalleConsultaComponent {
       examenesRecetados: ['', Validators.required],
       receta: ['', Validators.required],
       tratamiento: ['', Validators.required],
+      proximaCita: ['', Validators.required],
     });
   }
 
