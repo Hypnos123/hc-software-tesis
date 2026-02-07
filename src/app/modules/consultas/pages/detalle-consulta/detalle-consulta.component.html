@@ -1,1 +1,147 @@
-<p>detalle-consulta works!</p>
+<h2 class="Subtitulo">Datos Consulta:</h2>
+
+<div [formGroup]="frm">
+  <p-fieldset legend="Datos del Paciente">
+    <div class="form-grid">
+      <div class="col col-5">
+        <label>Nombre Completo</label>
+        <input pInputText type="text" formControlName="nombreCompleto">
+      </div>
+
+      <div class="col col-3">
+        <label>DNI</label>
+        <input pInputText type="text" formControlName="dni">
+      </div>
+
+      <div class="col col-4">
+        <label>Edad</label>
+        <input pInputText type="text" formControlName="edad">
+      </div>
+    </div>
+  </p-fieldset>
+  <p-fieldset legend="Antecedentes patologicos">
+    <div class="form-grid">
+      <div class="col col-5">
+        <label>Enfermedades previas</label>
+        <input pInputText type="text" formControlName="enfermedadesPrevias">
+      </div>
+
+      <div class="col col-3">
+        <label>Cirugias Previas</label>
+        <input pInputText type="text" formControlName="cirugiasPrevias">
+      </div>
+
+      <div class="col col-4">
+        <label>Alergia Medicamentos</label>
+        <input pInputText type="text" formControlName="alergiasMedicamentos">
+      </div>
+    </div>
+  </p-fieldset>
+  <p-fieldset legend="Funciones vitales">
+    <div class="form-grid">
+      <div class="col col-3">
+        <label>Presion Arterial</label>
+        <input pInputText type="text" formControlName="presion">
+      </div>
+
+      <div class="col col-3">
+        <label>Frecuencia Cardiaca</label>
+        <input pInputText type="text" formControlName="frecuenciaCardiaca">
+      </div>
+
+      <div class="col col-3">
+        <label>Frecuencia Respiratoria</label>
+        <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+      </div>
+      <div class="col col-3">
+        <label>Talla</label>
+        <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="col col-3">
+        <label>Temperatura</label>
+        <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+      </div>
+      <div class="col col-3">
+        <label>Peso</label>
+        <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+      </div>
+    </div>
+  </p-fieldset>
+  <!-- Datos de la búsqueda -->
+  <p-fieldset legend="Datos Consulta">
+    <div class="form-grid">
+      <div class="col col-4">
+        <label>Fecha Consulta</label>
+        <p-calendar formControlName="fechaConsulta" [showIcon]="true" inputId="fechaConsulta"
+          dateFormat="dd/mm/yy"></p-calendar>
+      </div>
+
+      <div class="col col-4">
+        <label>Tiempo Enfermedad</label>
+        <input pInputText type="text" formControlName="tiempoEnfermedad">
+      </div>
+
+      <div class="col col-4">
+        <label>Tipo Enfermedad</label>
+        <input pInputText type="text" formControlName="tipoEnfermedad">
+      </div>
+    </div>
+    <br>
+    <div class="grid">
+      <div class="col col-12">
+        <label>Relato de paciente</label>
+        <textarea pInputTextarea rows="4" [autoResize]="true" formControlName="relato" placeholder=""></textarea>
+      </div>
+    </div>
+  </p-fieldset>
+
+  <p-fieldset legend="Evaluación Médica">
+    <div class="grid">
+      <div class="col-2 col-12">
+        <label>Diagnostico</label>
+        <textarea pInputTextarea rows="2" [autoResize]="true" formControlName="diagnostico" placeholder=""></textarea>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="col-2 col-12">
+        <label>Exámenes recetados</label>
+        <textarea pInputTextarea rows="4" [autoResize]="true" formControlName="examenesRecetados"
+          placeholder=""></textarea>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="col-2 col-12">
+        <label>Receta</label>
+        <textarea pInputTextarea rows="2" [autoResize]="true" formControlName="receta" placeholder=""></textarea>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="grid">
+        <div class="col-12">
+          <label>Tratamiento</label>
+          <textarea pInputTextarea rows="4" [autoResize]="true" formControlName="tratamiento" placeholder=""></textarea>
+        </div>
+      </div>
+
+      <div class="col col-4">
+        <label>Próxima Cita</label>
+        <p-calendar formControlName="proximaCita" [showIcon]="true" inputId="proximaCita"
+          dateFormat="dd/mm/yy"></p-calendar>
+      </div>
+    </div>
+  </p-fieldset>
+  <!-- Footer acciones -->
+  <div class="footer-actions">
+    <app-button [label]="'Regresar'" [router]="'/historiaClinica'" [icono]="'pi pi-arrow-left'"
+      [estiloBoton]="'p-button-outlined p-button-secondary'">
+    </app-button>
+    <button pButton type="button" label="Guardar" icon="pi pi-check" (click)="guardar()"
+      [disabled]="frm.invalid"></button>
+  </div>
+
+</div>
