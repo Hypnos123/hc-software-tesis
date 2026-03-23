@@ -84,7 +84,7 @@ export class ConsultasComponent {
 
   ver(row: ConsultaRow) {
     const id = row.id;
-    this.router.navigateByUrl(`consultas/mantenimiento-consultas/${id}`);
+    this.router.navigateByUrl(`consultas/lista-consultas/${id}`);
   }
 
   asignar(row: ConsultaRow) {

@@ -7,13 +7,14 @@ import {
 } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 
 @Component({
   selector: 'app-button',
   templateUrl: './button.component.html',
   styleUrls: ['./button.component.scss'],
   standalone: true,
-  imports: [CommonModule, ButtonModule, RouterModule]
+  imports: [CommonModule, ButtonModule, TooltipModule, RouterModule]
 })
 export class ButtonComponent implements OnInit {
   @Output() eventoClick = new EventEmitter<any>();
