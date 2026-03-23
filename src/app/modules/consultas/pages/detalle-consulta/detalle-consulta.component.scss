@@ -1,8 +1,8 @@
 h2 {
-    margin-bottom: 12px;
+  margin-bottom: 12px;
 }
 
-.Subtitulo{
+.Subtitulo {
   color: #2e68e5d2;
 }
 
@@ -20,19 +20,19 @@ p-fieldset {
     display: flex;
     flex-direction: column;
     gap: 6px;
-   }
+  }
 
   .col-3 {
     grid-column: span 3;
-    }
+  }
 
   .col-4 {
-     grid-column: span 4;
-    }
+    grid-column: span 4;
+  }
 
   .col-5 {
-     grid-column: span 5;
-   }
+    grid-column: span 5;
+  }
 
   :where(.p-inputtext, .p-inputtextarea, .p-calendar input, .p-dropdown) {
     border-radius: 8px;
@@ -48,10 +48,20 @@ p-fieldset {
   .link {
     color: #2563eb;
     cursor: pointer;
-    font-weight: 600; }
+    font-weight: 600;
+  }
 }
 
 textarea[pinputtextarea] {
   width: 100%;
   display: block;
+}
+
+.form-detalle {
+  display: contents;
+  &_container {
+  height: 85%;
+  overflow-y: auto;
+}
+
 }
