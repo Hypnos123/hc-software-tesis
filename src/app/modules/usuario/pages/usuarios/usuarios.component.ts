@@ -22,6 +22,7 @@ import { IButton } from '@app/shared/components/table/models/table';
     InputTextModule
   ]
 })
+
 export class UsuariosComponent implements OnInit {
 
   listaElementos: IUsuario[] = [];
@@ -42,14 +43,22 @@ export class UsuariosComponent implements OnInit {
 
 
     this.acciones = [
-      {
-        icono: 'pi pi-search',
-        clase: 'rounded',
-        evento: 'mostrar',
-        estado: true,
-        tooltip: 'Mostrar detalle'
-      },
-    ]
+  {
+    icono: 'pi pi-pencil',
+    clase: 'btn-accion-editar',
+    evento: 'editar',
+    estado: true,
+    tooltip: 'Editar'
+  },
+  {
+    icono: 'pi pi-trash',
+    clase: 'btn-accion-eliminar',
+    evento: 'eliminar',
+    estado: true,
+    tooltip: 'Eliminar'
+  }
+];
+
   }
 
   getColumnasTabla() {

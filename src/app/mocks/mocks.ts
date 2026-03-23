@@ -44,6 +44,9 @@ export const getLogin = () => {
   }]
 }
 
+
+
+
 export const getAllUsuarios = () => {
   return [
     {
@@ -90,3 +93,50 @@ export const getAllUsuarios = () => {
 
 }
 
+
+export const getPacientes = () => {
+
+return  [
+  {
+    idAntecedentes: 1,
+    alimentacion: 'Balanceada, consumo frecuente de frutas y verduras',
+    habitos: 'No fuma, consumo ocasional de alcohol',
+    vivienda: 'Casa propia con servicios básicos',
+    desarrolloPsicomotor: 'Adecuado para la edad',
+    vacunas: 'Esquema completo',
+    educacion: 'Secundaria completa',
+    cirugiasPrevias: 'Apendicectomía en 2015',
+    alergiaMedicamentos: 'Penicilina',
+    idPaciente: 101,
+    nombreApellidos: 'Juan Pérez García'
+  },
+  {
+    idAntecedentes: 2,
+    alimentacion: 'Dieta alta en carbohidratos',
+    habitos: 'Fumador ocasional',
+    vivienda: 'Departamento alquilado',
+    desarrolloPsicomotor: 'Normal',
+    vacunas: 'Esquema incompleto',
+    educacion: 'Técnico superior',
+    cirugiasPrevias: 'Ninguna',
+    alergiaMedicamentos: 'Ninguna',
+    idPaciente: 102,
+    nombreApellidos: 'María López Sánchez'
+  },
+  {
+    idAntecedentes: 3,
+    alimentacion: 'Vegetariana',
+    habitos: 'Actividad física regular',
+    vivienda: 'Casa familiar',
+    desarrolloPsicomotor: 'Adecuado',
+    vacunas: 'Esquema completo',
+    educacion: 'Universitaria',
+    cirugiasPrevias: 'Cesárea en 2020',
+    alergiaMedicamentos: 'Ibuprofeno',
+    idPaciente: 103,
+    nombreApellidos: 'Carlos Ramírez Torres'
+  }
+
+
+]
+}

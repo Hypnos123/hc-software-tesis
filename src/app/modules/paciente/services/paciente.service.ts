@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { IPaciente } from '../models/paciente';
 import { environment } from 'environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { IResponse } from '@app/global/response';
+import { getPacientes } from '@app/mocks/mocks';
 
 
 @Injectable({
@@ -15,6 +16,7 @@ export class PacienteService {
   constructor(private httpClient: HttpClient) { }
 
   getAllActivos(): Observable<IPaciente[]> {
+    return of(getPacientes()) 
     return this.httpClient.get<IPaciente[]>(`${this.URLServicio}paciente/getAllActive`)
   }
 

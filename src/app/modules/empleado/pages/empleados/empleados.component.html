@@ -1,15 +1,18 @@
-<div class="t-flex-start">
-  <h2>Lista de Empleados</h2>
-  <app-button
-    [label]="'Agregar'"
-    [router]="'./mantenimiento-empleado'"
-    [icono]="'pi pi-plus'"
-  ></app-button>
+<div class="empleados-header">
+  <div class="left">
+    <h2>Lista de empleados</h2>
+
+    <app-button
+      [label]="'Agregar empleado'"
+      [router]="'./mantenimiento-empleado'"
+      [icono]="'pi pi-plus'"
+    ></app-button>
+  </div>
 </div>
-<br>
+
 <section class="container-table">
   <app-table
-    *ngIf="isCargado"
+    *ngIf="isCargado && colsVisibles.length"
     [listaElementos]="listaElementos"
     [columnas]="colsVisibles"
     [filas]="10"

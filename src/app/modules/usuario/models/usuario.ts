@@ -1,4 +1,3 @@
-
 export interface IUsuario {
   idUsuario?: number,
   usuario: string;
@@ -7,7 +6,6 @@ export interface IUsuario {
   estado?: boolean,
   idEmpleado: number,
   apellidoYNombre?: string;
-  idGenerado?: number;
 }
 
 export interface IUsuarioLogged {

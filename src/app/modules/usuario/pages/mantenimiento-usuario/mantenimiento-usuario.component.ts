@@ -187,12 +187,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
     const obs = new Observable((observer) => {
       this.serviceUsuario
         .insert(params)
-        .subscribe((response: IUsuario) => {
-          if (response.idGenerado) {
-            this.idUsuario = response.idGenerado as number;
-            observer.next(this.idUsuario);
-          }
-        });
+        .subscribe();
     });
 
     return obs;
