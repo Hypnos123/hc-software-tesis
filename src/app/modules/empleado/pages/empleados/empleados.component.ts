@@ -28,8 +28,40 @@ export class EmpleadosComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this.getAllActivosElementos();
+   //this.getAllActivosElementos();
+    this.cargarDatosMock();
+
   }
+
+  cargarDatosMock() {
+  this.listaElementos = [
+    {
+      idEmpleado: 1,
+      tipoDocumento: 'DNI',
+      numDocumento: '74526981',
+      nombre: 'Josefina',
+      apellido: 'Mendoza Davalos',
+      direccion: 'Av. San José 123',
+      telefono: '965874321',
+      celular: '987654321',
+      cargo: 'Enfermera'
+    },
+    {
+      idEmpleado: 2,
+      tipoDocumento: 'DNI',
+      numDocumento: '78945612',
+      nombre: 'Carlos',
+      apellido: 'Ramírez Soto',
+      direccion: 'Jr. Lima 456',
+      telefono: '964123789',
+      celular: '912345678',
+      cargo: 'Médico'
+    }
+  ];
+
+  this.getColumnasTabla();
+  this.isCargado = true;
+}
 
   getColumnasTabla() {
     this.cols = [
@@ -122,8 +154,12 @@ export class EmpleadosComponent implements OnInit {
     }
   }
 
+
+
   editarElemento(data: any) {
     const id = data.idEmpleado;
     this.router.navigateByUrl(`empleados/mantenimiento-empleado/${id}`);
   }
 }
+
+

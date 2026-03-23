@@ -44,6 +44,9 @@ export const getLogin = () => {
   }]
 }
 
+
+
+
 export const getAllUsuarios = () => {
   return [
     {
@@ -90,31 +93,47 @@ export const getByIdUsuario = (id: number) => {
   return usuarios.find(usuario => usuario.idUsuario === id);
 }
 
-export const getConsultas = () => {
-  return [
+export const getPacientes = () => {
+
+return  [
   {
-    "id": 3,
-    "paciente": "Mendoza Davalos Josefina Vera",
-    "dni": "74526981",
-    "especialidad": "Medicina General",
-    "doctor": "Marcos Chavez",
-    "fechaCreacion": "20/11/2024 - 18:00"
+    idAntecedentes: 1,
+    alimentacion: 'Balanceada, consumo frecuente de frutas y verduras',
+    habitos: 'No fuma, consumo ocasional de alcohol',
+    vivienda: 'Casa propia con servicios básicos',
+    desarrolloPsicomotor: 'Adecuado para la edad',
+    vacunas: 'Esquema completo',
+    educacion: 'Secundaria completa',
+    cirugiasPrevias: 'Apendicectomía en 2015',
+    alergiaMedicamentos: 'Penicilina',
+    idPaciente: 101,
+    nombreApellidos: 'Juan Pérez García'
   },
   {
-    "id": 2,
-    "paciente": "Mendoza Davalos Josefina Vera",
-    "dni": "74526981",
-    "especialidad": "Medicina General",
-    "doctor": "Marcos Chavez",
-    "fechaCreacion": "20/11/2024 - 18:00"
+    idAntecedentes: 2,
+    alimentacion: 'Dieta alta en carbohidratos',
+    habitos: 'Fumador ocasional',
+    vivienda: 'Departamento alquilado',
+    desarrolloPsicomotor: 'Normal',
+    vacunas: 'Esquema incompleto',
+    educacion: 'Técnico superior',
+    cirugiasPrevias: 'Ninguna',
+    alergiaMedicamentos: 'Ninguna',
+    idPaciente: 102,
+    nombreApellidos: 'María López Sánchez'
   },
   {
-    "id": 1,
-    "paciente": "Mendoza Davalos Josefina Vera",
-    "dni": "74526981",
-    "especialidad": "Medicina General",
-    "doctor": "Marcos Chavez",
-    "fechaCreacion": "20/11/2024 - 18:00"
+    idAntecedentes: 3,
+    alimentacion: 'Vegetariana',
+    habitos: 'Actividad física regular',
+    vivienda: 'Casa familiar',
+    desarrolloPsicomotor: 'Adecuado',
+    vacunas: 'Esquema completo',
+    educacion: 'Universitaria',
+    cirugiasPrevias: 'Cesárea en 2020',
+    alergiaMedicamentos: 'Ibuprofeno',
+    idPaciente: 103,
+    nombreApellidos: 'Carlos Ramírez Torres'
   }
 ]
 }
@@ -237,3 +256,32 @@ export const getByIdDetallePermiso = (idUsuario: number) => {
     }
   ]
 }
+
+
+// export const getConsultas = () => {
+//   return [
+//   {
+//     "id": 3,
+//     "paciente": "Mendoza Davalos Josefina Vera",
+//     "dni": "74526981",
+//     "especialidad": "Medicina General",
+//     "doctor": "Marcos Chavez",
+//     "fechaCreacion": "20/11/2024 - 18:00"
+//   },
+//   {
+//     "id": 2,
+//     "paciente": "Mendoza Davalos Josefina Vera",
+//     "dni": "74526981",
+//     "especialidad": "Medicina General",
+//     "doctor": "Marcos Chavez",
+//     "fechaCreacion": "20/11/2024 - 18:00"
+//   },
+//   {
+//     "id": 1,
+//     "paciente": "Mendoza Davalos Josefina Vera",
+//     "dni": "74526981",
+//     "especialidad": "Medicina General",
+//     "doctor": "Marcos Chavez",
+//     "fechaCreacion": "20/11/2024 - 18:00"
+//   }
+

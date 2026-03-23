@@ -15,6 +15,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { DialogModule } from 'primeng/dialog';
 import { ActivatedRoute } from '@angular/router';
+import Swal from 'sweetalert2';
 
 
 @Component({
@@ -101,18 +102,51 @@ export class MantenimientoPacienteComponent {
     }
   }
 
-  abrirConfirmacion() {
-    if (this.frm.invalid) {
-      this.frm.markAllAsTouched();
-      return;
-    }
-    this.mostrarConfirmacion = true;
-  }
 
   confirmar() {
     this.mostrarConfirmacion = false;
     // this.registrarPaciente();
   }
+
+  confirmarGuardar() {
+  if (this.frm.invalid) {
+    this.frm.markAllAsTouched();
+    return;
+  }
+
+  Swal.fire({
+    title: '¿Guardar paciente?',
+    text: 'Se registrará un nuevo paciente.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, confirmar',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    confirmButtonColor: '#1179c4',
+    cancelButtonColor: '#6c757d'
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+
+    this.registrarPaciente(); 
+  });
+}
+
+registrarPaciente() {
+  const payload = this.frm.getRawValue(); // incluye disabled como nPaciente
+  // arma tu objeto según tu backend
+  // this.pacienteService.insert(payload).subscribe(...)
+  console.log('payload', payload);
+
+  // opcional: mensaje de éxito
+  Swal.fire({
+    icon: 'success',
+    title: 'Guardado',
+    timer: 1200,
+    showConfirmButton: false
+  });
+
+  this.router.navigateByUrl('/paciente');
+}
 
   cancelar() {
     this.mostrarConfirmacion = false;
@@ -122,6 +156,7 @@ export class MantenimientoPacienteComponent {
   cols: IColumnasTabla[] = [];
   colsVisibles: IColumnasTabla[] = [];
   isCargado: boolean = false;
+  
 
   next() {
     if (this.frm.get('datos')?.valid) this.activeIndex = 1;

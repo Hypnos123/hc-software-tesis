@@ -32,15 +32,9 @@
         </th>
 
         <th pSortableColumn="apellidos">
-          Apellidos
+          Nombre y Apellidos
           <p-sortIcon field="apellidos"></p-sortIcon>
           <p-columnFilter field="apellidos" display="menu"></p-columnFilter>
-        </th>
-
-        <th pSortableColumn="nombres">
-          Nombres
-          <p-sortIcon field="nombres"></p-sortIcon>
-          <p-columnFilter field="nombres" display="menu"></p-columnFilter>
         </th>
 
         <th pSortableColumn="edad">
@@ -72,12 +66,11 @@
       <tr class="p-selectable-row">
         <td></td>
 
-        <td>{{ row.id }}</td>
-        <td>{{ row.apellidos }}</td>
-        <td>{{ row.nombres }}</td>
-        <td>{{ row.edad }}</td>
-        <td>{{ row.dni }}</td>
-        <td>{{ row.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
+        <td>{{ row.idPaciente }}</td>
+        <td>{{ row.nombreApellidos }}</td>
+        <td>{{ row.habitos }}</td>
+        <td>{{ row.habitos }}</td>
+        <td>{{ row.vivienda }}</td>
 
         <td style="text-align:center">
           <p-button icon="pi pi-eye" severity="info" styleClass="p-button-rounded p-button-text"

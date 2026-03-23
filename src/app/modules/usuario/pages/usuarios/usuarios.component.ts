@@ -22,6 +22,7 @@ import { IButton } from '@app/shared/components/table/models/table';
     InputTextModule
   ]
 })
+
 export class UsuariosComponent implements OnInit {
 
   listaElementos: IUsuario[] = [];

@@ -11,6 +11,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { ButtonComponent } from '@app/shared/components';
 import { CommonModule } from '@angular/common';
 import { InputTextModule } from 'primeng/inputtext';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-mantenimiento-empleado',
@@ -114,10 +115,10 @@ export class MantenimientoEmpleadoComponent implements OnInit {
 
     this.tipoCargos = [
       {
-        tipo: 'Cajero',
+        tipo: 'Doctor',
       },
       {
-        tipo: 'Laboratorista',
+        tipo: 'Enfermera(o)',
       },
       {
         tipo: 'Administrador',
@@ -129,6 +130,11 @@ export class MantenimientoEmpleadoComponent implements OnInit {
   }
 
   guardarElemento() {
+    if (this.empleadoForm.invalid) {
+    this.empleadoForm.markAllAsTouched();
+    return;
+  }
+
     const {
       tipoDocumento,
       numDocumento,
@@ -151,20 +157,47 @@ export class MantenimientoEmpleadoComponent implements OnInit {
       cargo: (cargo as any).tipo,
     };
 
+    const titulo = this.isEditar ? '¿Actualizar empleado?' : '¿Guardar empleado?';
+    const texto = this.isEditar
+    ? 'Se guardarán los cambios del empleado.'
+    : 'Se registrará un nuevo empleado.';
+
+    Swal.fire({
+    title: titulo,
+    text: texto,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, confirmar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#1179c4',
+    cancelButtonColor: '#6c757d',
+    reverseButtons: true,
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+
     if (this.isEditar) {
       this.editarElemento(params);
     } else {
       this.crearElemento(params);
     }
+  });
   }
 
+
+
+
+
   crearElemento(params: IEmpleado) {
-    this.serviceEmpleado
-      .insert(params)
-      .subscribe((response) => {
-        if (response) this.router.navigateByUrl('/empleados');
-      });
-  }
+  this.serviceEmpleado.insert(params).subscribe({
+    next: (response) => {
+      if (response) {
+        Swal.fire({ icon: 'success', title: 'Guardado', timer: 1200, showConfirmButton: false });
+        this.router.navigateByUrl('/empleados');
+      }
+    },
+    error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar.' })
+  });
+}
 
   editarElemento(params: IEmpleado) {
     this.serviceEmpleado
