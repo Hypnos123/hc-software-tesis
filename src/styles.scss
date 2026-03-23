@@ -107,8 +107,9 @@ html {
 .container-table {
   background: #fff;
   border-radius: 14px;
-  padding: 14px;
+  padding: 40px 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  row-gap: 30px;
   .form {
     width: 100%;
     display: grid;

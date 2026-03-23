@@ -47,49 +47,48 @@ export const getLogin = () => {
 export const getAllUsuarios = () => {
   return [
     {
-      idUsuario: 1,
-      usuario: 'kristel.munayco',
-      contrasena: 'Password123!',
-      tipoUsuario: 'admin',
-      estado: true,
-      idEmpleado: 101,
-      apellidoYNombre: 'Munayco Kristel',
-      idGenerado: 1001
+      "idUsuario": 1,
+      "usuario": "jgomez",
+      "contrasena": "hashed_abc123",
+      "tipoUsuario": "ADMINISTRADOR",
+      "estado": true,
+      "idEmpleado": 101,
+      "apellidoYNombre": "Gómez, Juan Carlos"
     },
     {
-      idUsuario: 2,
-      usuario: 'juan.perez',
-      contrasena: 'Juan2025!',
-      tipoUsuario: 'usuario',
-      estado: true,
-      idEmpleado: 102,
-      apellidoYNombre: 'Perez Juan',
-      idGenerado: 1002
+      "idUsuario": 2,
+      "usuario": "mlopez",
+      "contrasena": "hashed_xyz789",
+      "tipoUsuario": "DOCTOR",
+      "estado": true,
+      "idEmpleado": 102,
+      "apellidoYNombre": "López, María Elena"
     },
     {
-      idUsuario: 3,
-      usuario: 'maria.lopez',
-      contrasena: 'Maria@123',
-      tipoUsuario: 'usuario',
-      estado: false,
-      idEmpleado: 103,
-      apellidoYNombre: 'Lopez Maria',
-      idGenerado: 1003
+      "idUsuario": 3,
+      "usuario": "rperez",
+      "contrasena": "hashed_qrs456",
+      "tipoUsuario": "ENFERMERO",
+      "estado": false,
+      "idEmpleado": 103,
+      "apellidoYNombre": "Pérez, Roberto Andrés"
     },
     {
-      idUsuario: 4,
-      usuario: 'carlos.gomez',
-      contrasena: 'Gomez!456',
-      tipoUsuario: 'moderador',
-      estado: true,
-      idEmpleado: 104,
-      apellidoYNombre: 'Gomez Carlos',
-      idGenerado: 1004
+      "idUsuario": 4,
+      "usuario": "amorales",
+      "contrasena": "hashed_lmn321",
+      "tipoUsuario": "DOCTOR",
+      "estado": true,
+      "idEmpleado": 104,
+      "apellidoYNombre": "Morales, Ana Lucía"
     }
-  ];
-
+  ]
 }
 
+export const getByIdUsuario = (id: number) => {
+  const usuarios = getAllUsuarios();
+  return usuarios.find(usuario => usuario.idUsuario === id);
+}
 
 export const getConsultas = () => {
   return [
@@ -118,4 +117,123 @@ export const getConsultas = () => {
     "fechaCreacion": "20/11/2024 - 18:00"
   }
 ]
+}
+
+export const getAllEmpleados = () => {
+  return [
+    {
+      "idEmpleado": 101,
+      "tipoDocumento": "DNI",
+      "numDocumento": "45123678",
+      "nombre": "Juan Carlos",
+      "apellido": "Gómez",
+      "direccion": "Av. Larco 123, Miraflores",
+      "telefono": "014512367",
+      "celular": "987654321",
+      "cargo": "Gerente General",
+      "estado": true
+    },
+    {
+      "idEmpleado": 102,
+      "tipoDocumento": "DNI",
+      "numDocumento": "47891234",
+      "nombre": "María Elena",
+      "apellido": "López",
+      "direccion": "Jr. Cusco 456, San Isidro",
+      "telefono": "014789123",
+      "celular": "976543210",
+      "cargo": "Analista de Sistemas",
+      "estado": true
+    },
+    {
+      "idEmpleado": 103,
+      "tipoDocumento": "CE",
+      "numDocumento": "001234567",
+      "nombre": "Roberto Andrés",
+      "apellido": "Pérez",
+      "direccion": "Calle Las Flores 89, Surco",
+      "telefono": "016789012",
+      "celular": "965432109",
+      "cargo": "Contador",
+      "estado": false
+    },
+    {
+      "idEmpleado": 104,
+      "tipoDocumento": "DNI",
+      "numDocumento": "43567890",
+      "nombre": "Ana Lucía",
+      "apellido": "Morales",
+      "direccion": "Av. Javier Prado 789, San Borja",
+      "telefono": "013456789",
+      "celular": "954321098",
+      "cargo": "Recursos Humanos",
+      "estado": true
+    },
+    {
+      "idEmpleado": 105,
+      "tipoDocumento": "DNI",
+      "numDocumento": "46234567",
+      "nombre": "Carlos",
+      "apellido": "Quispe",
+      "direccion": "Jr. Tacna 321, Cercado",
+      "telefono": "012345678",
+      "celular": "943210987",
+      "cargo": "Almacenero",
+      "estado": true
+    }
+  ]
+}
+
+export const getAllMenus = () => {
+  return [
+
+      {
+        nombre: 'Usuarios',
+        ruta: '/usuarios',
+        idMenu: 1,
+        imagen: 'pi pi-user',
+        estado: true
+      },
+      {
+        nombre: 'Consultas',
+        ruta: '/consultas',
+        idMenu: 2,
+        imagen: 'pi pi-address-book',
+        estado: true
+      },
+      {
+        nombre: 'Historia Clinica',
+        ruta: '/historiaClinica',
+        idMenu: 3,
+        imagen: 'pi pi-file-check',
+        estado: true
+      },
+      {
+        nombre: 'Pacientes',
+        ruta: '/paciente',
+        idMenu: 4,
+        imagen: 'pi pi-users',
+        estado: true
+      },
+      {
+        nombre: 'Empleados',
+        ruta: '/empleados',
+        idMenu: 5,
+        imagen: 'pi pi-user-edit',
+        estado: true
+      },
+  ]
+}
+
+export const getByIdDetallePermiso = (idUsuario: number) => {
+  return [
+    {
+      idUsuario: 1,
+      idMenu: 1
+    },
+    {
+      idUsuario: 1,
+      idMenu: 2
+    }
+  ]
 }

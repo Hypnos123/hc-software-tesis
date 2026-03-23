@@ -40,15 +40,21 @@ export class UsuariosComponent implements OnInit {
   ngOnInit(): void {
     this.getAllElementos();
 
-
     this.acciones = [
       {
-        icono: 'pi pi-search',
+        icono: 'pi pi-pencil',
         clase: 'rounded',
-        evento: 'mostrar',
+        evento: 'editar',
         estado: true,
-        tooltip: 'Mostrar detalle'
+        tooltip: 'Editar'
       },
+      {
+        icono: 'pi pi-trash',
+        clase: 'rounded',
+        evento: 'eliminar',
+        estado: true,
+        tooltip: 'Eliminar'
+      }
     ]
   }
 
@@ -83,6 +89,7 @@ export class UsuariosComponent implements OnInit {
   }
 
   eliminarElementos(data: any) {
+    console.log('data eliminar', data);
     this.servicioMensajesSwal
       .mensajePregunta('¿Está seguro de eliminar el registro?')
       .then((response) => {

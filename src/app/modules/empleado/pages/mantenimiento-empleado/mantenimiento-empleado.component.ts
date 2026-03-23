@@ -10,12 +10,13 @@ import { documentoValidator } from '@app/shared/validators/validators';
 import { DropdownModule } from 'primeng/dropdown';
 import { ButtonComponent } from '@app/shared/components';
 import { CommonModule } from '@angular/common';
+import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
   selector: 'app-mantenimiento-empleado',
   templateUrl: './mantenimiento-empleado.component.html',
   styleUrls: ['./mantenimiento-empleado.component.scss'],
-  imports: [CommonModule, DropdownModule, ButtonComponent, ReactiveFormsModule],
+  imports: [CommonModule, DropdownModule, ButtonComponent, InputTextModule, ReactiveFormsModule],
   standalone: true
 })
 export class MantenimientoEmpleadoComponent implements OnInit {

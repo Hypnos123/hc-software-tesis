@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { IEmpleado } from '../models/empleado';
 import { IResponse } from '@app/global/response';
 import { environment } from 'environments/environment.prod';
+import { getAllEmpleados } from '@app/mocks/mocks';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +15,7 @@ export class EmpleadoService {
   constructor(private httpClient: HttpClient) { }
 
   getAllActivos(): Observable<IEmpleado[]> {
+    return of(getAllEmpleados());
     return this.httpClient.get<IEmpleado[]>(`${this.URLServicio}empleado/getAllActive`)
   }
 

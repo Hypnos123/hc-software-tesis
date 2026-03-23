@@ -4,7 +4,7 @@ import { Observable, of } from 'rxjs';
 import { IDetallePermiso, IMenu, IUsuario } from '../models/usuario';
 import { IResponse } from '@app/global/response';
 import { environment } from 'environments/environment';
-import { getAllUsuarios } from '@app/mocks/mocks';
+import { getAllMenus, getAllUsuarios, getByIdDetallePermiso } from '@app/mocks/mocks';
 
 @Injectable({
   providedIn: 'root'
@@ -38,6 +38,7 @@ export class UsuarioService {
   }
 
   getMenuAllActive():Observable<IMenu[]> {
+    return of(getAllMenus());
     return this.httpClient.get<IMenu[]>(`${this.URLServicio}menu/getAllActive`);
   }
 
@@ -46,6 +47,8 @@ export class UsuarioService {
   }
 
   getFindByIdDetallePermiso(id: number):Observable<IDetallePermiso[]> {
+    console.log('id', id);
+    return of(getByIdDetallePermiso(id));
     return this.httpClient.get<IDetallePermiso[]>(`${this.URLServicio}detallepermiso/findById/${id}`);
   }
 

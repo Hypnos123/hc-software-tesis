@@ -73,7 +73,8 @@ export class MantenimientoUsuarioComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.getMenus();
+    this.getEmpleados();
+    this.getTipoUsuarios();
 
     const id = this._ActivatedRoute.snapshot.paramMap.get('id');
     if (id) {
@@ -86,12 +87,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
       });
     }
 
-    this.listaTipoUsuario = [
-      { tipoUsuario: 'ADMINISTRADOR' },
-      { tipoUsuario: 'DOCTOR' },
-      { tipoUsuario: 'ENFERMERO' }
-    ]
-
+    this.getMenus();
   }
 
   get usuario() {
@@ -115,11 +111,11 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   getMenus() {
-    this.getEmpleados();
     this.serviceUsuario.getMenuAllActive().subscribe(res => {
       if (this.isEditar) {
         this.listaPorAsignar = res;
         this.buscarIdDetallePermiso().subscribe((resultado: any) => {
+          this.mostrarPermisosAsignados(resultado);
           resultado.forEach((e: any) => {
             this.listaPorAsignar = this.listaPorAsignar.filter((el) => el.idMenu != e.idMenu);
           });
@@ -184,6 +180,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
 
 
   crearElemento(params: IUsuario) {
+    console.log(params);
     const obs = new Observable((observer) => {
       this.serviceUsuario
         .insert(params)
@@ -200,6 +197,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   editarElemento(params: IUsuario) {
+    console.log('params', params);
     this.serviceUsuario
       .update(+this.id, params)
       .subscribe((response) => {
@@ -219,22 +217,12 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   buscarIdDetallePermiso() {
-    const obs = new Observable((observer) => {
-      this.serviceUsuario.getFindByIdDetallePermiso(+this.id).subscribe((res) => {
-        const resultado = res;
-        observer.next(resultado);
-        this.mostrarPermisosAsignados(resultado);
-      });
-
-    });
-
-    return obs;
+    return this.serviceUsuario.getFindByIdDetallePermiso(+this.id);
   }
 
   mostrarValoresInput(resultado: any) {
     const tipoUsuario = this.listaTipoUsuario.find((e => e.tipoUsuario === resultado.tipoUsuario));
     const empleado = this.listaEmpleados.find((e => e.idEmpleado === resultado.idEmpleado)) as IEmpleado;
-
     this.usuarioForm.patchValue({
       usuario: resultado.usuario,
       contrasena: resultado.contrasena,
@@ -246,16 +234,16 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   mostrarPermisosAsignados(resultado: any) {
-    this.listaAsignados = resultado;
+    resultado.forEach((e: any) => {
+      const menu = this.listaPorAsignar.filter((el) => el.idMenu == e.idMenu);
+      this.listaAsignados.push(menu[0]);
+    });
   }
-
-
 
   showBuscadorDeEmpleado(event: any) {
     this.isBuscadorDeEmpleado = true;
     this.getColumnasTablaEmpleado();
   }
-
 
   getColumnasTablaEmpleado() {
     this.colsEmpleado = [
@@ -274,6 +262,14 @@ export class MantenimientoUsuarioComponent implements OnInit {
     this.serviceEmpleado.getAllActivos().subscribe((res) => {
       this.listaEmpleados = res;
     })
+  }
+
+  getTipoUsuarios() {
+    this.listaTipoUsuario = [
+      { tipoUsuario: 'ADMINISTRADOR' },
+      { tipoUsuario: 'DOCTOR' },
+      { tipoUsuario: 'ENFERMERO' }
+    ]
   }
 
   buscarEmpleado(event: any) {
@@ -316,5 +312,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
       this.isBuscadorDeEmpleado = false;
     }
   }
+
+
 
 }
