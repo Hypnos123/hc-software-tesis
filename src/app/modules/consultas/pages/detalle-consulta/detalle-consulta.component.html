@@ -71,6 +71,9 @@
         </div>
       </div>
     </p-fieldset>
+
+
+
     <!-- Datos de la búsqueda -->
     <p-fieldset legend="Datos Consulta">
       <div class="form-grid">
@@ -138,7 +141,7 @@
 
   <!-- Footer acciones -->
   <div class="footer-actions">
-    <app-button [label]="'Regresar'" [router]="'/historiaClinica'" [icono]="'pi pi-arrow-left'"
+    <app-button [label]="'Regresar'" [router]="'/consultas'" [icono]="'pi pi-arrow-left'"
       [estiloBoton]="'p-button-outlined p-button-secondary'">
     </app-button>
     <button pButton type="button" label="Guardar" icon="pi pi-check" (click)="guardar()"
