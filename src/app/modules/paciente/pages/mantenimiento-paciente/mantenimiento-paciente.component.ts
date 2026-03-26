@@ -5,8 +5,8 @@ import { IPaciente } from '../../models/paciente';
 import { IColumnasTabla } from '@app/shared/models/columnas';
 import { PacienteService } from '../../services/paciente.service';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
-import { Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule,} from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { TabViewModule } from 'primeng/tabview';
 import { InputTextModule } from 'primeng/inputtext';
 import { CalendarModule } from 'primeng/calendar';
@@ -14,9 +14,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { ButtonModule } from 'primeng/button';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { DialogModule } from 'primeng/dialog';
-import { ActivatedRoute } from '@angular/router';
 import Swal from 'sweetalert2';
-
 
 @Component({
   selector: 'app-mantenimiento-paciente',
@@ -40,6 +38,10 @@ export class MantenimientoPacienteComponent {
   activeIndex = 0;
   mostrarConfirmacion = false;
 
+  modo: 'nuevo' | 'ver' | 'editar' = 'nuevo';
+  titulo = 'Nuevo Paciente';
+  pacienteId: number | null = null;
+
   readonly sexo_Opcion = [
     { label: 'Masculino', value: 'M' },
     { label: 'Femenino', value: 'F' },
@@ -60,10 +62,6 @@ export class MantenimientoPacienteComponent {
     private readonly servicioMensajesSwal: MensajesSwalService
   ) {}
 
-  ngOnInit(): void {
-    this.getAllActivosElementos();
-  }
-
   frm: FormGroup = this.fb.group({
     datos: this.fb.group({
       nPaciente: [{ value: 5, disabled: true }],
@@ -72,10 +70,7 @@ export class MantenimientoPacienteComponent {
       fechaIngreso: [new Date(), Validators.required],
       fechaNac: [new Date(), Validators.required],
       estadoCivil: ['', Validators.required],
-      edad: [
-        null,
-        [Validators.required, Validators.min(0), Validators.max(120)],
-      ],
+      edad: [null, [Validators.required, Validators.min(0), Validators.max(120)]],
       dni: ['', [Validators.required, Validators.minLength(8)]],
       sexo: [null, Validators.required],
       direccion: ['', Validators.required],
@@ -95,85 +90,196 @@ export class MantenimientoPacienteComponent {
     }),
   });
 
+  ngOnInit(): void {
+    this.obtenerModo();
+
+    if (this.modo === 'ver' || this.modo === 'editar') {
+      this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
+
+      if (this.pacienteId) {
+        this.cargarPaciente(this.pacienteId);
+      }
+    }
+
+    if (this.modo === 'ver') {
+      this.frm.disable();
+    }
+  }
+
+  obtenerModo(): void {
+    const modoParam = this.route.snapshot.paramMap.get('modo');
+
+    if (modoParam === 'ver' || modoParam === 'editar' || modoParam === 'nuevo') {
+      this.modo = modoParam;
+    } else {
+      this.modo = 'nuevo';
+    }
+
+    switch (this.modo) {
+      case 'nuevo':
+        this.titulo = 'Nuevo Paciente';
+        break;
+      case 'ver':
+        this.titulo = 'Visualizar Paciente';
+        break;
+      case 'editar':
+        this.titulo = 'Editar Paciente';
+        break;
+    }
+  }
+  
+  parseFecha(fecha: string | undefined): Date | null {
+  if (!fecha) return null;
+
+  const partes = fecha.split('/');
+  if (partes.length !== 3) return null;
+
+  const [dia, mes, anio] = partes.map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+  cargarPaciente(id: number): void {
+  this.pacienteService.getById(id).subscribe((paciente) => {
+    if (!paciente) return;
+
+    this.frm.patchValue({
+      datos: {
+        nPaciente: paciente.idPaciente ?? null,
+        apellidos: paciente.apellidos ?? '',
+        nombres: paciente.nombres ?? '',
+        fechaIngreso: this.parseFecha(paciente.fechaIngreso),
+        fechaNac: this.parseFecha(paciente.fechaNacimiento),
+        estadoCivil: paciente.estadoCivil ?? '',
+        edad: paciente.edad ?? null,
+        dni: paciente.dni ?? '',
+        sexo: paciente.sexo ?? null,
+        direccion: paciente.direccion ?? '',
+        distrito: paciente.distrito ?? '',
+        traidoPor: paciente.traidoPor ?? '',
+      },
+      antecedentes: {
+        alimentacion: paciente.alimentacion ?? '',
+        habitos: paciente.habitos ?? '',
+        vivienda: paciente.vivienda ?? '',
+        desarrolloPsico: paciente.desarrolloPsicomotor ?? '',
+        vacunas: paciente.vacunas ?? '',
+        educacion: paciente.educacion ?? '',
+        enfermedadesPrev: paciente.enfermedadesPrevias ?? '',
+        cirugiasPrevias: paciente.cirugiasPrevias ?? '',
+        alergiasMedicamentos: paciente.alergiaMedicamentos ?? '',
+      }
+    });
+
+    if (this.modo === 'ver') {
+      this.frm.disable();
+    }
+  });
+}
+
+
+
+
+
+
+
   onTabChange(e: any) {
+    if (this.modo === 'ver') {
+      this.activeIndex = e.index;
+      return;
+    }
+
     if (e.index === 1 && this.frm.get('datos')?.invalid) {
       this.frm.get('datos')?.markAllAsTouched();
       this.activeIndex = 0;
     }
   }
 
-
-  confirmar() {
-    this.mostrarConfirmacion = false;
-    // this.registrarPaciente();
-  }
-
   confirmarGuardar() {
-  if (this.frm.invalid) {
-    this.frm.markAllAsTouched();
-    return;
+    if (this.modo === 'ver') return;
+
+    if (this.frm.invalid) {
+      this.frm.markAllAsTouched();
+      return;
+    }
+
+    const texto =
+      this.modo === 'editar'
+        ? 'Se actualizarán los datos del paciente.'
+        : 'Se registrará un nuevo paciente.';
+
+    const titulo =
+      this.modo === 'editar'
+        ? '¿Actualizar paciente?'
+        : '¿Guardar paciente?';
+
+    Swal.fire({
+      title: titulo,
+      text: texto,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, confirmar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      confirmButtonColor: '#1179c4',
+      cancelButtonColor: '#6c757d'
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+
+      if (this.modo === 'editar') {
+        this.actualizarPaciente();
+      } else {
+        this.registrarPaciente();
+      }
+    });
   }
 
-  Swal.fire({
-    title: '¿Guardar paciente?',
-    text: 'Se registrará un nuevo paciente.',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, confirmar',
-    cancelButtonText: 'Cancelar',
-    reverseButtons: true,
-    confirmButtonColor: '#1179c4',
-    cancelButtonColor: '#6c757d'
-  }).then((result) => {
-    if (!result.isConfirmed) return;
+  registrarPaciente() {
+    const payload = this.frm.getRawValue();
+    console.log('payload registrar', payload);
 
-    this.registrarPaciente(); 
-  });
-}
+    // this.pacienteService.insert(payload).subscribe(() => { ... });
 
-registrarPaciente() {
-  const payload = this.frm.getRawValue(); // incluye disabled como nPaciente
-  // arma tu objeto según tu backend
-  // this.pacienteService.insert(payload).subscribe(...)
-  console.log('payload', payload);
+    Swal.fire({
+      icon: 'success',
+      title: 'Paciente registrado',
+      timer: 1200,
+      showConfirmButton: false
+    });
 
-  // opcional: mensaje de éxito
-  Swal.fire({
-    icon: 'success',
-    title: 'Guardado',
-    timer: 1200,
-    showConfirmButton: false
-  });
-
-  this.router.navigateByUrl('/paciente');
-}
-
-  cancelar() {
-    this.mostrarConfirmacion = false;
+    this.router.navigateByUrl('/paciente');
   }
 
-  listaPacientes: IPaciente[] = [];
-  cols: IColumnasTabla[] = [];
-  colsVisibles: IColumnasTabla[] = [];
-  isCargado: boolean = false;
-  
+  actualizarPaciente() {
+    const payload = {
+      idPaciente: this.pacienteId,
+      ...this.frm.getRawValue()
+    };
 
-  next() {
-    if (this.frm.get('datos')?.valid) this.activeIndex = 1;
-    else this.frm.get('datos')?.markAllAsTouched();
+    console.log('payload actualizar', payload);
+
+    // this.pacienteService.update(payload).subscribe(() => { ... });
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Paciente actualizado',
+      timer: 1200,
+      showConfirmButton: false
+    });
+
+    this.router.navigateByUrl('/paciente');
   }
 
   back() {
     this.activeIndex = 0;
   }
 
-  getAllActivosElementos() {}
-
-  guardar() {
-    if (this.frm.invalid) {
-      this.frm.markAllAsTouched();
+  next() {
+    if (this.modo === 'ver') {
+      this.activeIndex = 1;
       return;
     }
-    const payload = this.frm.getRawValue();
+
+    if (this.frm.get('datos')?.valid) this.activeIndex = 1;
+    else this.frm.get('datos')?.markAllAsTouched();
   }
 }

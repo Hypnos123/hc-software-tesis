@@ -4,9 +4,6 @@ import { HistoriasClinicasComponent } from "./pages/historias-clinicas/historias
 
 export const HISTORIA_CLINICA_ROUTES: Routes = [
   { path: '', component: HistoriasClinicasComponent },
-  { path: 'mantenimiento-historias-clinicas', component: MantenimientoHistoriasClinicasComponent },
-  { path: 'mantenimiento-historias-clinicas/:id', component: MantenimientoHistoriasClinicasComponent },
-  { path: 'historias-clinicas/ver/:id',
-    loadComponent: () => import('./pages/ver-historia/ver-historia.component').then(c => c.VerHistoriaComponent)
-  }
+  { path: 'mantenimiento-historias-clinicas/:modo/:id', component: MantenimientoHistoriasClinicasComponent },
+  { path: 'mantenimiento-historias-clinicas/:modo', component: MantenimientoHistoriasClinicasComponent },
 ];

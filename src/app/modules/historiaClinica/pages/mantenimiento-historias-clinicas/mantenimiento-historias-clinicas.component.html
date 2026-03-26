@@ -1,91 +1,94 @@
-
-<h2 class="Subtitulo">Nueva Historia Clinica</h2>
+<h2 class="Subtitulo">{{ titulo }}</h2>
 
 <div [formGroup]="frm">
-<p-fieldset legend="Seleccionar Paciente">
-  <div class="form-grid">
-    <div class="col col-3">
-      <label>ID Historia Clinica</label>
-      <input pInputText type="text" [formControl]="frm.controls['idHistoriaClinica']">
-    </div>
+  <p-fieldset legend="Seleccionar Paciente">
+    <div class="form-grid">
+      <div class="col col-3">
+        <label>ID Historia Clinica</label>
+        <input pInputText type="text" [formControl]="frm.controls['idHistoriaClinica']">
+      </div>
 
-    <div class="col col-5">
-      <label>Nombre Paciente</label>
-      <input pInputText type="text" formControlName="nombrePacienteSel">
-    </div>
+      <div class="col col-5">
+        <label>Nombre Paciente</label>
+        <input pInputText type="text" formControlName="nombrePacienteSel">
+      </div>
 
-    <div class="col col-4">
-      <label>DNI</label>
-      <input pInputText type="text" formControlName="dniSel">
+      <div class="col col-4">
+        <label>DNI</label>
+        <input pInputText type="text" formControlName="dniSel">
+      </div>
     </div>
-  </div>
-</p-fieldset>
+  </p-fieldset>
 
-<!-- Datos de la búsqueda -->
-<p-fieldset legend="Datos de la busqueda">
-  <div class="form-grid">
-    <div class="col col-3">
-      <label>Fecha Ingreso</label>
-      <p-calendar formControlName="fechaIngreso" [showIcon]="true" inputId="fecIng" dateFormat="dd/mm/yy"></p-calendar>
+  <p-fieldset legend="Datos de la busqueda">
+    <div class="form-grid">
+      <div class="col col-3">
+        <label>Fecha Ingreso</label>
+        <p-calendar formControlName="fechaIngreso" [showIcon]="true" inputId="fecIng" dateFormat="dd/mm/yy"></p-calendar>
+      </div>
+
+      <div class="col col-3">
+        <label>Apellidos</label>
+        <input pInputText type="text" formControlName="apellidos">
+      </div>
+
+      <div class="col col-3">
+        <label>Nombres</label>
+        <input pInputText type="text" formControlName="nombres">
+      </div>
+
+      <div class="col col-3">
+        <label>Estado Civil</label>
+        <p-dropdown formControlName="estadoCivil" [options]="estadosCiviles" optionLabel="label" optionValue="value" placeholder=""></p-dropdown>
+      </div>
+
+      <div class="col col-3">
+        <label>Edad</label>
+        <input pInputText type="number" formControlName="edad">
+      </div>
+
+      <div class="col col-3">
+        <label>DNI</label>
+        <input pInputText type="text" formControlName="dni">
+      </div>
     </div>
+  </p-fieldset>
 
-    <div class="col col-3">
-      <label>Apellidos</label>
-      <input pInputText type="text" formControlName="apellidos">
+  <p-fieldset legend="Antecedentes patologicos">
+    <div class="form-grid">
+      <div class="col col-4">
+        <label>Enfermedades previas</label>
+        <input pInputText type="text" formControlName="enfPrevias">
+      </div>
+
+      <div class="col col-4">
+        <label>Cirugias previas</label>
+        <input pInputText type="text" formControlName="cirugiasPrevias">
+      </div>
+
+      <div class="col col-4">
+        <label>Alergia Medicamentos</label>
+        <input pInputText type="text" formControlName="alergiasMedicamentos">
+      </div>
     </div>
+  </p-fieldset>
 
-    <div class="col col-3">
-      <label>Nombres</label>
-      <input pInputText type="text" formControlName="nombres">
-    </div>
-
-    <div class="col col-3">
-      <label>Estado Civil</label>
-      <p-dropdown formControlName="estadoCivil" [options]="estadosCiviles" optionLabel="label" optionValue="value" placeholder=""></p-dropdown>
-    </div>
-
-    <div class="col col-3">
-      <label>Edad</label>
-      <input pInputText type="number" formControlName="edad">
-    </div>
-
-    <div class="col col-3">
-      <label>DNI</label>
-      <input pInputText type="text" formControlName="dni">
-    </div>
-  </div>
-</p-fieldset>
-
-<!-- Antecedentes patológicos -->
-<p-fieldset legend="Antecedentes patologicos">
-  <div class="form-grid">
-    <div class="col col-4">
-      <label>Enfermedades previas</label>
-      <input pInputText type="text" formControlName="enfPrevias">
-      <!-- si quieres textarea:
-      <textarea pInputTextarea rows="2" formControlName="enfPrevias"></textarea> -->
-    </div>
-
-    <div class="col col-4">
-      <label>Cirugias previas</label>
-      <input pInputText type="text" formControlName="cirugiasPrevias">
-    </div>
-
-    <div class="col col-4">
-      <label>Alergia Medicamentos</label>
-      <input pInputText type="text" formControlName="alergiasMedicamentos">
-    </div>
-  </div>
-</p-fieldset>
-
-<!-- Footer acciones -->
-<div class="footer-actions">
-  <app-button [label]="'Regresar'"
-  [router]="'/historiaClinica'" [icono]="'pi pi-arrow-left'" [estiloBoton]="'p-button-outlined p-button-secondary'" >
+  <div class="footer-actions">
+    <app-button
+      [label]="'Regresar'"
+      [router]="'/historiaClinica'"
+      [icono]="'pi pi-arrow-left'"
+      [estiloBoton]="'p-button-outlined p-button-secondary'">
     </app-button>
-  <button pButton type="button" label="Guardar" icon="pi pi-check"
-          (click)="guardar()" [disabled]="frm.invalid"></button>
-</div>
 
+    <button
+      *ngIf="modo !== 'ver'"
+      pButton
+      type="button"
+      label="Guardar"
+      icon="pi pi-check"
+      (click)="guardar()"
+      [disabled]="frm.invalid">
+    </button>
+  </div>
 </div>
-

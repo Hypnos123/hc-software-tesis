@@ -1,10 +1,12 @@
 <div class="t-flex-start">
   <h2>Historias Clinicas</h2>
+
   <app-button
-    [label]="'Agregar HC'"
-    [router]="'./mantenimiento-historias-clinicas'"
-    [icono]="'pi pi-plus'"
-  ></app-button>
+  [label]="'Agregar HC'"
+  [router]="'./mantenimiento-historias-clinicas/nuevo'"
+  [icono]="'pi pi-plus'">
+</app-button>
+
 </div>
 
 <br>
@@ -95,10 +97,10 @@
 
       <button
         pButton
-        icon="pi pi-pencil"
+        icon="pi pi-file"
         class="p-button-rounded p-button-text"
-        pTooltip="Editar"
-        (click)="editar(r)">
+        pTooltip="Consultas"
+        (click)="consultas(r)">
       </button>
     </td>
 

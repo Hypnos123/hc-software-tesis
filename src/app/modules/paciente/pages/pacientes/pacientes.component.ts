@@ -69,9 +69,17 @@ export class PacientesComponent {
     this.activityValues = [0, 100];
   }
 
-  verPaciente() {
-    this.router.navigate(['/paciente/mantenimiento-paciente']);
-  }
+  nuevoPaciente() {
+  this.router.navigate(['/paciente/mantenimiento-paciente/nuevo']);
+}
+
+  verPaciente(id: number) {
+  this.router.navigate(['/paciente/mantenimiento-paciente/ver', id]);
+}
+
+  editarPaciente(id: number) {
+  this.router.navigate(['/paciente/mantenimiento-paciente/editar', id]);
+}
 
   
   

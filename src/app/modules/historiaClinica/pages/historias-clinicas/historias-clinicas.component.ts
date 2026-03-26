@@ -53,7 +53,7 @@ export class HistoriasClinicasComponent {
   constructor(private router: Router) {}
 
  verHistoria(id: number) {
-  this.router.navigate(['/historiaClinica', 'historias-clinicas', 'ver', id]);
+  this.router.navigate(['/historiaClinica', 'mantenimiento-historias-clinicas', 'ver', id]);
 }
   loading = false;
   searchValue = '';
@@ -72,5 +72,5 @@ export class HistoriasClinicasComponent {
 
   clear(dt: any) { dt.clear(); this.searchValue = ''; }
   ver(row: HCRow) {}
-  editar(row: HCRow) {}
+  consultas(row: HCRow) {}
 }

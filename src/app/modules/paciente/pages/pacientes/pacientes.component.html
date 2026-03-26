@@ -1,29 +1,56 @@
 <div class="t-flex-start">
   <h2>Consultar Paciente</h2>
-  <app-button [label]="'Agregar Pacientes'" [router]="'./mantenimiento-paciente'" [icono]="'pi pi-plus'"></app-button>
+  <app-button
+    [label]="'Agregar Pacientes'"
+    [icono]="'pi pi-plus'"
+    (click)="nuevoPaciente()"
+  >
+  </app-button>
 </div>
 
-<br>
-<br>
+<br />
+<br />
 <div class="card">
-  <p-table #dt [value]="customers" [(selection)]="selectedCustomers" dataKey="id" [rowHover]="true" [rows]="10"
-    [showCurrentPageReport]="true" [rowsPerPageOptions]="[10, 25, 50]" [loading]="loading" [paginator]="true"
-    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" [filterDelay]="0"
+  <p-table
+    #dt
+    [value]="customers"
+    [(selection)]="selectedCustomers"
+    dataKey="id"
+    [rowHover]="true"
+    [rows]="10"
+    [showCurrentPageReport]="true"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    [loading]="loading"
+    [paginator]="true"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+    [filterDelay]="0"
     styleClass="hc-table"
-    [globalFilterFields]="['name', 'country.name', 'date','balance', 'representative.name', 'status']">
-
+    [globalFilterFields]="[
+      'name',
+      'country.name',
+      'date',
+      'balance',
+      'representative.name',
+      'status',
+    ]"
+  >
     <ng-template pTemplate="caption">
-      <div class="flex align-items-center" style="gap: 12px;">
+      <div class="flex align-items-center" style="gap: 12px">
         <p-iconField iconPosition="left">
-          <input pInputText type="text" [(ngModel)]="searchValue"
-            (input)="dt.filterGlobal($event.target.value,'contains')" placeholder="Buscar" />
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="searchValue"
+            (input)="dt.filterGlobal($event.target.value, 'contains')"
+            placeholder="Buscar"
+          />
         </p-iconField>
       </div>
     </ng-template>
 
     <ng-template pTemplate="header">
       <tr>
-        <th style="width:4rem"></th>
+        <th style="width: 4rem"></th>
 
         <th pSortableColumn="id">
           ID
@@ -55,10 +82,7 @@
           <p-columnFilter field="fechaRegistro" display="menu"></p-columnFilter>
         </th>
 
-        <th style="text-align:center">
-          Opciones
-        </th>
-
+        <th style="text-align: center">Opciones</th>
       </tr>
     </ng-template>
 
@@ -68,21 +92,28 @@
 
         <td>{{ row.idPaciente }}</td>
         <td>{{ row.nombreApellidos }}</td>
-        <td>{{ row.habitos }}</td>
-        <td>{{ row.habitos }}</td>
-        <td>{{ row.vivienda }}</td>
+        <td>{{ row.edad }}</td>
+        <td>{{ row.dni }}</td>
+        <td>{{ row.fechaRegistro }}</td>
 
-        <td style="text-align:center">
-          <p-button icon="pi pi-eye" severity="info" styleClass="p-button-rounded p-button-text"
-            (click)="verPaciente()">
+        <td style="text-align: center">
+          <p-button
+            icon="pi pi-eye"
+            severity="info"
+            styleClass="p-button-rounded p-button-text"
+            (click)="verPaciente(row.idPaciente)"
+          >
           </p-button>
 
-          <p-button icon="pi pi-pencil" severity="info" styleClass="p-button-rounded p-button-text">
+          <p-button
+            icon="pi pi-pencil"
+            severity="info"
+            styleClass="p-button-rounded p-button-text"
+            (click)="editarPaciente(row.idPaciente)"
+          >
           </p-button>
         </td>
-
       </tr>
-
     </ng-template>
     <ng-template pTemplate="emptymessage">
       <tr>

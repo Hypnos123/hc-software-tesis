@@ -20,6 +20,12 @@ export class PacienteService {
     return this.httpClient.get<IPaciente[]>(`${this.URLServicio}paciente/getAllActive`)
   }
 
+  getById(id: number): Observable<IPaciente | undefined> {
+    const paciente = getPacientes().find(x => x.idPaciente === id);
+    return of(paciente);
+    // return this.httpClient.get<IPaciente>(`${this.URLServicio}paciente/findById/${id}`);
+  }
+
   insert(header: IPaciente): Observable<IPaciente> {
     return this.httpClient.post<IPaciente>(`${this.URLServicio}paciente/insert/paciente`, header);
   }
@@ -35,4 +41,6 @@ export class PacienteService {
   setInactive(id: number): Observable<IResponse> {
     return this.httpClient.put<IResponse>(`${this.URLServicio}paciente/setInactive/${id}`, id);
   }
+
+  
 }

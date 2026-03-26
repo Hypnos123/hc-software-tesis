@@ -4,9 +4,7 @@ import { PacientesComponent } from './pages/pacientes/pacientes.component';
 
 
 export const PACIENTE_ROUTES: Routes = [
-  { path: '', component: PacientesComponent},
-  { path: 'mantenimiento-paciente', component: MantenimientoPacienteComponent},
-  { path: 'mantenimiento-paciente/:id', component: MantenimientoPacienteComponent},
-  
-  
+  { path: '', component: PacientesComponent },
+  { path: 'mantenimiento-paciente/:modo/:id', component: MantenimientoPacienteComponent },
+  { path: 'mantenimiento-paciente/:modo', component: MantenimientoPacienteComponent },
 ];
