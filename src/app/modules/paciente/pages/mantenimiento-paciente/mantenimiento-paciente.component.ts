@@ -16,6 +16,10 @@ import { InputTextareaModule } from 'primeng/inputtextarea';
 import { DialogModule } from 'primeng/dialog';
 import Swal from 'sweetalert2';
 
+export interface IOption {
+  label: string;
+  value: string;
+}
 @Component({
   selector: 'app-mantenimiento-paciente',
   standalone: true,
@@ -42,17 +46,8 @@ export class MantenimientoPacienteComponent {
   titulo = 'Nuevo Paciente';
   pacienteId: number | null = null;
 
-  readonly sexo_Opcion = [
-    { label: 'Masculino', value: 'M' },
-    { label: 'Femenino', value: 'F' },
-  ];
-
-  readonly educacion_Opcion = [
-    { label: 'Primaria', value: 'P' },
-    { label: 'Secundaria', value: 'S' },
-    { label: 'Tecnico', value: 'T' },
-    { label: 'Superior', value: 'S1' },
-  ];
+  sexo_Opcion: IOption[] = [];
+  educacion_Opcion: IOption[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -60,7 +55,7 @@ export class MantenimientoPacienteComponent {
     private router: Router,
     private route: ActivatedRoute,
     private readonly servicioMensajesSwal: MensajesSwalService
-  ) {}
+  ) { }
 
   frm: FormGroup = this.fb.group({
     datos: this.fb.group({
@@ -92,6 +87,7 @@ export class MantenimientoPacienteComponent {
 
   ngOnInit(): void {
     this.obtenerModo();
+    this.listarDropdown();
 
     if (this.modo === 'ver' || this.modo === 'editar') {
       this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
@@ -127,60 +123,71 @@ export class MantenimientoPacienteComponent {
         break;
     }
   }
-  
+
   parseFecha(fecha: string | undefined): Date | null {
-  if (!fecha) return null;
+    if (!fecha) return null;
 
-  const partes = fecha.split('/');
-  if (partes.length !== 3) return null;
+    const partes = fecha.split('/');
+    if (partes.length !== 3) return null;
 
-  const [dia, mes, anio] = partes.map(Number);
-  return new Date(anio, mes - 1, dia);
-}
+    const [dia, mes, anio] = partes.map(Number);
+    return new Date(anio, mes - 1, dia);
+  }
+
+  listarDropdown() {
+    this.sexo_Opcion = [
+      { label: 'Masculino', value: 'M' },
+      { label: 'Femenino', value: 'F' },
+    ];
+
+    this.educacion_Opcion = [
+      { label: 'Primaria', value: 'P' },
+      { label: 'Secundaria', value: 'S' },
+      { label: 'Tecnico', value: 'T' },
+      { label: 'Superior', value: 'S1' },
+    ];
+  }
 
   cargarPaciente(id: number): void {
-  this.pacienteService.getById(id).subscribe((paciente) => {
-    if (!paciente) return;
+    this.pacienteService.getById(id).subscribe((paciente) => {
+      if (!paciente) return;
 
-    this.frm.patchValue({
-      datos: {
-        nPaciente: paciente.idPaciente ?? null,
-        apellidos: paciente.apellidos ?? '',
-        nombres: paciente.nombres ?? '',
-        fechaIngreso: this.parseFecha(paciente.fechaIngreso),
-        fechaNac: this.parseFecha(paciente.fechaNacimiento),
-        estadoCivil: paciente.estadoCivil ?? '',
-        edad: paciente.edad ?? null,
-        dni: paciente.dni ?? '',
-        sexo: paciente.sexo ?? null,
-        direccion: paciente.direccion ?? '',
-        distrito: paciente.distrito ?? '',
-        traidoPor: paciente.traidoPor ?? '',
-      },
-      antecedentes: {
-        alimentacion: paciente.alimentacion ?? '',
-        habitos: paciente.habitos ?? '',
-        vivienda: paciente.vivienda ?? '',
-        desarrolloPsico: paciente.desarrolloPsicomotor ?? '',
-        vacunas: paciente.vacunas ?? '',
-        educacion: paciente.educacion ?? '',
-        enfermedadesPrev: paciente.enfermedadesPrevias ?? '',
-        cirugiasPrevias: paciente.cirugiasPrevias ?? '',
-        alergiasMedicamentos: paciente.alergiaMedicamentos ?? '',
+      const sexoFiltrado = this.sexo_Opcion.find((sexo) => sexo.label === paciente.sexo);
+      const educacionFiltrada = this.educacion_Opcion.find((e) => e.label === paciente.educacion);
+
+      this.frm.patchValue({
+        datos: {
+          nPaciente: paciente.idPaciente ?? null,
+          apellidos: paciente.apellidos ?? '',
+          nombres: paciente.nombres ?? '',
+          fechaIngreso: this.parseFecha(paciente.fechaIngreso),
+          fechaNac: this.parseFecha(paciente.fechaNacimiento),
+          estadoCivil: paciente.estadoCivil ?? '',
+          edad: paciente.edad ?? null,
+          dni: paciente.dni ?? '',
+          sexo: sexoFiltrado ?? null,
+          direccion: paciente.direccion ?? '',
+          distrito: paciente.distrito ?? '',
+          traidoPor: paciente.traidoPor ?? '',
+        },
+        antecedentes: {
+          alimentacion: paciente.alimentacion ?? '',
+          habitos: paciente.habitos ?? '',
+          vivienda: paciente.vivienda ?? '',
+          desarrolloPsico: paciente.desarrolloPsicomotor ?? '',
+          vacunas: paciente.vacunas ?? '',
+          educacion: educacionFiltrada ?? '',
+          enfermedadesPrev: paciente.enfermedadesPrevias ?? '',
+          cirugiasPrevias: paciente.cirugiasPrevias ?? '',
+          alergiasMedicamentos: paciente.alergiaMedicamentos ?? '',
+        }
+      });
+
+      if (this.modo === 'ver') {
+        this.frm.disable();
       }
     });
-
-    if (this.modo === 'ver') {
-      this.frm.disable();
-    }
-  });
-}
-
-
-
-
-
-
+  }
 
   onTabChange(e: any) {
     if (this.modo === 'ver') {
@@ -235,18 +242,22 @@ export class MantenimientoPacienteComponent {
 
   registrarPaciente() {
     const payload = this.frm.getRawValue();
-    console.log('payload registrar', payload);
 
-    // this.pacienteService.insert(payload).subscribe(() => { ... });
+    const params: IPaciente = {
+      ...payload.datos,
+      ...payload.antecedentes
+    };
 
-    Swal.fire({
-      icon: 'success',
-      title: 'Paciente registrado',
-      timer: 1200,
-      showConfirmButton: false
+
+    this.pacienteService.insert(params).subscribe({
+      next: (response) => {
+        if (response) {
+          Swal.fire({ icon: 'success', title: 'Guardado', timer: 1200, showConfirmButton: false });
+          this.router.navigateByUrl('/paciente');
+        }
+      },
+      error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar.' })
     });
-
-    this.router.navigateByUrl('/paciente');
   }
 
   actualizarPaciente() {
@@ -257,16 +268,21 @@ export class MantenimientoPacienteComponent {
 
     console.log('payload actualizar', payload);
 
-    // this.pacienteService.update(payload).subscribe(() => { ... });
+    const params: IPaciente = {
+      ...payload.datos,
+      ...payload.antecedentes
+    };
 
-    Swal.fire({
-      icon: 'success',
-      title: 'Paciente actualizado',
-      timer: 1200,
-      showConfirmButton: false
+
+    this.pacienteService.update(this.pacienteId, params).subscribe({
+      next: (response) => {
+        if (response) {
+          Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1200, showConfirmButton: false });
+          this.router.navigateByUrl('/paciente');
+        }
+      },
+      error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar.' })
     });
-
-    this.router.navigateByUrl('/paciente');
   }
 
   back() {

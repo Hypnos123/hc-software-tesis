@@ -59,6 +59,8 @@ export class MantenimientoEmpleadoComponent implements OnInit {
       this.empleadoForm.get('numDocumento')?.updateValueAndValidity();
     });
 
+    this.listarDropdown();
+
     const id = this._ActivatedRoute.snapshot.paramMap.get('id');
     if (id) {
       this.titulo = 'Editar Empleado';
@@ -67,7 +69,6 @@ export class MantenimientoEmpleadoComponent implements OnInit {
       this.buscarIdElemento();
     }
 
-    this.listarDropdown();
     this.tipoDocumento?.setValue(this.tipoDocumentos[0]);
   }
 
@@ -219,6 +220,7 @@ export class MantenimientoEmpleadoComponent implements OnInit {
     const tipoDocumento = this.tipoDocumentos.find((e) => e.tipo === resultado.tipoDocumento);
     const cargo = this.tipoCargos.find((e) => e.tipo === resultado.cargo);
 
+    console.log(cargo);
     this.empleadoForm.patchValue({
       tipoDocumento: tipoDocumento,
       numDocumento: resultado.numDocumento,

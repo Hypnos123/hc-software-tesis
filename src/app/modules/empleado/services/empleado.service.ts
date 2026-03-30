@@ -24,6 +24,7 @@ export class EmpleadoService {
   }
 
   getFindById(id: number): Observable<IEmpleado[]> {
+    return of([getAllEmpleados()[0]])
     return this.httpClient.get<IEmpleado[]>(`${this.URLServicio}empleado/findById/${id}`)
   }
 

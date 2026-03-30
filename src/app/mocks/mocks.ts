@@ -185,7 +185,7 @@ export const getAllEmpleados = () => {
       "direccion": "Av. Larco 123, Miraflores",
       "telefono": "014512367",
       "celular": "987654321",
-      "cargo": "Gerente General",
+      "cargo": "Doctor",
       "estado": true
     },
     {
@@ -197,7 +197,7 @@ export const getAllEmpleados = () => {
       "direccion": "Jr. Cusco 456, San Isidro",
       "telefono": "014789123",
       "celular": "976543210",
-      "cargo": "Analista de Sistemas",
+      "cargo": "Enfermera(o)",
       "estado": true
     },
     {
@@ -209,7 +209,7 @@ export const getAllEmpleados = () => {
       "direccion": "Calle Las Flores 89, Surco",
       "telefono": "016789012",
       "celular": "965432109",
-      "cargo": "Contador",
+      "cargo": "Administrador",
       "estado": false
     },
     {
@@ -221,7 +221,7 @@ export const getAllEmpleados = () => {
       "direccion": "Av. Javier Prado 789, San Borja",
       "telefono": "013456789",
       "celular": "954321098",
-      "cargo": "Recursos Humanos",
+      "cargo": "Administrador",
       "estado": true
     },
     {
@@ -233,7 +233,7 @@ export const getAllEmpleados = () => {
       "direccion": "Jr. Tacna 321, Cercado",
       "telefono": "012345678",
       "celular": "943210987",
-      "cargo": "Almacenero",
+      "cargo": "Administrador",
       "estado": true
     }
   ]
@@ -293,7 +293,7 @@ export const getByIdDetallePermiso = (idUsuario: number) => {
   ]
 }
 
- 
+
 
 export const getConsultas = () => {
   return [

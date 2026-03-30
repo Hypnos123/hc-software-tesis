@@ -17,7 +17,9 @@
     [columnas]="colsVisibles"
     [filas]="10"
     [isOpcionEliminar]="true"
+    [isMostrarMasOpciones]="true"
     [listaElementosAFiltrar]="['numDocumento', 'tipoDocumento','nombre', 'apellido']"
+    [acciones]="acciones"
     (eventoAccion)="eventoAccion($event)"
   ></app-table>
 </section>

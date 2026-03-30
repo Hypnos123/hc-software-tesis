@@ -90,7 +90,6 @@ export class UsuariosComponent implements OnInit {
   }
 
   eliminarElementos(data: any) {
-    console.log('data eliminar', data);
     this.servicioMensajesSwal
       .mensajePregunta('¿Está seguro de eliminar el registro?')
       .then((response) => {
