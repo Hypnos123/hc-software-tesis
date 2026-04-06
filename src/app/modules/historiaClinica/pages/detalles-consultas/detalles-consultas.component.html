@@ -1,0 +1,189 @@
+<form [formGroup]="frm" class="consulta-page">
+  <div class="page-header">
+    <h2 class="page-title">
+  {{ esNuevo ? 'Nueva Consulta' : 'Datos Consulta' }}
+</h2>
+  </div>
+
+  <div class="card-section">
+    <h3>Datos del paciente</h3>
+
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Nombre Completo</label>
+        <input pInputText formControlName="nombreCompleto" />
+      </div>
+
+      <div class="field">
+        <label>DNI</label>
+        <input pInputText formControlName="dni" />
+      </div>
+
+      <div class="field">
+        <label>Edad</label>
+        <input pInputText formControlName="edad" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3>Antecedentes patologicos</h3>
+
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Enfermedades previas</label>
+        <input pInputText formControlName="enfermedadesPrevias" />
+      </div>
+
+      <div class="field">
+        <label>Cirugías previas</label>
+        <input pInputText formControlName="cirugiasPrevias" />
+      </div>
+
+      <div class="field">
+        <label>Alergia Medicamentos</label>
+        <input pInputText formControlName="alergiaMedicamentos" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <h3>Funciones vitales</h3>
+
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Presion Arterial</label>
+        <input pInputText formControlName="presionArterial" />
+      </div>
+
+      <div class="field">
+        <label>Frecuencia Cardiaca</label>
+        <input pInputText formControlName="frecuenciaCardiaca" />
+      </div>
+
+      <div class="field">
+        <label>Frecuencia Respiratoria</label>
+        <input pInputText formControlName="frecuenciaRespiratoria" />
+      </div>
+
+      <div class="field">
+        <label>Talla</label>
+        <input pInputText formControlName="talla" />
+      </div>
+
+      <div class="field">
+        <label>Temperatura</label>
+        <input pInputText formControlName="temperatura" />
+      </div>
+
+      <div class="field">
+        <label>Peso</label>
+        <input pInputText formControlName="peso" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3>Datos Consulta</h3>
+
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Fecha Consulta</label>
+        <p-calendar
+          formControlName="fechaConsulta"
+          [showIcon]="true"
+          dateFormat="dd/mm/yy"
+          appendTo="body">
+        </p-calendar>
+      </div>
+
+      <div class="field">
+        <label>Tiempo Enfermedad</label>
+        <input pInputText formControlName="tiempoEnfermedad" />
+      </div>
+
+      <div class="field">
+        <label>Tipo Enfermedad</label>
+        <p-dropdown
+          formControlName="tipoEnfermedad"
+          [options]="tiposEnfermedad"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccione">
+        </p-dropdown>
+      </div>
+    </div>
+
+    <div class="field full-width">
+      <label>Relato Paciente</label>
+      <textarea
+        pInputTextarea
+        rows="3"
+        formControlName="relatoPaciente">
+      </textarea>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <h3>Evaluacion Medica</h3>
+
+    <div class="field full-width">
+      <label>Diagnostico</label>
+      <input pInputText formControlName="diagnostico" />
+    </div>
+
+    <div class="field full-width">
+      <label>Examenes recetados</label>
+      <textarea
+        pInputTextarea
+        rows="4"
+        formControlName="examenesRecetados">
+      </textarea>
+    </div>
+
+    <div class="field full-width">
+      <label>Receta</label>
+      <input pInputText formControlName="receta" />
+    </div>
+
+    <div class="form-grid cols-2">
+      <div class="field">
+        <label>Tratamiento</label>
+        <textarea
+          pInputTextarea
+          rows="4"
+          formControlName="tratamiento">
+        </textarea>
+      </div>
+
+      <div class="field">
+        <label>Proxima Cita</label>
+        <p-calendar
+          formControlName="proximaCita"
+          [showIcon]="true"
+          dateFormat="dd/mm/yy"
+          appendTo="body">
+        </p-calendar>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button
+      pButton
+      type="button"
+      label="Volver"
+      icon="pi pi-arrow-left"
+      class="p-button-outlined"
+      (click)="volver()">
+    </button>
+
+  <button
+  *ngIf="esNuevo"
+  pButton
+  label="Guardar"
+  icon="pi pi-check"
+  (click)="guardar()">
+</button>
+  </div>
+</form>

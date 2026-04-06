@@ -1,0 +1,84 @@
+<div class="t-flex-start">
+  <h2>Consultas Realizadas</h2>
+
+  <button
+    pButton
+    type="button"
+    label="Agregar Consulta"
+    icon="pi pi-plus-circle"
+    (click)="nuevaConsulta()">
+  </button>
+</div>
+
+<br>
+
+<h3>Paciente: {{ paciente }}</h3>
+
+<br>
+
+<div class="card">
+  <div class="toolbar" style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+    <input
+      pInputText
+      type="text"
+      [(ngModel)]="searchValue"
+      placeholder="Buscar">
+  </div>
+
+  <p-table
+    [value]="consultas"
+    [paginator]="true"
+    [rows]="10"
+    [responsiveLayout]="'scroll'">
+    
+    <ng-template pTemplate="header">
+      <tr>
+        <th>ID</th>
+        <th>Paciente</th>
+        <th>DNI</th>
+        <th>Especialidad Requerida</th>
+        <th>Doctor Responsable</th>
+        <th>Fecha creación</th>
+        <th>Opciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-r>
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.paciente }}</td>
+        <td>{{ r.dni }}</td>
+        <td>{{ r.especialidad }}</td>
+        <td>{{ r.doctor }}</td>
+        <td>{{ r.fechaCreacion | date:'dd/MM/yyyy - HH:mm' }}</td>
+        <td>
+          <button
+            pButton
+            icon="pi pi-eye"
+            class="p-button-rounded p-button-text"
+            (click)="verConsulta(r)">
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7">No hay consultas registradas.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<br>
+
+<div style="display:flex; justify-content:flex-end;">
+  <button
+    pButton
+    type="button"
+    label="Volver"
+    icon="pi pi-arrow-left"
+    class="p-button-outlined"
+    (click)="volver()">
+  </button>
+</div>

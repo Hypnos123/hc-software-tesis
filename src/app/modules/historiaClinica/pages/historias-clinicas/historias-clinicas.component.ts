@@ -71,6 +71,10 @@ export class HistoriasClinicasComponent {
   globalFields = ['paciente.apellidos','paciente.nombres','dni'];
 
   clear(dt: any) { dt.clear(); this.searchValue = ''; }
+
   ver(row: HCRow) {}
-  consultas(row: HCRow) {}
+  
+  consultas(row: HCRow) {
+  this.router.navigate(['/historiaClinica/ver-consultas', row.id]);
+}
 }

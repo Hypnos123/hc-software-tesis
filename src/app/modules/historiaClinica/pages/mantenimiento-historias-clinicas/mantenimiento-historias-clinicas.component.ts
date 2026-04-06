@@ -99,10 +99,10 @@ export class MantenimientoHistoriasClinicasComponent {
   }
 
   cargarHistoria(id: number): void {
-    // Mock temporal, luego aquí llamas a tu service real
+    // Mock temporal
     const historiaMock = {
       idHistoriaClinica: id,
-      nombrePacienteSel: 'Mendoza Davalos Josefina Vera',
+      nombrePacienteSel: 'Mendozaas Davalos Josefina Vera',
       dniSel: '74526981',
       fechaIngreso: this.parseFecha('25/03/2026'),
       apellidos: 'Mendoza Davalos',

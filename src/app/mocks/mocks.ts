@@ -307,20 +307,72 @@ export const getConsultas = () => {
   },
   {
     "id": 2,
-    "paciente": "Mendoza Davalos Josefina Vera",
-    "dni": "74526981",
-    "especialidad": "Medicina General",
-    "doctor": "Marcos Chavez",
-    "fechaCreacion": "20/11/2024 - 18:00"
+    "paciente": "Ramírez Torres Luis Alberto",
+    "dni": "73214589",
+    "especialidad": "Cardiología",
+    "doctor": "Patricia Ríos",
+    "fechaCreacion": "15/03/2025 - 10:30"
   },
   {
     "id": 1,
-    "paciente": "Mendoza Davalos Josefina Vera",
-    "dni": "74526981",
-    "especialidad": "Medicina General",
-    "doctor": "Marcos Chavez",
-    "fechaCreacion": "20/11/2024 - 18:00"
+    "paciente": "García López Andrea Milagros",
+    "dni": "78965412",
+    "especialidad": "Pediatría",
+    "doctor": "José Valdivia",
+    "fechaCreacion": "12/02/2025 - 09:15"
   }
 
  ]
 }
+
+
+
+
+export const getHistoriasClinicas = () => {
+  return [
+    {
+      idHistoriaClinica: 1,
+      nombrePacienteSel: 'Mendoza Davalos Josefina Vera',
+      dniSel: '74526981',
+      fechaIngreso: '25/03/2026',
+      apellidos: 'Mendoza Davalos',
+      nombres: 'Josefina Vera',
+      estadoCivil: 'SOLTERO',
+      edad: 41,
+      dni: '74526981',
+      enfPrevias: 'Hipertensión',
+      cirugiasPrevias: 'Apendicectomía',
+      alergiasMedicamentos: 'Penicilina'
+    },
+    {
+      idHistoriaClinica: 2,
+      nombrePacienteSel: 'Quispe Huamán Luis Alberto',
+      dniSel: '42831659',
+      fechaIngreso: '18/03/2026',
+      apellidos: 'Quispe Huamán',
+      nombres: 'Luis Alberto',
+      estadoCivil: 'SOLTERO',
+      edad: 29,
+      dni: '42831659',
+      enfPrevias: 'Asma',
+      cirugiasPrevias: 'Ninguna',
+      alergiasMedicamentos: 'Ninguna'
+    },
+    {
+      idHistoriaClinica: 3,
+      nombrePacienteSel: 'Rojas Salazar María Elena',
+      dniSel: '76351844',
+      fechaIngreso: '10/03/2026',
+      apellidos: 'Rojas Salazar',
+      nombres: 'María Elena',
+      estadoCivil: 'CASADO',
+      edad: 36,
+      dni: '76351844',
+      enfPrevias: 'Diabetes tipo 2',
+      cirugiasPrevias: 'Cesárea',
+      alergiasMedicamentos: 'Ibuprofeno'
+    }
+  ];
+};
+
+
