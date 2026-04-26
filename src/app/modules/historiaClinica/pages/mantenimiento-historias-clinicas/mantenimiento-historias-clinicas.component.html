@@ -10,13 +10,16 @@
 
       <div class="col col-5">
         <label>Nombre Paciente</label>
-        <input pInputText type="text" formControlName="nombrePacienteSel">
+          <input pInputText type="text" formControlName="nombrePacienteSel"
+          (keyup.enter)="buscarPaciente()">
       </div>
 
-      <div class="col col-4">
-        <label>DNI</label>
-        <input pInputText type="text" formControlName="dniSel">
-      </div>
+    <div class="col col-4">
+      <label>DNI</label>
+        <input pInputText type="text" formControlName="dniSel"
+        (keyup.enter)="buscarPaciente()">
+    </div>
+
     </div>
   </p-fieldset>
 
@@ -88,7 +91,7 @@
       label="Guardar"
       icon="pi pi-check"
       (click)="guardar()"
-      [disabled]="frm.invalid">
+      [disabled]="!pacienteCargado">
     </button>
   </div>
 </div>

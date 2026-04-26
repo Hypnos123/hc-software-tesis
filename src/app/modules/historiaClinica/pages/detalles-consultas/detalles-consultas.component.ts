@@ -10,6 +10,7 @@ import { InputTextareaModule } from 'primeng/inputtextarea';
 
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { INuevaConsultaRequest } from '../../models/historiaClinica';
+import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 
 @Component({
   selector: 'app-detalles-consultas',
@@ -45,7 +46,8 @@ export class DetallesConsultasComponent implements OnInit {
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private historiaClinicaService: HistoriaClinicaService
+    private historiaClinicaService: HistoriaClinicaService,
+    private readonly servicioMensajesSwal: MensajesSwalService
   ) {}
 
   ngOnInit(): void {
@@ -57,6 +59,7 @@ export class DetallesConsultasComponent implements OnInit {
 
     if (this.esNuevo) {
       this.cargarDatosPaciente();
+      this.deshabilitarDatosPaciente();
     } else {
       this.cargarDetalleConsulta();
       this.frm.disable();
@@ -97,12 +100,12 @@ export class DetallesConsultasComponent implements OnInit {
       enfermedadesPrevias: 'Asma',
       cirugiasPrevias: 'No presenta',
       alergiaMedicamentos: 'No presenta',
-      presionArterial: '120/80',
-      frecuenciaCardiaca: '61',
-      frecuenciaRespiratoria: '20',
-      talla: '1.65',
-      temperatura: '36.5',
-      peso: '72',
+      presionArterial: '',
+      frecuenciaCardiaca: '',
+      frecuenciaRespiratoria: '',
+      talla: '',
+      temperatura: '',
+      peso: '',
       fechaConsulta: new Date(),
       tiempoEnfermedad: '',
       tipoEnfermedad: '',
@@ -114,6 +117,16 @@ export class DetallesConsultasComponent implements OnInit {
       proximaCita: null
     });
   }
+
+  deshabilitarDatosPaciente(): void {
+  this.frm.get('nombreCompleto')?.disable();
+  this.frm.get('dni')?.disable();
+  this.frm.get('edad')?.disable();
+
+  this.frm.get('enfermedadesPrevias')?.disable();
+  this.frm.get('cirugiasPrevias')?.disable();
+  this.frm.get('alergiaMedicamentos')?.disable();
+}
 
   cargarDetalleConsulta(): void {
     this.frm.patchValue({
@@ -146,31 +159,39 @@ export class DetallesConsultasComponent implements OnInit {
   }
 
   guardar(): void {
-    const request: INuevaConsultaRequest = {
-      idHistoriaClinica: this.idHistoriaClinica,
-      fechaConsulta: this.frm.value.fechaConsulta,
-      tiempoEnfermedad: this.frm.value.tiempoEnfermedad,
-      tipoEnfermedad: this.frm.value.tipoEnfermedad,
-      relatoPaciente: this.frm.value.relatoPaciente,
-      diagnostico: this.frm.value.diagnostico,
-      examenesRecetados: this.frm.value.examenesRecetados,
-      receta: this.frm.value.receta,
-      tratamiento: this.frm.value.tratamiento,
-      proximaCita: this.frm.value.proximaCita,
-      presionArterial: this.frm.value.presionArterial,
-      frecuenciaCardiaca: this.frm.value.frecuenciaCardiaca,
-      frecuenciaRespiratoria: this.frm.value.frecuenciaRespiratoria,
-      talla: this.frm.value.talla,
-      temperatura: this.frm.value.temperatura,
-      peso: this.frm.value.peso
-    };
+  this.servicioMensajesSwal
+    .mensajePregunta('¿Está seguro de guardar la nueva consulta?')
+    .then((response) => {
+      if (response.isConfirmed) {
+        const raw = this.frm.getRawValue();
 
-    console.log(request);
+        const request: INuevaConsultaRequest = {
+          idHistoriaClinica: this.idHistoriaClinica,
+          fechaConsulta: raw.fechaConsulta,
+          tiempoEnfermedad: raw.tiempoEnfermedad,
+          tipoEnfermedad: raw.tipoEnfermedad,
+          relatoPaciente: raw.relatoPaciente,
+          diagnostico: raw.diagnostico,
+          examenesRecetados: raw.examenesRecetados,
+          receta: raw.receta,
+          tratamiento: raw.tratamiento,
+          proximaCita: raw.proximaCita,
+          presionArterial: raw.presionArterial,
+          frecuenciaCardiaca: raw.frecuenciaCardiaca,
+          frecuenciaRespiratoria: raw.frecuenciaRespiratoria,
+          talla: raw.talla,
+          temperatura: raw.temperatura,
+          peso: raw.peso
+        };
 
-    // this.consultaService.insert(request).subscribe(() => {
-    //   this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica]);
-    // });
+        console.log(request);
 
-    this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica]);
-  }
+        // this.consultaService.insert(request).subscribe(() => {
+        //   this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica]);
+        // });
+
+        this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica]);
+      }
+    });
+}
 }

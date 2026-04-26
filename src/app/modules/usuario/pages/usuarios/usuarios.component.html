@@ -9,6 +9,7 @@
 <br>
 
 <section class="container-table">
+  
   <app-table
     *ngIf="isCargado"
     [listaElementos]="listaElementos"
@@ -20,4 +21,5 @@
     [acciones]="acciones"
     (eventoAccion)="eventoAccion($event)"
   ></app-table>
+
 </section>
