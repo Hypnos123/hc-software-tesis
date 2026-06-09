@@ -1,4 +1,7 @@
-<h1>Historia Clinica: <span>JUAN PABLO HERRERA MUÑOZ</span></h1>
+<h1>
+  Historia Clinica:
+  <span>{{ nombrePaciente | uppercase }}</span>
+</h1>
 
 <form [formGroup]="frm" class="page">
 
@@ -137,13 +140,13 @@
     [estiloBoton]="'p-button-outlined p-button-secondary'">
   </app-button>
 
-  <button pButton label="Guardar" icon="pi pi-save" class="btn-guardar" (click)="abrirConfirmacion()"
+  <!-- <button pButton label="Guardar" icon="pi pi-save" class="btn-guardar" (click)="abrirConfirmacion()"
     [disabled]="frm.invalid">
-  </button>
+  </button> -->
 
 </div>
 
-<p-dialog header="Confirmación" [(visible)]="mostrarConfirmacion" [modal]="true" [closable]="false"
+<!-- <p-dialog header="Confirmación" [(visible)]="mostrarConfirmacion" [modal]="true" [closable]="false"
   [style]="{width: '350px'}">
 
   <div class="confirm-body">
@@ -155,4 +158,4 @@
     <button pButton label="Si" icon="pi pi-check" class="p-button-primary" (click)="confirmar()"></button>
     <button pButton label="No" icon="pi pi-times" class="p-button-danger" (click)="cancelar()"></button>
   </ng-template>
-</p-dialog>
+</p-dialog> -->

@@ -17,6 +17,8 @@ import { IButton } from '@app/shared/components/table/models/table';
 import { Observable } from 'rxjs';
 import { IConsulta } from '../../models/consultas';
 import { TooltipModule } from 'primeng/tooltip';
+import { getHistoriasClinicas, getConsultas } from '@app/mocks/mocks';
+
 
 @Component({
   selector: 'app-mantenimiento-consultas',
@@ -45,6 +47,9 @@ export class MantenimientoConsultasComponent implements OnInit {
   colsVisibles: IColumnasTabla[] = [];
   acciones: IButton[] = [];
   listaElementos: IConsulta[] = [];
+  idHistoriaClinica!: number;
+  nombrePaciente: string = '';
+  historiaClinicaSeleccionada: any;
 
   frm: FormGroup = this.fb.group({
     datos: this.fb.group({
@@ -98,19 +103,85 @@ export class MantenimientoConsultasComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this.getAllElementos();
+  this.idHistoriaClinica = Number(this.route.snapshot.paramMap.get('id'));
 
+  this.cargarHistoriaClinica();
+  this.getColumnasTabla();
 
-    this.acciones = [
-      {
-        icono: 'pi pi-eye',
-        clase: 'rounded',
-        evento: 'ver',
-        estado: true,
-        tooltip: 'Ver consulta'
-      },
-    ]
+  this.acciones = [
+    {
+      icono: 'pi pi-eye',
+      clase: 'rounded',
+      evento: 'ver',
+      estado: true,
+      tooltip: 'Ver consulta'
+    },
+  ];
+}
+
+cargarHistoriaClinica() {
+  const historias = getHistoriasClinicas();
+
+  this.historiaClinicaSeleccionada = historias.find(
+    x => x.idHistoriaClinica === this.idHistoriaClinica
+  );
+
+  if (!this.historiaClinicaSeleccionada) {
+    console.warn('No se encontró historia clínica con ID:', this.idHistoriaClinica);
+    return;
   }
+
+  this.nombrePaciente = `${this.historiaClinicaSeleccionada.nombres} ${this.historiaClinicaSeleccionada.apellidos}`;
+
+  this.frm.patchValue({
+    datos: {
+      fechaIngreso: this.convertirFecha(this.historiaClinicaSeleccionada.fechaIngreso),
+      dni: this.historiaClinicaSeleccionada.dni,
+      apellidos: this.historiaClinicaSeleccionada.apellidos,
+      nombres: this.historiaClinicaSeleccionada.nombres,
+      estadoCivil: this.historiaClinicaSeleccionada.estadoCivil,
+      edad: this.historiaClinicaSeleccionada.edad,
+    },
+    antecedentes: {
+      alimentacion: this.historiaClinicaSeleccionada.alimentacion,
+      habitos: this.historiaClinicaSeleccionada.habitos,
+      vivienda: this.historiaClinicaSeleccionada.vivienda,
+      desarrolloPsico: this.historiaClinicaSeleccionada.desarrolloPsicomotor,
+      vacunas: this.historiaClinicaSeleccionada.vacunas,
+      educacion: this.historiaClinicaSeleccionada.educacion,
+      enfermedadesPrev: this.historiaClinicaSeleccionada.enfPrevias,
+      cirugiasPrevias: this.historiaClinicaSeleccionada.cirugiasPrevias,
+      alergiasMedicamentos: this.historiaClinicaSeleccionada.alergiasMedicamentos,
+    }
+  });
+
+  this.cargarConsultasDelPaciente();
+  this.frm.disable();
+
+}
+
+convertirFecha(fecha: string): Date | null {
+  if (!fecha) return null;
+
+  const partes = fecha.split('/');
+  const dia = Number(partes[0]);
+  const mes = Number(partes[1]) - 1;
+  const anio = Number(partes[2]);
+
+  return new Date(anio, mes, dia);
+}
+
+
+cargarConsultasDelPaciente() {
+  const consultas = getConsultas();
+
+  this.listaElementos = consultas.filter(
+    x => x.dni === this.historiaClinicaSeleccionada.dni
+  );
+
+  this.isCargado = true;
+}
+
 
   getColumnasTabla() {
     this.cols = [
@@ -182,7 +253,15 @@ export class MantenimientoConsultasComponent implements OnInit {
   }
 
   verElemento(data: any) {
-    const id = data.id;
-    this.router.navigateByUrl(`consultas/lista-consultas/detalle/${id}`);
-  }
+  const id = data.id;
+
+  this.router.navigate(
+    ['consultas/lista-consultas/detalle', id],
+    {
+      queryParams: {
+        idHistoriaClinica: this.idHistoriaClinica
+      }
+    }
+  );
+}
 }

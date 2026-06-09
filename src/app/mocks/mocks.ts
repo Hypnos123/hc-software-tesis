@@ -327,6 +327,70 @@ export const getConsultas = () => {
 
 
 
+export const getDetalleConsultas = () => {
+  return [
+    {
+      id: 1,
+      nombreCompleto: 'Herrera Muñoz Juan Pablo',
+      dni: '74589632',
+      edad: 41,
+
+      enfermedadesPrevias: 'Gastritis',
+      cirugiasPrevias: 'Ninguna',
+      alergiasMedicamentos: 'Ninguna',
+
+      presion: '120/80',
+      frecuenciaCardiaca: '78',
+      frecuenciaRespiratoria: '18',
+      talla: '1.70',
+      temperatura: '36.7',
+      peso: '72',
+
+      fechaConsulta: '20/11/2024',
+      tiempoEnfermedad: '2 días',
+      tipoEnfermedad: 'Aguda',
+      relato: 'Paciente refiere dolor abdominal desde hace dos días.',
+
+      diagnostico: '',
+      examenesRecetados: '',
+      receta: '',
+      tratamiento: '',
+      proximaCita: ''
+    },
+    {
+      id: 3,
+      nombreCompleto: 'Mendoza Davalos Josefina Vera',
+      dni: '74526981',
+      edad: 41,
+
+      enfermedadesPrevias: 'Hipertensión',
+      cirugiasPrevias: 'Apendicectomía',
+      alergiasMedicamentos: 'Penicilina',
+
+      presion: '120/80',
+      frecuenciaCardiaca: '78',
+      frecuenciaRespiratoria: '18',
+      talla: '1.62',
+      temperatura: '36.7',
+      peso: '65',
+
+      fechaConsulta: '10/05/2026',
+      tiempoEnfermedad: '3 días',
+      tipoEnfermedad: 'Aguda',
+      relato: 'Paciente refiere dolor abdominal moderado desde hace tres días.',
+
+      diagnostico: 'Dolor abdominal en evaluación',
+      examenesRecetados: 'Hemograma completo y examen de orina',
+      receta: 'Paracetamol 500mg cada 8 horas por 3 días',
+      tratamiento: 'Reposo, hidratación y dieta blanda',
+      proximaCita: '17/05/2026'
+    }
+  ];
+};
+
+
+
+
 
 export const getHistoriasClinicas = () => {
   return [
@@ -340,6 +404,14 @@ export const getHistoriasClinicas = () => {
       estadoCivil: 'SOLTERO',
       edad: 41,
       dni: '74526981',
+
+      alimentacion: 'Dieta balanceada',
+      habitos: 'No fuma, consumo ocasional de café',
+      vivienda: 'Casa propia',
+      desarrolloPsicomotor: 'Normal',
+      vacunas: 'Esquema completo',
+      educacion: 'T',
+
       enfPrevias: 'Hipertensión',
       cirugiasPrevias: 'Apendicectomía',
       alergiasMedicamentos: 'Penicilina'
@@ -354,6 +426,14 @@ export const getHistoriasClinicas = () => {
       estadoCivil: 'SOLTERO',
       edad: 29,
       dni: '42831659',
+
+      alimentacion: 'Dieta alta en carbohidratos',
+      habitos: 'Fumador ocasional',
+      vivienda: 'Departamento alquilado',
+      desarrolloPsicomotor: 'Normal',
+      vacunas: 'Esquema incompleto',
+      educacion: 'S1',
+
       enfPrevias: 'Asma',
       cirugiasPrevias: 'Ninguna',
       alergiasMedicamentos: 'Ninguna'
@@ -368,6 +448,12 @@ export const getHistoriasClinicas = () => {
       estadoCivil: 'CASADO',
       edad: 36,
       dni: '76351844',
+      alimentacion: 'Dieta baja en azúcar',
+      habitos: 'Sedentaria',
+      vivienda: 'Casa familiar',
+      desarrolloPsicomotor: 'Normal',
+      vacunas: 'Esquema completo',
+      educacion: 'S1',
       enfPrevias: 'Diabetes tipo 2',
       cirugiasPrevias: 'Cesárea',
       alergiasMedicamentos: 'Ibuprofeno'

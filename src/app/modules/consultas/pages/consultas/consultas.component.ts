@@ -16,6 +16,7 @@ import { PaginatorModule } from 'primeng/paginator';
 import { TooltipModule } from 'primeng/tooltip';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { Router } from '@angular/router';
+import { DialogModule } from 'primeng/dialog';
 
 interface ConsultaRow {
   id: number;
@@ -44,24 +45,55 @@ interface ConsultaRow {
     InputIconModule,
     PaginatorModule,
     TooltipModule,
-    ButtonComponent
+    ButtonComponent,
+    DialogModule,
   ],
   templateUrl: './consultas.component.html',
-  styleUrl: './consultas.component.scss'
+  styleUrl: './consultas.component.scss',
 })
 export class ConsultasComponent {
+  mostrarConfirmacionAtencion = false;
+  consultaSeleccionada: ConsultaRow | null = null;
 
   rows: ConsultaRow[] = [
-    { id: 1, paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
-    { id: 2, paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido' },
-    { id: 3, paciente: { apellidos: 'Rojas Salazar', nombres: 'María Elena' }, edad: 36, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Atendido' },
-    { id: 4, paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' }, edad: 41, motivo: 'Dolor abdominal', fechaRegistro: '2024-11-20T18:00:00', estado: 'Por atender' },
+    {
+      id: 1,
+      paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' },
+      edad: 41,
+      motivo: 'Dolor abdominal',
+      fechaRegistro: '2024-11-20T18:00:00',
+      estado: 'Por atender',
+    },
+    {
+      id: 2,
+      paciente: { apellidos: 'Mendoza Davalos', nombres: 'Josefina Vera' },
+      edad: 41,
+      motivo: 'Dolor abdominal',
+      fechaRegistro: '2024-11-20T18:00:00',
+      estado: 'Atendido',
+    },
+    {
+      id: 3,
+      paciente: { apellidos: 'Rojas Salazar', nombres: 'María Elena' },
+      edad: 36,
+      motivo: 'Dolor abdominal',
+      fechaRegistro: '2024-11-20T18:00:00',
+      estado: 'Atendido',
+    },
+    {
+      id: 4,
+      paciente: { apellidos: 'Herrera Muñoz', nombres: 'Juan Pablo' },
+      edad: 41,
+      motivo: 'Dolor abdominal',
+      fechaRegistro: '2024-11-20T18:00:00',
+      estado: 'Por atender',
+    },
   ];
 
   estadoOptions = [
     { label: 'Todos', value: null },
     { label: 'Por atender', value: 'Por atender' },
-    { label: 'Atendido', value: 'Atendido' }
+    { label: 'Atendido', value: 'Atendido' },
   ];
   estadoSeleccionado: string | null = null;
 
@@ -69,8 +101,8 @@ export class ConsultasComponent {
 
   constructor(
     private router: Router,
-    private readonly servicioMensajesSwal: MensajesSwalService
-  ) { }
+    private readonly servicioMensajesSwal: MensajesSwalService,
+  ) {}
 
   getSeverity(estado: ConsultaRow['estado']) {
     return estado === 'Por atender' ? 'warning' : 'success';
@@ -78,7 +110,8 @@ export class ConsultasComponent {
 
   // para filtro por estado usando p-table
   onFilterEstado(dt: any) {
-    if (this.estadoSeleccionado) dt.filter(this.estadoSeleccionado, 'estado', 'equals');
+    if (this.estadoSeleccionado)
+      dt.filter(this.estadoSeleccionado, 'estado', 'equals');
     else dt.clear();
   }
 
@@ -87,7 +120,27 @@ export class ConsultasComponent {
     this.router.navigateByUrl(`consultas/lista-consultas/${id}`);
   }
 
-  asignar(row: ConsultaRow) {
+  abrirConfirmacionAtencion(row: ConsultaRow) {
+    this.consultaSeleccionada = row;
+    this.mostrarConfirmacionAtencion = true;
   }
 
+  confirmarAtencion() {
+    if (!this.consultaSeleccionada) return;
+
+    const id = this.consultaSeleccionada.id;
+
+    this.mostrarConfirmacionAtencion = false;
+
+    this.router.navigate(['consultas/lista-consultas/detalle', id], {
+      queryParams: {
+        modo: 'atender',
+      },
+    });
+  }
+
+  cancelarAtencion() {
+    this.mostrarConfirmacionAtencion = false;
+    this.consultaSeleccionada = null;
+  }
 }

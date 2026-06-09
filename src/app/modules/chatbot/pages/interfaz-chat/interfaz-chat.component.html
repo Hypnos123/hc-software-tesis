@@ -1,0 +1,53 @@
+<!-- BOTÓN FLOTANTE -->
+<button class="chatbot-floating-btn" (click)="toggleChat()">
+  <i class="fa-solid fa-comment-medical"></i>
+</button>
+
+<!-- VENTANA CHAT -->
+<div class="chatbot-window" *ngIf="isOpen">
+
+  <!-- HEADER -->
+  <div class="chatbot-header">
+    <div>
+      <h4>Asistente IA</h4>
+      <span>Control de historias clínicas</span>
+    </div>
+
+    <button class="chatbot-close" (click)="toggleChat()">×</button>
+  </div>
+
+  <!-- BODY -->
+  <div class="chatbot-body" #chatBody>
+
+    <!-- MENSAJES -->
+    <div
+      *ngFor="let message of messages"
+      [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'"
+    >
+      {{ message.text }}
+    </div>
+
+  </div>
+
+  <!-- PREGUNTAS RÁPIDAS -->
+  <div class="quick-questions">
+    <button (click)="quickAsk('historias hoy')">Historias hoy</button>
+    <button (click)="quickAsk('pacientes mes')">Pacientes mes</button>
+    <button (click)="quickAsk('incompletas')">Incompletas</button>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="chatbot-footer">
+    <input
+      type="text"
+      placeholder="Escribe tu consulta..."
+      [(ngModel)]="userMessage"
+      (keyup.enter)="sendMessage()"
+    />
+
+    <button (click)="sendMessage()">
+      Enviar
+    </button>
+  </div>
+
+</div>

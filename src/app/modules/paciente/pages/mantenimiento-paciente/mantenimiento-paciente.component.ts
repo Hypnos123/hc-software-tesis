@@ -298,4 +298,82 @@ export class MantenimientoPacienteComponent {
     if (this.frm.get('datos')?.valid) this.activeIndex = 1;
     else this.frm.get('datos')?.markAllAsTouched();
   }
+
+
+
+  tiempoTranscurridoMs: number = 0;
+tiempoFormateado: string = '00:00:00.000';
+cronometroActivo: boolean = false;
+intervaloCronometro: any = null;
+
+private inicioCronometro: number = 0;
+private tiempoAcumuladoMs: number = 0;
+
+iniciarCronometro(): void {
+  if (this.cronometroActivo) return;
+
+  this.cronometroActivo = true;
+
+  // Si estaba pausado, continúa desde lo acumulado
+  this.inicioCronometro = Date.now() - this.tiempoAcumuladoMs;
+
+  this.intervaloCronometro = setInterval(() => {
+    this.tiempoTranscurridoMs = Date.now() - this.inicioCronometro;
+    this.actualizarTiempoFormateado();
+  }, 10); // actualiza cada 10 ms
+}
+
+pausarCronometro(): void {
+  if (!this.cronometroActivo) return;
+
+  this.cronometroActivo = false;
+
+  if (this.intervaloCronometro) {
+    clearInterval(this.intervaloCronometro);
+    this.intervaloCronometro = null;
+  }
+
+  this.tiempoAcumuladoMs = this.tiempoTranscurridoMs;
+}
+
+reiniciarCronometro(): void {
+  this.cronometroActivo = false;
+
+  if (this.intervaloCronometro) {
+    clearInterval(this.intervaloCronometro);
+    this.intervaloCronometro = null;
+  }
+
+  this.tiempoTranscurridoMs = 0;
+  this.tiempoAcumuladoMs = 0;
+  this.tiempoFormateado = '00:00:00.000';
+}
+
+actualizarTiempoFormateado(): void {
+  const horas = Math.floor(this.tiempoTranscurridoMs / 3600000);
+  const minutos = Math.floor((this.tiempoTranscurridoMs % 3600000) / 60000);
+  const segundos = Math.floor((this.tiempoTranscurridoMs % 60000) / 1000);
+  const milisegundos = this.tiempoTranscurridoMs % 1000;
+
+  this.tiempoFormateado =
+    `${this.formatoDosDigitos(horas)}:` +
+    `${this.formatoDosDigitos(minutos)}:` +
+    `${this.formatoDosDigitos(segundos)}.` +
+    `${this.formatoTresDigitos(milisegundos)}`;
+}
+
+formatoDosDigitos(valor: number): string {
+  return valor.toString().padStart(2, '0');
+}
+
+formatoTresDigitos(valor: number): string {
+  return valor.toString().padStart(3, '0');
+}
+
+ngOnDestroy(): void {
+  if (this.intervaloCronometro) {
+    clearInterval(this.intervaloCronometro);
+  }
+}
+
 }

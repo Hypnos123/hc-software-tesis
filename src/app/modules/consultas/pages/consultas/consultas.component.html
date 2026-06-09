@@ -84,14 +84,19 @@
         </td>
 
         <td class="acciones">
+
           <button pButton icon="pi pi-eye"
                   class="p-button-rounded p-button-text"
-                  pTooltip="Ver" (click)="ver(r)"></button>
+                  pTooltip="Ver" (click)="ver(r)">
+          </button>
 
           <button *ngIf="r.estado==='Por atender'"
-                  pButton icon="pi pi-users"
-                  class="p-button-rounded p-button-text"
-                  pTooltip="Asignar" (click)="asignar(r)"></button>
+            pButton icon="pi pi-user-plus"
+            class="p-button-rounded p-button-text"
+            pTooltip="Comenzar atención" 
+            (click)="abrirConfirmacionAtencion(r)">
+         </button>
+
         </td>
       </tr>
     </ng-template>
@@ -99,5 +104,42 @@
     <ng-template pTemplate="emptymessage">
       <tr><td colspan="7">No hay consultas por atender.</td></tr>
     </ng-template>
+
+    
   </p-table>
 </div>
+
+
+
+<p-dialog 
+  header="Confirmación" 
+  [(visible)]="mostrarConfirmacionAtencion" 
+  [modal]="true" 
+  [closable]="false"
+  [style]="{width: '350px'}">
+
+  <div class="confirm-body">
+    <i class="pi pi-question-circle icon"></i>
+    <p>¿Desea atender esta consulta?</p>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button 
+      pButton 
+      label="Sí" 
+      icon="pi pi-check" 
+      class="p-button-primary" 
+      (click)="confirmarAtencion()">
+    </button>
+
+    <button 
+      pButton 
+      label="No" 
+      icon="pi pi-times" 
+      class="p-button-danger" 
+      (click)="cancelarAtencion()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+

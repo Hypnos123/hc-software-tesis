@@ -54,20 +54,22 @@
           <label>Frecuencia Respiratoria</label>
           <input pInputText type="text" formControlName="frecuenciaRespiratoria">
         </div>
+
         <div class="col col-3">
           <label>Talla</label>
-          <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+          <input pInputText type="text" formControlName="talla">
         </div>
+        
       </div>
 
       <div class="form-grid">
         <div class="col col-3">
           <label>Temperatura</label>
-          <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+          <input pInputText type="text" formControlName="temperatura">
         </div>
         <div class="col col-3">
           <label>Peso</label>
-          <input pInputText type="text" formControlName="frecuenciaRespiratoria">
+          <input pInputText type="text" formControlName="peso">
         </div>
       </div>
     </p-fieldset>
@@ -141,11 +143,56 @@
 
   <!-- Footer acciones -->
   <div class="footer-actions">
-    <app-button [label]="'Regresar'" [router]="'/consultas'" [icono]="'pi pi-arrow-left'"
-      [estiloBoton]="'p-button-outlined p-button-secondary'">
-    </app-button>
-    <button pButton type="button" label="Guardar" icon="pi pi-check" (click)="guardar()"
-      [disabled]="frm.invalid"></button>
+  <button 
+    pButton 
+    type="button" 
+    label="Regresar" 
+    icon="pi pi-arrow-left"
+    class="p-button-outlined p-button-secondary"
+    (click)="regresar()">
+  </button>
+
+  <button 
+    *ngIf="mostrarGuardar"
+    pButton 
+    type="button" 
+    label="Guardar" 
+    icon="pi pi-check"
+    class="p-button-primary"
+    (click)="abrirConfirmacionGuardar()"
+    [disabled]="frm.invalid">
+  </button>
+</div>
+
+<p-dialog 
+  header="Confirmación" 
+  [(visible)]="mostrarConfirmacionGuardar" 
+  [modal]="true" 
+  [closable]="false"
+  [style]="{width: '350px'}">
+
+  <div class="confirm-body">
+    <i class="pi pi-question-circle icon"></i>
+    <p>¿Desea guardar la atención de esta consulta?</p>
   </div>
+
+  <ng-template pTemplate="footer">
+    <button 
+      pButton 
+      label="Sí" 
+      icon="pi pi-check" 
+      class="p-button-primary" 
+      (click)="confirmarGuardar()">
+    </button>
+
+    <button 
+      pButton 
+      label="No" 
+      icon="pi pi-times" 
+      class="p-button-danger" 
+      (click)="cancelarGuardar()">
+    </button>
+  </ng-template>
+</p-dialog>
 
 </div>
