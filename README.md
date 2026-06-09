@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # HcApp
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.17.
@@ -29,4 +29,3 @@ To get more help on the Angular CLI use `ng help` or go check out the [Angular C
 =======
 # hc-software-tesis
 Sistema de gestión de historias clínicas
->>>>>>> 480aa19659a4350b4256b1931aba77581e4c02f3
