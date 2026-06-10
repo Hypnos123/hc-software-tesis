@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: apihistorialmedico
+  datasource:
+    url: jdbc:mysql://localhost:3306/historiaclinicadb
+    username: visit
+    password: Paco123
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
