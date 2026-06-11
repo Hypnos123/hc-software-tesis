@@ -2,9 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ButtonComponent } from '@app/shared/components';
 import { IPaciente } from '../../models/paciente';
-import { IColumnasTabla } from '@app/shared/models/columnas';
 import { PacienteService } from '../../services/paciente.service';
-import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { TabViewModule } from 'primeng/tabview';
@@ -53,8 +51,7 @@ export class MantenimientoPacienteComponent {
     private fb: FormBuilder,
     private pacienteService: PacienteService,
     private router: Router,
-    private route: ActivatedRoute,
-    private readonly servicioMensajesSwal: MensajesSwalService
+    private route: ActivatedRoute
   ) { }
 
   frm: FormGroup = this.fb.group({
@@ -124,14 +121,20 @@ export class MantenimientoPacienteComponent {
     }
   }
 
-  parseFecha(fecha: string | undefined): Date | null {
+  parseFecha(fecha: string | Date | undefined): Date | null {
     if (!fecha) return null;
+    if (fecha instanceof Date) return fecha;
 
-    const partes = fecha.split('/');
-    if (partes.length !== 3) return null;
+    if (fecha.includes('/')) {
+      const partes = fecha.split('/');
+      if (partes.length !== 3) return null;
 
-    const [dia, mes, anio] = partes.map(Number);
-    return new Date(anio, mes - 1, dia);
+      const [dia, mes, anio] = partes.map(Number);
+      return new Date(anio, mes - 1, dia);
+    }
+
+    const date = new Date(fecha);
+    return isNaN(date.getTime()) ? null : date;
   }
 
   listarDropdown() {
@@ -152,8 +155,7 @@ export class MantenimientoPacienteComponent {
     this.pacienteService.getById(id).subscribe((paciente) => {
       if (!paciente) return;
 
-      const sexoFiltrado = this.sexo_Opcion.find((sexo) => sexo.label === paciente.sexo);
-      const educacionFiltrada = this.educacion_Opcion.find((e) => e.label === paciente.educacion);
+      const sexoFiltrado = this.sexo_Opcion.find((sexo) => sexo.value === paciente.sexo || sexo.label === paciente.sexo);
 
       this.frm.patchValue({
         datos: {
@@ -164,22 +166,22 @@ export class MantenimientoPacienteComponent {
           fechaNac: this.parseFecha(paciente.fechaNacimiento),
           estadoCivil: paciente.estadoCivil ?? '',
           edad: paciente.edad ?? null,
-          dni: paciente.dni ?? '',
-          sexo: sexoFiltrado ?? null,
+          dni: paciente.numDocumento ?? paciente.dni ?? '',
+          sexo: sexoFiltrado ?? paciente.sexo ?? null,
           direccion: paciente.direccion ?? '',
           distrito: paciente.distrito ?? '',
           traidoPor: paciente.traidoPor ?? '',
         },
         antecedentes: {
-          alimentacion: paciente.alimentacion ?? '',
-          habitos: paciente.habitos ?? '',
-          vivienda: paciente.vivienda ?? '',
-          desarrolloPsico: paciente.desarrolloPsicomotor ?? '',
-          vacunas: paciente.vacunas ?? '',
-          educacion: educacionFiltrada ?? '',
-          enfermedadesPrev: paciente.enfermedadesPrevias ?? '',
-          cirugiasPrevias: paciente.cirugiasPrevias ?? '',
-          alergiasMedicamentos: paciente.alergiaMedicamentos ?? '',
+          alimentacion: '',
+          habitos: '',
+          vivienda: '',
+          desarrolloPsico: '',
+          vacunas: '',
+          educacion: '',
+          enfermedadesPrev: '',
+          cirugiasPrevias: '',
+          alergiasMedicamentos: '',
         }
       });
 
@@ -204,8 +206,8 @@ export class MantenimientoPacienteComponent {
   confirmarGuardar() {
     if (this.modo === 'ver') return;
 
-    if (this.frm.invalid) {
-      this.frm.markAllAsTouched();
+    if (this.frm.get('datos')?.invalid) {
+      this.frm.get('datos')?.markAllAsTouched();
       return;
     }
 
@@ -241,13 +243,7 @@ export class MantenimientoPacienteComponent {
   }
 
   registrarPaciente() {
-    const payload = this.frm.getRawValue();
-
-    const params: IPaciente = {
-      ...payload.datos,
-      ...payload.antecedentes
-    };
-
+    const params = this.buildPacienteRequest();
 
     this.pacienteService.insert(params).subscribe({
       next: (response) => {
@@ -261,18 +257,9 @@ export class MantenimientoPacienteComponent {
   }
 
   actualizarPaciente() {
-    const payload = {
-      idPaciente: this.pacienteId,
-      ...this.frm.getRawValue()
-    };
+    if (!this.pacienteId) return;
 
-    console.log('payload actualizar', payload);
-
-    const params: IPaciente = {
-      ...payload.datos,
-      ...payload.antecedentes
-    };
-
+    const params = this.buildPacienteRequest(this.pacienteId);
 
     this.pacienteService.update(this.pacienteId, params).subscribe({
       next: (response) => {
@@ -283,6 +270,25 @@ export class MantenimientoPacienteComponent {
       },
       error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar.' })
     });
+  }
+
+  private buildPacienteRequest(idPaciente?: number): IPaciente {
+    const datos = this.frm.getRawValue().datos;
+    const sexo = datos.sexo && typeof datos.sexo === 'object' ? datos.sexo.value : datos.sexo;
+
+    return {
+      idPaciente,
+      nombres: datos.nombres,
+      apellidos: datos.apellidos,
+      fechaIngreso: datos.fechaIngreso,
+      fechaNacimiento: datos.fechaNac,
+      estadoCivil: datos.estadoCivil,
+      numDocumento: datos.dni,
+      sexo,
+      direccion: datos.direccion,
+      distrito: datos.distrito,
+      traidoPor: datos.traidoPor,
+    };
   }
 
   back() {
