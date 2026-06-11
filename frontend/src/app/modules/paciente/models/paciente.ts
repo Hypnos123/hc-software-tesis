@@ -8,9 +8,10 @@ export interface IPaciente {
   edad?: string | number;
   dni?: string;
   fechaRegistro?: string;
-  fechaIngreso?: string;
-  fechaNacimiento?: string;
+  fechaIngreso?: string | Date;
+  fechaNacimiento?: string | Date;
   estadoCivil?: string;
+  numDocumento?: string;
   sexo?: string;
   direccion?: string;
   distrito?: string;
@@ -25,4 +26,10 @@ export interface IPaciente {
   enfermedadesPrevias?: string;
   cirugiasPrevias?: string;
   alergiaMedicamentos?: string;
+}
+
+export interface IResponseModelGet<T> {
+  data?: T[];
+  mensaje?: string;
+  error?: string;
 }
