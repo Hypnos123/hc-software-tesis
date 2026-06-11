@@ -237,8 +237,8 @@ export class MantenimientoPacienteComponent {
   confirmarGuardar() {
     if (this.modo === 'ver') return;
 
-    if (this.frm.invalid) {
-      this.frm.markAllAsTouched();
+    if (this.frm.get('datos')?.invalid) {
+      this.frm.get('datos')?.markAllAsTouched();
       return;
     }
 
