@@ -1,5 +1,6 @@
 export interface IResponse {
   data?: any[];
+  idGenerado?: number;
   mensaje: string;
   error: string;
 }

@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { ButtonComponent } from '@app/shared/components';
 import { IPaciente } from '../../models/paciente';
 import { PacienteService } from '../../services/paciente.service';
+import { AntecedentesService } from '../../services/antecedentes.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { TabViewModule } from 'primeng/tabview';
@@ -12,6 +13,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { ButtonModule } from 'primeng/button';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { DialogModule } from 'primeng/dialog';
+import { switchMap } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
 export interface IOption {
@@ -43,6 +45,7 @@ export class MantenimientoPacienteComponent {
   modo: 'nuevo' | 'ver' | 'editar' = 'nuevo';
   titulo = 'Nuevo Paciente';
   pacienteId: number | null = null;
+  antecedenteId: number | null = null;
 
   sexo_Opcion: IOption[] = [];
   educacion_Opcion: IOption[] = [];
@@ -50,6 +53,7 @@ export class MantenimientoPacienteComponent {
   constructor(
     private fb: FormBuilder,
     private pacienteService: PacienteService,
+    private antecedentesService: AntecedentesService,
     private router: Router,
     private route: ActivatedRoute
   ) { }
@@ -185,9 +189,36 @@ export class MantenimientoPacienteComponent {
         }
       });
 
+      this.cargarAntecedentes(id);
+
       if (this.modo === 'ver') {
         this.frm.disable();
       }
+    });
+  }
+
+  cargarAntecedentes(idPaciente: number): void {
+    this.antecedentesService.getByPacienteId(idPaciente).subscribe((antecedente) => {
+      if (!antecedente) return;
+
+      this.antecedenteId = antecedente.idAntecedentes ?? null;
+      const educacionFiltrada = this.educacion_Opcion.find(
+        (educacion) => educacion.value === antecedente.educacion || educacion.label === antecedente.educacion
+      );
+
+      this.frm.patchValue({
+        antecedentes: {
+          alimentacion: antecedente.alimentacion ?? '',
+          habitos: antecedente.habitos ?? '',
+          vivienda: antecedente.vivienda ?? '',
+          desarrolloPsico: antecedente.desarrolloPsicomotor ?? '',
+          vacunas: antecedente.vacunas ?? '',
+          educacion: educacionFiltrada ?? antecedente.educacion ?? '',
+          enfermedadesPrev: antecedente.enfermedadesPrevias ?? '',
+          cirugiasPrevias: antecedente.cirugiasPrevias ?? '',
+          alergiasMedicamentos: antecedente.alergiaMedicamentos ?? '',
+        }
+      });
     });
   }
 
@@ -245,7 +276,14 @@ export class MantenimientoPacienteComponent {
   registrarPaciente() {
     const params = this.buildPacienteRequest();
 
-    this.pacienteService.insert(params).subscribe({
+    this.pacienteService.insert(params).pipe(
+      switchMap((response) => {
+        const idPaciente = response.idGenerado;
+        if (!idPaciente) throw new Error('No se recibió el id del paciente generado.');
+
+        return this.antecedentesService.insert(this.buildAntecedentesRequest(idPaciente));
+      })
+    ).subscribe({
       next: (response) => {
         if (response) {
           Swal.fire({ icon: 'success', title: 'Guardado', timer: 1200, showConfirmButton: false });
@@ -261,7 +299,9 @@ export class MantenimientoPacienteComponent {
 
     const params = this.buildPacienteRequest(this.pacienteId);
 
-    this.pacienteService.update(this.pacienteId, params).subscribe({
+    this.pacienteService.update(this.pacienteId, params).pipe(
+      switchMap(() => this.guardarAntecedentes(this.pacienteId!))
+    ).subscribe({
       next: (response) => {
         if (response) {
           Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1200, showConfirmButton: false });
@@ -288,6 +328,35 @@ export class MantenimientoPacienteComponent {
       direccion: datos.direccion,
       distrito: datos.distrito,
       traidoPor: datos.traidoPor,
+    };
+  }
+
+
+  private guardarAntecedentes(idPaciente: number) {
+    const params = this.buildAntecedentesRequest(idPaciente, this.antecedenteId ?? undefined);
+
+    return this.antecedenteId
+      ? this.antecedentesService.update(this.antecedenteId, params)
+      : this.antecedentesService.insert(params);
+  }
+
+  private buildAntecedentesRequest(idPaciente: number, idAntecedentes?: number): IPaciente {
+    const antecedentes = this.frm.getRawValue().antecedentes;
+    const educacion = antecedentes.educacion && typeof antecedentes.educacion === 'object'
+      ? antecedentes.educacion.value
+      : antecedentes.educacion;
+
+    return {
+      idAntecedentes,
+      idPaciente,
+      alimentacion: antecedentes.alimentacion,
+      habitos: antecedentes.habitos,
+      vivienda: antecedentes.vivienda,
+      desarrolloPsicomotor: antecedentes.desarrolloPsico,
+      vacunas: antecedentes.vacunas,
+      educacion,
+      cirugiasPrevias: antecedentes.cirugiasPrevias,
+      alergiaMedicamentos: antecedentes.alergiasMedicamentos,
     };
   }
 

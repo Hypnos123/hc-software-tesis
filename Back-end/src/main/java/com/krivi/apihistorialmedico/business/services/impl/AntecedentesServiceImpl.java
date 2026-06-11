@@ -28,20 +28,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   @Override
   public ResponseModelGet<AntecedentesResponse> getAllActive() {
     List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
-    antecedentesRepository.findAll().forEach(antecedentes -> {
-
-      antecedentesResponseList.add(AntecedentesResponse.builder()
-          .idAntecedentes(antecedentes.getIdAntecedentes())
-          .alimentacion(antecedentes.getAlimentacion())
-          .habitos(antecedentes.getHabitos())
-          .vivienda(antecedentes.getVivienda())
-          .desarrolloPsicomotor(antecedentes.getDesarrolloPsicomotor())
-              .vacunas(antecedentes.getVacunas())
-              .educacion(antecedentes.getEducacion())
-              .cirugiasPrevias(antecedentes.getCirugiasPrevias())
-              .alergiaMedicamentos(antecedentes.getAlergiaMedicamentos())
-          .build());
-    });
+    antecedentesRepository.findAll().forEach(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
 
     ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
     responseModelGet.setData(antecedentesResponseList);
@@ -52,20 +39,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   @Override
   public ResponseModelGet<AntecedentesResponse> findById(int idAntecedente) {
     List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
-    Antecedentes antecedentes = antecedentesRepository.findById(idAntecedente).orElse(null);
-
-      antecedentesResponseList.add(AntecedentesResponse.builder()
-          .idAntecedentes(antecedentes.getIdAntecedentes())
-          .alimentacion(antecedentes.getAlimentacion())
-          .habitos(antecedentes.getHabitos())
-          .vivienda(antecedentes.getVivienda())
-          .desarrolloPsicomotor(antecedentes.getDesarrolloPsicomotor())
-          .vacunas(antecedentes.getVacunas())
-          .educacion(antecedentes.getEducacion())
-          .cirugiasPrevias(antecedentes.getCirugiasPrevias())
-          .alergiaMedicamentos(antecedentes.getAlergiaMedicamentos())
-          .build());
-
+    antecedentesRepository.findById(idAntecedente).ifPresent(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
 
     ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
     responseModelGet.setData(antecedentesResponseList);
@@ -73,23 +47,24 @@ public class AntecedentesServiceImpl implements AntecedentesService {
     return responseModelGet;
   }
 
+  @Override
+  public ResponseModelGet<AntecedentesResponse> findByPaciente(int idPaciente) {
+    List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
+    antecedentesRepository.findByPacienteIdPaciente(idPaciente)
+        .forEach(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
+
+    ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
+    responseModelGet.setData(antecedentesResponseList);
+    responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
+    return responseModelGet;
+  }
 
   @Override
   public ResponseModelSet save(AntecedentesRequest analisisRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
-      Antecedentes antecedentes = new Antecedentes();
-      antecedentes.setAlimentacion(analisisRequest.getAlimentacion());
-      antecedentes.setHabitos(analisisRequest.getHabitos());
-      antecedentes.setVivienda(analisisRequest.getVivienda());
-      antecedentes.setDesarrolloPsicomotor(analisisRequest.getDesarrolloPsicomotor());
-      antecedentes.setVacunas(analisisRequest.getVacunas());
-      antecedentes.setEducacion(analisisRequest.getEducacion());
-      antecedentes.setCirugiasPrevias(analisisRequest.getCirugiasPrevias());
-      antecedentes.setAlergiaMedicamentos(analisisRequest.getAlergiaMedicamentos());
-      antecedentes.setPaciente(new Paciente(analisisRequest.getIdPaciente()));
-
-      antecedentesRepository.save(antecedentes);
+      Antecedentes antecedentesResponse = antecedentesRepository.save(toEntity(analisisRequest));
+      responseModelSet.setIdGenerado(antecedentesResponse.getIdAntecedentes());
       responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
       return responseModelSet;
 
@@ -105,19 +80,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
 
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
-      Antecedentes antecedentes = new Antecedentes();
-      antecedentes.setIdAntecedentes(analisisRequest.getIdAntecedentes());
-      antecedentes.setAlimentacion(analisisRequest.getAlimentacion());
-      antecedentes.setHabitos(analisisRequest.getHabitos());
-      antecedentes.setVivienda(analisisRequest.getVivienda());
-      antecedentes.setDesarrolloPsicomotor(analisisRequest.getDesarrolloPsicomotor());
-      antecedentes.setVacunas(analisisRequest.getVacunas());
-      antecedentes.setEducacion(analisisRequest.getEducacion());
-      antecedentes.setCirugiasPrevias(analisisRequest.getCirugiasPrevias());
-      antecedentes.setAlergiaMedicamentos(analisisRequest.getAlergiaMedicamentos());
-      antecedentes.setPaciente(new Paciente(analisisRequest.getIdPaciente()));
-
-      antecedentesRepository.save(antecedentes);
+      antecedentesRepository.save(toEntity(analisisRequest));
       responseModelSet.setMensaje(MENSAJE_EDITAR_OK);
       return responseModelSet;
 
@@ -128,5 +91,34 @@ public class AntecedentesServiceImpl implements AntecedentesService {
     }
   }
 
+  private Antecedentes toEntity(AntecedentesRequest analisisRequest) {
+    Antecedentes antecedentes = new Antecedentes();
+    antecedentes.setIdAntecedentes(analisisRequest.getIdAntecedentes());
+    antecedentes.setAlimentacion(analisisRequest.getAlimentacion());
+    antecedentes.setHabitos(analisisRequest.getHabitos());
+    antecedentes.setVivienda(analisisRequest.getVivienda());
+    antecedentes.setDesarrolloPsicomotor(analisisRequest.getDesarrolloPsicomotor());
+    antecedentes.setVacunas(analisisRequest.getVacunas());
+    antecedentes.setEducacion(analisisRequest.getEducacion());
+    antecedentes.setCirugiasPrevias(analisisRequest.getCirugiasPrevias());
+    antecedentes.setAlergiaMedicamentos(analisisRequest.getAlergiaMedicamentos());
+    antecedentes.setPaciente(new Paciente(analisisRequest.getIdPaciente()));
+    return antecedentes;
+  }
 
+  private AntecedentesResponse toResponse(Antecedentes antecedentes) {
+    return AntecedentesResponse.builder()
+        .idAntecedentes(antecedentes.getIdAntecedentes())
+        .alimentacion(antecedentes.getAlimentacion())
+        .habitos(antecedentes.getHabitos())
+        .vivienda(antecedentes.getVivienda())
+        .desarrolloPsicomotor(antecedentes.getDesarrolloPsicomotor())
+        .vacunas(antecedentes.getVacunas())
+        .educacion(antecedentes.getEducacion())
+        .cirugiasPrevias(antecedentes.getCirugiasPrevias())
+        .alergiaMedicamentos(antecedentes.getAlergiaMedicamentos())
+        .idPaciente(antecedentes.getPaciente().getIdPaciente())
+        .nombreApellidos(antecedentes.getPaciente().getApellidos() + " " + antecedentes.getPaciente().getNombres())
+        .build();
+  }
 }
