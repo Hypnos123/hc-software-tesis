@@ -66,7 +66,7 @@ public class PacienteController {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
       pacienteRequest.setIdPaciente(idPaciente);
-      return ResponseEntity.ok(pacienteService.save(pacienteRequest));
+      return ResponseEntity.ok(pacienteService.update(pacienteRequest));
     } catch (Exception e) {
       responseModelSet.setError("Error al realizar el update en la base de datos: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseModelSet);

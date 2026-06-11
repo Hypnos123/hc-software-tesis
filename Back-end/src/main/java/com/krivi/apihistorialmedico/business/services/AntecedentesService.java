@@ -12,6 +12,8 @@ public interface AntecedentesService {
 
   ResponseModelGet<AntecedentesResponse> findById(int idAnalisis);
 
+  ResponseModelGet<AntecedentesResponse> findByPaciente(int idPaciente);
+
   ResponseModelSet save(AntecedentesRequest analisisRequest);
 
   ResponseModelSet update(AntecedentesRequest analisisRequest);

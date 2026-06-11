@@ -50,6 +50,19 @@ public class AntecedentesController {
     }
   }
 
+  @GetMapping("/findByPaciente/{idPaciente}")
+  public ResponseEntity<ResponseModelGet<AntecedentesResponse>> findByPaciente(@PathVariable("idPaciente") int idPaciente) {
+
+    ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
+    try {
+      return ResponseEntity.status(HttpStatus.OK).body(antecedentesService.findByPaciente(idPaciente));
+    } catch (Exception e) {
+      responseModelGet.setMensaje(Constant.MENSAJE_ERROR);
+      responseModelGet.setError(e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseModelGet);
+    }
+  }
+
   @PostMapping("/insert/antecedente")
   public ResponseEntity<ResponseModelSet> create(@RequestBody AntecedentesRequest antecedentesRequest) {
 
@@ -70,7 +83,7 @@ public class AntecedentesController {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
       antecedentesRequest.setIdAntecedentes(idAntecedente);
-      return ResponseEntity.ok(antecedentesService.save(antecedentesRequest));
+      return ResponseEntity.ok(antecedentesService.update(antecedentesRequest));
     } catch (Exception e) {
       responseModelSet.setError("Error al realizar el update en la base de datos: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseModelSet);

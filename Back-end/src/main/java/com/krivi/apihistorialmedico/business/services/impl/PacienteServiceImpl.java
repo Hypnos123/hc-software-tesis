@@ -91,7 +91,8 @@ public class PacienteServiceImpl implements PacienteService {
       paciente.setDistrito(pacienteRequest.getDistrito());
       paciente.setTraidoPor(pacienteRequest.getTraidoPor());
 
-      pacienteRepository.save(paciente);
+      Paciente pacienteResponse = pacienteRepository.save(paciente);
+      responseModelSet.setIdGenerado(pacienteResponse.getIdPaciente());
       responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
       return responseModelSet;
 
