@@ -1,15 +1,14 @@
 package com.krivi.apihistorialmedico.model.api;
-
-
-import com.krivi.apihistorialmedico.model.entity.Paciente;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Builder
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AntecedentesRequest {
-
-
    Integer idAntecedentes;
    String alimentacion;
    String habitos;

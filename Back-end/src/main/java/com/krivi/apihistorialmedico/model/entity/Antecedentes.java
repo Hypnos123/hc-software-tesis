@@ -27,7 +27,7 @@ public class Antecedentes {
   private String educacion;
   @Column(name = "cirugiasprevias")
   private String cirugiasPrevias;
-  @Column(name = "alergiasmedicamentos" )
+  @Column(name = "alergiamedicamentos" )
   private String alergiaMedicamentos;
 
   @ManyToOne

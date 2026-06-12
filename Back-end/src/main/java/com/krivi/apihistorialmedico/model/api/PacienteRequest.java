@@ -1,14 +1,16 @@
 package com.krivi.apihistorialmedico.model.api;
 
-
-
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.util.Date;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PacienteRequest {
 
   private Integer idPaciente;
