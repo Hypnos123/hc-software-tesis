@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`antecedentes` (
   `desarrollopsicomotor` VARCHAR(120) NULL,
   `vacunas` VARCHAR(120) NULL,
   `educacion` VARCHAR(120) NULL,
+  `enfermedadesprevias` VARCHAR(120) NULL,
   `cirugiasprevias` VARCHAR(120) NULL,
   `alergiamedicamentos` VARCHAR(120) NULL,
   `idpaciente` INT NOT NULL,

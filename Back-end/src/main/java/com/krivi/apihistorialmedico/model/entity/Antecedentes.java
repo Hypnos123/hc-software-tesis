@@ -25,6 +25,8 @@ public class Antecedentes {
   private String desarrolloPsicomotor;
   private String vacunas;
   private String educacion;
+  @Column(name = "enfermedadesprevias")
+  private String enfermedadesPrevias;
   @Column(name = "cirugiasprevias")
   private String cirugiasPrevias;
   @Column(name = "alergiamedicamentos" )
