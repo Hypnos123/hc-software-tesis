@@ -14,6 +14,7 @@ public class AntecedentesResponse {
   String desarrolloPsicomotor;
   String vacunas;
   String educacion;
+  String enfermedadesPrevias;
   String cirugiasPrevias;
   String alergiaMedicamentos;
   Integer idPaciente;

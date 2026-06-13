@@ -355,6 +355,7 @@ export class MantenimientoPacienteComponent {
       desarrolloPsicomotor: antecedentes.desarrolloPsico,
       vacunas: antecedentes.vacunas,
       educacion,
+      enfermedadesPrevias: antecedentes.enfermedadesPrev,
       cirugiasPrevias: antecedentes.cirugiasPrevias,
       alergiaMedicamentos: antecedentes.alergiasMedicamentos,
     };

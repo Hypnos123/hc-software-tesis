@@ -100,6 +100,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
     antecedentes.setDesarrolloPsicomotor(analisisRequest.getDesarrolloPsicomotor());
     antecedentes.setVacunas(analisisRequest.getVacunas());
     antecedentes.setEducacion(analisisRequest.getEducacion());
+    antecedentes.setEnfermedadesPrevias(analisisRequest.getEnfermedadesPrevias());
     antecedentes.setCirugiasPrevias(analisisRequest.getCirugiasPrevias());
     antecedentes.setAlergiaMedicamentos(analisisRequest.getAlergiaMedicamentos());
     antecedentes.setPaciente(new Paciente(analisisRequest.getIdPaciente()));
@@ -115,6 +116,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
         .desarrolloPsicomotor(antecedentes.getDesarrolloPsicomotor())
         .vacunas(antecedentes.getVacunas())
         .educacion(antecedentes.getEducacion())
+        .enfermedadesPrevias(antecedentes.getEnfermedadesPrevias())
         .cirugiasPrevias(antecedentes.getCirugiasPrevias())
         .alergiaMedicamentos(antecedentes.getAlergiaMedicamentos())
         .idPaciente(antecedentes.getPaciente().getIdPaciente())
