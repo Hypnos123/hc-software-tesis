@@ -46,8 +46,8 @@ export class MantenimientoEmpleadoComponent implements OnInit {
   empleadoForm = this.fb.group({
     tipoDocumento: [null, [Validators.required]],
     numDocumento: ['', [Validators.required, documentoValidator()]],
-    nombre: [null, [Validators.required]],
-    apellido: [null, [Validators.required]],
+    nombres: [null, [Validators.required]],
+    apellidos: [null, [Validators.required]],
     direccion: [null, [Validators.required]],
     telefono: [null, [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
     celular: [null, [Validators.required, Validators.pattern(PATTERNS.CELULAR)]],
@@ -80,12 +80,12 @@ export class MantenimientoEmpleadoComponent implements OnInit {
     return this.empleadoForm.get('numDocumento');
   }
 
-  get nombre() {
-    return this.empleadoForm.get('nombre');
+  get nombres() {
+    return this.empleadoForm.get('nombres');
   }
 
-  get apellido() {
-    return this.empleadoForm.get('apellido');
+  get apellidos() {
+    return this.empleadoForm.get('apellidos');
   }
 
   get direccion() {
@@ -139,8 +139,8 @@ export class MantenimientoEmpleadoComponent implements OnInit {
     const {
       tipoDocumento,
       numDocumento,
-      nombre,
-      apellido,
+      nombres,
+      apellidos,
       direccion,
       telefono,
       celular,
@@ -150,8 +150,8 @@ export class MantenimientoEmpleadoComponent implements OnInit {
     const params: IEmpleado = {
       tipoDocumento: (tipoDocumento as any).tipo,
       numDocumento: numDocumento ?? '',
-      nombre: nombre,
-      apellido: apellido,
+      nombres: nombres ?? '',
+      apellidos: apellidos ?? '',
       direccion: direccion,
       telefono: telefono,
       celular: celular,
@@ -224,8 +224,8 @@ export class MantenimientoEmpleadoComponent implements OnInit {
     this.empleadoForm.patchValue({
       tipoDocumento: tipoDocumento,
       numDocumento: resultado.numDocumento,
-      nombre: resultado.nombre,
-      apellido: resultado.apellido,
+      nombres: resultado.nombres,
+      apellidos: resultado.apellidos,
       direccion: resultado.direccion,
       telefono: resultado.telefono,
       celular: resultado.celular,

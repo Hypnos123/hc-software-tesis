@@ -224,7 +224,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
       tipoUsuario: tipoUsuario,
       empleado: empleado,
       numEmpleado: empleado?.numDocumento,
-      datosEmpleado: `${empleado?.nombre} ${empleado?.apellido}`,
+      datosEmpleado: `${empleado?.nombres} ${empleado?.apellidos}`,
     });
   }
 
@@ -244,8 +244,8 @@ export class MantenimientoUsuarioComponent implements OnInit {
     this.colsEmpleado = [
       { field: 'tipoDocumento', header: 'Tipo de Documento', visibility: true, formatoFecha: '' },
       { field: 'numDocumento', header: 'Nro de Documento', visibility: true, formatoFecha: '' },
-      { field: 'nombre', header: 'Nombres', visibility: true, formatoFecha: '' },
-      { field: 'apellido', header: 'Apellidos', visibility: true, formatoFecha: '' },
+      { field: 'nombres', header: 'Nombres', visibility: true, formatoFecha: '' },
+      { field: 'apellidos', header: 'Apellidos', visibility: true, formatoFecha: '' },
     ];
 
     this.colsEmpleadoVisibles = this.colsEmpleado.filter(
@@ -281,7 +281,7 @@ export class MantenimientoUsuarioComponent implements OnInit {
       if (valorEncontrado) {
         this.usuarioForm.patchValue(
           {
-            datosEmpleado: ` ${valorEncontrado.nombre} ${valorEncontrado.apellido}`,
+            datosEmpleado: ` ${valorEncontrado.nombres} ${valorEncontrado.apellidos}`,
             empleado: valorEncontrado
           });
       } else {
@@ -297,10 +297,10 @@ export class MantenimientoUsuarioComponent implements OnInit {
 
   putEmpleadoSeleccionado() {
     if (this.rowSeleccionado) {
-      const { numDocumento, nombre, apellido } = this.rowSeleccionado;
+      const { numDocumento, nombres, apellidos } = this.rowSeleccionado;
       this.usuarioForm.patchValue({
         numEmpleado: numDocumento,
-        datosEmpleado: `${nombre}  ${apellido}`,
+        datosEmpleado: `${nombres}  ${apellidos}`,
         empleado: this.rowSeleccionado
       });
       this.isDNIEmpleadoInvalid = false;
