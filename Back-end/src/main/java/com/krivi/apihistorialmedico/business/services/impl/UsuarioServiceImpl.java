@@ -158,14 +158,33 @@ public class UsuarioServiceImpl implements UsuarioService {
 
   @Override
   public ResponseModelGet<LoginResponse> login(String usuario, String contrasena) {
+    ResponseModelGet<LoginResponse> responseModelGet = new ResponseModelGet<>();
+    List<UsuarioLoginProjection> usuarios = usuarioRepository.getLogin(usuario, contrasena);
+
+    if (usuarios.isEmpty()) {
+      responseModelGet.setData(Collections.emptyList());
+      responseModelGet.setMensaje("Usuario o contraseña incorrectos, o usuario/empleado inactivo");
+      return responseModelGet;
+    }
+
+    UsuarioLoginProjection usuarioLoginProjection = usuarios.get(0);
+    UsuarioLoginResponse usuarioLoginResponse = UsuarioLoginResponse.builder()
+        .idUsuario(usuarioLoginProjection.getIdUsuario())
+        .usuario(usuarioLoginProjection.getUsuario())
+        .tipoUsuario(usuarioLoginProjection.getTipoUsuario())
+        .estadoUsuario(usuarioLoginProjection.getEstadoUsuario())
+        .idEmpleado(usuarioLoginProjection.getIdEmpleado())
+        .nombres(usuarioLoginProjection.getNombres())
+        .apellidos(usuarioLoginProjection.getApellidos())
+        .cargo(usuarioLoginProjection.getCargo())
+        .estadoEmpleado(usuarioLoginProjection.getEstadoEmpleado())
+        .build();
 
     LoginResponse loginResponse = new LoginResponse();
-    UsuarioLoginProjection usuarioLoginProjection = usuarioRepository.getLogin(usuario, contrasena).get(0);
-    loginResponse.setUsuario(usuarioLoginProjection);
+    loginResponse.setUsuario(usuarioLoginResponse);
     loginResponse.setDetallePermisos(detallePermisoRepository.getDetallePermisoLogin(usuarioLoginProjection.getIdUsuario()));
 
-    ResponseModelGet<LoginResponse> responseModelGet = new ResponseModelGet<>();
-    responseModelGet.setData(Arrays.asList(loginResponse));
+    responseModelGet.setData(Collections.singletonList(loginResponse));
     responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
     return responseModelGet;
   }
