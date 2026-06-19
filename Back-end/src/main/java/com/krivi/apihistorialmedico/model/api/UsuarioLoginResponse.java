@@ -5,21 +5,20 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmpleadoRequest {
+public class UsuarioLoginResponse {
 
+  private Integer idUsuario;
+  private String usuario;
+  private String tipoUsuario;
+  private Boolean estadoUsuario;
   private Integer idEmpleado;
-  private String tipoDocumento;
-  private String numDocumento;
   private String nombres;
   private String apellidos;
-  private String direccion;
-  private String telefono;
-  private String celular;
   private String cargo;
-  private Boolean estado;
+  private Boolean estadoEmpleado;
 
 }

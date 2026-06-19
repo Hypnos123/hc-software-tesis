@@ -1,10 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { IEmpleado } from '../models/empleado';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { IEmpleado, IResponseModelGet } from '../models/empleado';
 import { IResponse } from '@app/global/response';
-import { environment } from 'environments/environment.prod';
-import { getAllEmpleados } from '@app/mocks/mocks';
+import { environment } from 'environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -15,24 +15,36 @@ export class EmpleadoService {
   constructor(private httpClient: HttpClient) { }
 
   getAllActivos(): Observable<IEmpleado[]> {
-    return of(getAllEmpleados());
-    return this.httpClient.get<IEmpleado[]>(`${this.URLServicio}empleado/getAllActive`)
+    return this.httpClient
+      .get<IResponseModelGet<IEmpleado> | IEmpleado[]>(`${this.URLServicio}empleado/getAllActive`)
+      .pipe(map((response) => this.getResponseData(response)));
   }
 
-  insert(header: IEmpleado): Observable<IEmpleado> {
-    return this.httpClient.post<IEmpleado>(`${this.URLServicio}empleado/insert/empleado`, header);
+  getAll(): Observable<IEmpleado[]> {
+    return this.httpClient
+      .get<IResponseModelGet<IEmpleado> | IEmpleado[]>(`${this.URLServicio}empleado/getAll`)
+      .pipe(map((response) => this.getResponseData(response)));
+  }
+
+  insert(header: IEmpleado): Observable<IResponse> {
+    return this.httpClient.post<IResponse>(`${this.URLServicio}empleado/insert/empleado`, header);
   }
 
   getFindById(id: number): Observable<IEmpleado[]> {
-    return of([getAllEmpleados()[0]])
-    return this.httpClient.get<IEmpleado[]>(`${this.URLServicio}empleado/findById/${id}`)
+    return this.httpClient
+      .get<IResponseModelGet<IEmpleado> | IEmpleado[]>(`${this.URLServicio}empleado/findById/${id}`)
+      .pipe(map((response) => this.getResponseData(response)));
   }
 
   update(id: number, header: IEmpleado): Observable<IResponse> {
     return this.httpClient.put<IResponse>(`${this.URLServicio}empleado/update/${id}`, header);
   }
 
-  setInactive(id: number): Observable<IResponse> {
-    return this.httpClient.put<IResponse>(`${this.URLServicio}empleado/setInactive/${id}`, id);
+  changeStatus(id: number): Observable<IResponse> {
+    return this.httpClient.put<IResponse>(`${this.URLServicio}empleado/changeStatus/${id}`, null);
+  }
+
+  private getResponseData(response: IResponseModelGet<IEmpleado> | IEmpleado[]): IEmpleado[] {
+    return Array.isArray(response) ? response : response.data ?? [];
   }
 }

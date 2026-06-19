@@ -9,10 +9,17 @@ export interface IUsuario {
 }
 
 export interface IUsuarioLogged {
-  apellido: string;
   idUsuario: number;
-  nombre: string;
+  usuario?: string;
   tipoUsuario: string;
+  estadoUsuario?: boolean;
+  idEmpleado?: number;
+  nombres?: string;
+  apellidos?: string;
+  cargo?: string;
+  estadoEmpleado?: boolean;
+  nombre?: string;
+  apellido?: string;
 }
 
 export interface ITipoUsuario {

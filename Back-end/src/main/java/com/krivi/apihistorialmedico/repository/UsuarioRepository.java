@@ -27,9 +27,11 @@ public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
   @Query(value = "select idUsuario as Id from usuario order by idusuario desc limit 1", nativeQuery = true)
   List<Id> getUltimoRegistro();
 
-  @Query(value = "select u.idusuario as idUsuario, u.tipousuario as tipoUsuario, e.nombre as nombre, e.apellido as apellido from usuario u "
+  @Query(value = "select u.idusuario as idUsuario, u.usuario as usuario, u.tipousuario as tipoUsuario, "
+      + "u.estado as estadoUsuario, e.idempleado as idEmpleado, e.nombres as nombres, "
+      + "e.apellidos as apellidos, e.cargo as cargo, e.estado as estadoEmpleado from usuario u "
       + "inner join empleado e on u.idempleado=e.idempleado "
-      + "where u.usuario = ?1 and u.contrasena = ?2 and u.estado = true", nativeQuery = true)
+      + "where u.usuario = ?1 and u.contrasena = ?2 and u.estado = true and e.estado = true", nativeQuery = true)
   List<UsuarioLoginProjection> getLogin(String usuario, String contrasena);
 
   Optional<Usuario> findByUsuarioAndEstado(String usuario, Boolean estado);

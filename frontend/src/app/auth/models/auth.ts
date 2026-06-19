@@ -9,13 +9,19 @@ export interface IAuth {
 export interface IAuthSuccess {
   usuario: IUsuarioLogged,
   detallePermisos: IItemMenu[],
-  mensaje: string
+  mensaje?: string
+}
+
+export interface IResponseModelGet<T> {
+  data?: T[];
+  mensaje?: string;
+  error?: string;
 }
 
 export class IAuthSuccessModel {
   usuario: IUsuarioLogged;
   detallePermisos: IItemMenu[];
-  mensaje: string;
+  mensaje?: string;
 
   constructor(authSucces: IAuthSuccess) {
     this.usuario = authSucces.usuario;
