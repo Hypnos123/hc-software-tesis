@@ -25,7 +25,7 @@ export class ResponseInterceptor implements HttpInterceptor {
 
           if (body && typeof body === 'object') {
             const endpointsExcluded = [
-              'getLogin', 'getAllActive', 'getDetalle', 'findByDate', 'findById',
+              'getLogin', 'getAll', 'getDetalle', 'findByDate', 'findById',
               'findAtencionesAprobadas', 'getAtencionAnalisisByAtencion', 'setInactive',
               'findByIdAtencionForm', 'detallepermiso', 'detallepermisos', 'atencionanalisis', 'plantillaanalisis'];
 

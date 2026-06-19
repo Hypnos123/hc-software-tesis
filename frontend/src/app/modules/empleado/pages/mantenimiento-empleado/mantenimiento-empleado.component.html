@@ -80,14 +80,14 @@
           <input
             type="text"
             toUpperCase
-            formControlName="nombre"
+            formControlName="nombres"
             pInputText
             placeholder="Agregar"
           />
         </div>
 
-        <div class="validation" *ngIf="nombre?.invalid && (nombre?.dirty || nombre?.touched)">
-          <small *ngIf="nombre?.errors?.['required']" class="p-error" >Nombre es obligatorio</small>
+        <div class="validation" *ngIf="nombres?.invalid && (nombres?.dirty || nombres?.touched)">
+          <small *ngIf="nombres?.errors?.['required']" class="p-error" >Nombre es obligatorio</small>
         </div>
 
       </div>
@@ -104,7 +104,7 @@
         <input
           type="text"
           toUpperCase
-          formControlName="apellido"
+          formControlName="apellidos"
           pInputText
           class="w-full"
           placeholder="Agregar"
@@ -112,9 +112,9 @@
         </div>
         <div
           class="validation"
-          *ngIf="apellido?.invalid && (apellido?.dirty || apellido?.touched)"
+          *ngIf="apellidos?.invalid && (apellidos?.dirty || apellidos?.touched)"
         >
-          <small *ngIf="apellido?.errors?.['required']" class="p-error"
+          <small *ngIf="apellidos?.errors?.['required']" class="p-error"
             >Apellido es obligatorio</small
           >
         </div>
