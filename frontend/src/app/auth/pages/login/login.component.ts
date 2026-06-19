@@ -48,25 +48,29 @@ export class LoginComponent implements OnInit {
 
   iniciarSesion() {
     const header = this.loginForm.value as IAuth;
+    this.isLoading = true;
 
-    this.authService.login(header).subscribe((res) => {
-      if (res[0].usuario) {
-        this.isLoading = true;
-        setTimeout(() => {
-          this.router.navigate(['./dashboard']);
-          this.isLoading = false;
-        }, 2000);
+    this.authService.login(header).subscribe({
+      next: (res) => {
+        const auth = res[0];
 
-      } else {
+        if (auth?.usuario) {
+          setTimeout(() => {
+            this.router.navigate(['./dashboard']);
+            this.isLoading = false;
+          }, 2000);
+          return;
+        }
+
         this.servicioMensajesSwal.mensajeAdvertencia('Verifique usuario y contraseña');
         this.isLoading = false;
         this.loginForm.reset();
+      },
+      error: (error) => {
+        this.servicioMensajesSwal.mensajeError(error);
+        this.isLoading = false;
+        this.loginForm.reset();
       }
-    }, (error) => {
-      this.servicioMensajesSwal.mensajeError(error);
-      this.isLoading = false;
-
-      this.loginForm.reset();
     });
   }
 
