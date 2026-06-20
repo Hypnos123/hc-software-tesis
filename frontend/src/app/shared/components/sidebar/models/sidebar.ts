@@ -3,7 +3,7 @@ export interface IItemMenu {
   nombre: string;
   ruta: string;
   idMenu: number;
-  imagen: string;
+  imagen?: string | null;
 }
 
 

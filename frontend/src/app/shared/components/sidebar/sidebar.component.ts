@@ -115,4 +115,41 @@ export class SidebarComponent implements OnInit {
     this.menu = (this.authService.detallePermisos ?? []).filter((item) => !!item?.ruta);
   };
 
+  getMenuIcon(item: IItemMenu): string {
+    const icon = item?.imagen?.trim();
+
+    if (icon?.startsWith('pi ')) {
+      return icon;
+    }
+
+    return this.getDefaultIcon(item);
+  }
+
+  private getDefaultIcon(item: IItemMenu): string {
+    const key = `${item?.ruta ?? ''} ${item?.nombre ?? ''}`.toLowerCase();
+
+    if (key.includes('usuario')) {
+      return 'pi pi-user';
+    }
+
+    if (key.includes('consulta')) {
+      return 'pi pi-address-book';
+    }
+
+    if (key.includes('historia')) {
+      return 'pi pi-file-check';
+    }
+
+    if (key.includes('paciente')) {
+      return 'pi pi-users';
+    }
+
+    if (key.includes('empleado')) {
+      return 'pi pi-user-edit';
+    }
+
+    return 'pi pi-circle';
+  }
+
+
 }

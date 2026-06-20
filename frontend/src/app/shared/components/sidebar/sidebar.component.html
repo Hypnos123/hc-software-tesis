@@ -2,7 +2,7 @@
   <div class="logo-container">
     <img src="assets/images/logo/HSJ_embedded.svg" alt="">
     <img src="assets/images/logo/SAN_JOSE_embedded.svg" alt="" @fadeInOut *ngIf="collapsed">
-    <button class="btn-close" @rotate (click)="closeSidenav()" *ngIf="collapsed"><i class="fas fa-times"></i></button>
+    <button class="btn-close" @rotate (click)="closeSidenav()" *ngIf="collapsed"><i class="pi pi-times"></i></button>
   </div>
 
   <nav class="sidenav-nav-item">
@@ -27,7 +27,7 @@
     <li class="sidenav-nav-item">
       <a class="sidenav-nav-link" [routerLink]="['/dashboard']" routerLinkActive="active"
         [routerLinkActiveOptions]="{exact: true}">
-        <i class="sidenav-link-icon" [class]="'pi pi-database'"></i>
+        <i class="sidenav-link-icon pi pi-database"></i>
         <p class="sidenav-link-text" *ngIf="collapsed">
           Dashboard
         </p>
@@ -36,7 +36,7 @@
 
     <li class="sidenav-nav-item" *ngFor="let item of menu">
       <a class="sidenav-nav-link" *ngIf="item.ruta != ''" [routerLink]="[item.ruta]" routerLinkActive="active">
-        <i class="sidenav-link-icon" [class]="item.imagen"></i>
+        <i class="sidenav-link-icon" [ngClass]="getMenuIcon(item)"></i>
         <p class="sidenav-link-text" *ngIf="collapsed">{{ item.nombre }}</p>
       </a>
     </li>
