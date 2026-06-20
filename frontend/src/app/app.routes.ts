@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { LayoutComponent } from './shared/components/layout/layout.component';
 import { LoginComponent } from './auth/pages/login/login.component';
+import { AuthGuard } from './auth/guards/auth.guard';
+import { PermissionGuard } from './auth/guards/permission.guard';
 
 export const routes: Routes = [
   {
@@ -17,8 +19,7 @@ export const routes: Routes = [
           import('./modules/dashboard/dashboard.routes').then(
             (r) => r.DASHBOARD_ROUTES
           ),
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard]
       },
       {
         path: 'usuarios',
@@ -26,26 +27,26 @@ export const routes: Routes = [
           import('./modules/usuario/usuario.routes').then(
             (r) => r.USUARIO_ROUTES
           ),
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard, PermissionGuard],
+        data: { permisoRuta: '/usuarios' }
       },
-       {
+      {
         path: 'consultas',
         loadChildren: () =>
           import('./modules/consultas/consultas.routes').then(
             (r) => r.CONSULTAS_ROUTES
           ),
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard, PermissionGuard],
+        data: { permisoRuta: '/consultas' }
       },
-       {
+      {
         path: 'historiaClinica',
         loadChildren: () =>
           import('./modules/historiaClinica/historiaClinica.routes').then(
             (r) => r.HISTORIA_CLINICA_ROUTES
           ),
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard, PermissionGuard],
+        data: { permisoRuta: '/historiaClinica' }
       },
       {
         path: 'paciente',
@@ -53,8 +54,8 @@ export const routes: Routes = [
           import('./modules/paciente/paciente.routes').then(
             (r) => r.PACIENTE_ROUTES
           ),
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard, PermissionGuard],
+        data: { permisoRuta: '/paciente' }
       },
       {
         path: 'empleados',
@@ -62,9 +63,8 @@ export const routes: Routes = [
           import('./modules/empleado/empleado.routes').then(
             (r) => r.EMPLEADO_ROUTES
           ),
-          
-        // canLoad: [AuthGuard],
-        // canActivate: [AuthGuard]
+        canActivate: [AuthGuard, PermissionGuard],
+        data: { permisoRuta: '/empleados' }
       },
     ],
   },

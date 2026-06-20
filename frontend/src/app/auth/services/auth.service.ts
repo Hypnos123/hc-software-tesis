@@ -30,11 +30,7 @@ export class AuthService {
   }
 
   verificarAuth(): Observable<boolean> {
-    if (!this.storageService.getItem('token', true)) {
-      return of(false);
-    }
-
-    return of(true);
+    return of(this.isValidAuth(this.auth));
   }
 
   login(header: IAuth): Observable<IAuthSuccess | null> {
@@ -53,6 +49,10 @@ export class AuthService {
   logout(): void {
     this._auth = undefined;
     this.storageService.removeItem('token');
+  }
+
+  private isValidAuth(auth: IAuthSuccess | null): boolean {
+    return !!auth?.usuario?.idUsuario;
   }
 
   private getAuthData(response: IResponseModelGet<IAuthSuccess> | IAuthSuccess[] | null): IAuthSuccess | null {
