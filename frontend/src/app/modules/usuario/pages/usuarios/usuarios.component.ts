@@ -62,7 +62,6 @@ export class UsuariosComponent implements OnInit {
   getColumnasTabla() {
     this.cols = [
       { field: 'usuario', header: 'Usuario', visibility: true, formatoFecha: '' },
-      { field: 'contrasena', header: 'Contraseña', visibility: true, formatoFecha: '' },
       { field: 'tipoUsuario', header: 'Tipo Usuario', visibility: true, formatoFecha: '' },
       { field: 'apellidoYNombre', header: 'Apellidos y Nombres', visibility: true, formatoFecha: '' },
       { field: 'estado', header: 'Estado', visibility: true, formatoFecha: '' },
@@ -75,7 +74,6 @@ export class UsuariosComponent implements OnInit {
   getAllElementos() {
     const obs = new Observable<boolean>((observer) => {
       this.usuarioService.getAll().subscribe((resp) => {
-        console.log('Elementos:', resp);
         this.listaElementos = resp;
         observer.next(true);
       });

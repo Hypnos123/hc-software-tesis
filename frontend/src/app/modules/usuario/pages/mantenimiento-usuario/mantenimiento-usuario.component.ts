@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { IEmpleado } from '@app/modules/empleado/models/empleado';
 import { EmpleadoService } from '@app/modules/empleado/services/empleado.service';
 import { IColumnasTabla } from '@app/shared/models/columnas';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { ITipoUsuario, IMenu, IUsuario, IDetallePermiso } from '../../models/usuario';
 import { UsuarioService } from '../../services/usuario.service';
 import { DropdownModule } from 'primeng/dropdown';
@@ -15,6 +15,7 @@ import { TableModule } from 'primeng/table';
 import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-mantenimiento-usuario',
@@ -127,6 +128,11 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   guardarElemento() {
+    if (this.usuarioForm.invalid) {
+      this.usuarioForm.markAllAsTouched();
+      return;
+    }
+
     const { usuario, contrasena, tipoUsuario, empleado } = this.usuarioForm.value;
     const params: IUsuario = {
       contrasena: contrasena,
@@ -135,15 +141,40 @@ export class MantenimientoUsuarioComponent implements OnInit {
       usuario: usuario,
     };
 
-    if (this.isEditar) {
-      this.editarElemento(params);
-    } else {
-      this.crearElemento(params).subscribe((idUsuario: any) => {
-        if (idUsuario) {
-          this.guardarDetallePermiso(idUsuario);
-        }
-      });
-    }
+    const titulo = this.isEditar ? '¿Actualizar usuario?' : '¿Guardar usuario?';
+    const texto = this.isEditar
+      ? 'Se guardarán los cambios del usuario y sus permisos.'
+      : 'Se registrará un nuevo usuario con los permisos asignados.';
+
+    Swal.fire({
+      title: titulo,
+      text: texto,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, confirmar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#1179c4',
+      cancelButtonColor: '#6c757d',
+      reverseButtons: true,
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+
+      if (this.isEditar) {
+        this.editarElemento(params);
+      } else {
+        this.crearElemento(params).subscribe({
+          next: (idUsuario) => {
+            if (idUsuario) {
+              this.guardarDetallePermiso(idUsuario);
+              return;
+            }
+
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo obtener el id generado del usuario.' });
+          },
+          error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar el usuario.' })
+        });
+      }
+    });
   }
 
   guardarDetallePermiso(idUsuario: number) {
@@ -167,32 +198,27 @@ export class MantenimientoUsuarioComponent implements OnInit {
   }
 
   crearDetallePermiso(params: IDetallePermiso[]) {
-    this.serviceUsuario.insertDetallePermiso(params).subscribe((response) => {
-      if (response) this.router.navigateByUrl('/usuarios');
+    this.serviceUsuario.insertDetallePermiso(params).subscribe({
+      next: () => this.router.navigateByUrl('/usuarios'),
+      error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'El usuario fue creado, pero no se pudieron guardar sus permisos.' })
     });
   }
 
   editarDetallePermiso(params: IDetallePermiso[]) {
-    this.serviceUsuario.updateDetallePermiso(+this.id, params).subscribe((res) => {
-      this.router.navigateByUrl('/usuarios');
+    this.serviceUsuario.updateDetallePermiso(+this.id, params).subscribe({
+      next: () => this.router.navigateByUrl('/usuarios'),
+      error: () => Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron actualizar los permisos del usuario.' })
     });
   }
 
 
-  crearElemento(params: IUsuario) {
-    console.log(params);
-    const obs = new Observable((observer) => {
-      this.serviceUsuario
-        .insert(params)
-        .subscribe();
-    });
-
-    return obs;
-
+  crearElemento(params: IUsuario): Observable<number | undefined> {
+    return this.serviceUsuario.insert(params).pipe(
+      map((response) => response?.idGenerado)
+    );
   }
 
   editarElemento(params: IUsuario) {
-    console.log('params', params);
     this.serviceUsuario
       .update(+this.id, params)
       .subscribe((response) => {

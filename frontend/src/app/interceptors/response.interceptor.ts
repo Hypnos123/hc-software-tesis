@@ -27,7 +27,7 @@ export class ResponseInterceptor implements HttpInterceptor {
             const endpointsExcluded = [
               'getLogin', 'getAll', 'getDetalle', 'findByDate', 'findById',
               'findAtencionesAprobadas', 'getAtencionAnalisisByAtencion', 'setInactive',
-              'findByIdAtencionForm', 'detallepermiso', 'detallepermisos', 'atencionanalisis', 'plantillaanalisis'];
+              'findByIdAtencionForm', 'atencionanalisis', 'plantillaanalisis'];
 
             if (!endpointsExcluded.some(endpoint => req.url.includes(endpoint))) {
               if (body.error) {

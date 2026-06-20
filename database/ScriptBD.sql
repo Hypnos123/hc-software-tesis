@@ -152,7 +152,7 @@ ENGINE = InnoDB;
 -- Table `historiaclinicadb`.`menu`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`menu` (
-  `idmenu` INT NOT NULL,
+  `idmenu` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(45) NULL,
   `ruta` VARCHAR(150) NULL,
   `imagen` VARCHAR(150) NULL,

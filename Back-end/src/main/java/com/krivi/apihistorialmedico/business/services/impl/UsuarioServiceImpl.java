@@ -173,12 +173,12 @@ public class UsuarioServiceImpl implements UsuarioService {
             .idUsuario(usuarioLoginProjection.getIdUsuario())
             .usuario(usuarioLoginProjection.getUsuario())
             .tipoUsuario(usuarioLoginProjection.getTipoUsuario())
-            .estadoUsuario(usuarioLoginProjection.getEstadoUsuario())
+            .estadoUsuario(toBoolean(usuarioLoginProjection.getEstadoUsuario()))
             .idEmpleado(usuarioLoginProjection.getIdEmpleado())
             .nombres(usuarioLoginProjection.getNombres())
             .apellidos(usuarioLoginProjection.getApellidos())
             .cargo(usuarioLoginProjection.getCargo())
-            .estadoEmpleado(usuarioLoginProjection.getEstadoEmpleado())
+            .estadoEmpleado(toBoolean(usuarioLoginProjection.getEstadoEmpleado()))
             .build();
 
     LoginResponse loginResponse = new LoginResponse();
@@ -188,5 +188,9 @@ public class UsuarioServiceImpl implements UsuarioService {
     responseModelGet.setData(Collections.singletonList(loginResponse));
     responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
     return responseModelGet;
+  }
+
+  private Boolean toBoolean(Integer value) {
+    return value != null && value == 1;
   }
 }

@@ -38,3 +38,9 @@ export interface IDetallePermiso {
   idMenu: number,
   idUsuario: number
 }
+
+export interface IResponseModelGet<T> {
+  data?: T[];
+  mensaje?: string;
+  error?: string;
+}

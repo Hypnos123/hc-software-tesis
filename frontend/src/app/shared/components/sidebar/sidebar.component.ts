@@ -103,13 +103,16 @@ export class SidebarComponent implements OnInit {
 
 
   getUsuario() {
-    this.usuario = `${this.authService.usuario.nombre} ${this.authService.usuario.apellido}`;
-    this.cargo = this.authService.usuario.tipoUsuario;
+    const usuario = this.authService.usuario;
+    const nombres = usuario?.nombres ?? usuario?.nombre ?? '';
+    const apellidos = usuario?.apellidos ?? usuario?.apellido ?? '';
+
+    this.usuario = `${nombres} ${apellidos}`.trim() || 'Usuario';
+    this.cargo = usuario?.cargo ?? usuario?.tipoUsuario ?? '';
   }
 
   getMenu() {
-    this.menu = [];
-    this.menu = this.authService.detallePermisos;
+    this.menu = (this.authService.detallePermisos ?? []).filter((item) => !!item?.ruta);
   };
 
 }

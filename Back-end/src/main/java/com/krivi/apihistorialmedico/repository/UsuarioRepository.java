@@ -36,12 +36,12 @@ public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
             u.idusuario AS idUsuario,
             u.usuario AS usuario,
             u.tipousuario AS tipoUsuario,
-            CAST(u.estado AS SIGNED) AS estadoUsuario,
+            CASE WHEN u.estado = 1 THEN 1 ELSE 0 END AS estadoUsuario,
             e.idempleado AS idEmpleado,
             e.nombres AS nombres,
             e.apellidos AS apellidos,
             e.cargo AS cargo,
-            CAST(e.estado AS SIGNED) AS estadoEmpleado
+            CASE WHEN e.estado = 1 THEN 1 ELSE 0 END AS estadoEmpleado
         FROM usuario u
         INNER JOIN empleado e
             ON u.idempleado = e.idempleado

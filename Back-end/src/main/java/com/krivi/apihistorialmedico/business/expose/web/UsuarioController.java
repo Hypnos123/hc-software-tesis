@@ -69,7 +69,7 @@ public class UsuarioController {
   @PostMapping("/insert/usuario")
   public ResponseEntity<ResponseModelSet> create(@RequestBody UsuarioRequest usuarioRequest) {
 
-    ResponseModelSet responseModelSet = null;
+    ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
       responseModelSet = usuarioService.save(usuarioRequest);
 
