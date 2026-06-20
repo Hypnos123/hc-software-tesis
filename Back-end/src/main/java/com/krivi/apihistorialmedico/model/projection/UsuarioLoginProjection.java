@@ -5,11 +5,13 @@ public interface UsuarioLoginProjection {
   Integer getIdUsuario();
   String getUsuario();
   String getTipoUsuario();
-  Boolean getEstadoUsuario();
+
+  Integer getEstadoUsuario();
+
   Integer getIdEmpleado();
   String getNombres();
   String getApellidos();
   String getCargo();
-  Boolean getEstadoEmpleado();
 
+  Integer getEstadoEmpleado();
 }

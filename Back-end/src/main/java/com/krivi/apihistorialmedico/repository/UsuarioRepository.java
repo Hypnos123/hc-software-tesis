@@ -1,6 +1,5 @@
 package com.krivi.apihistorialmedico.repository;
 
-
 import com.krivi.apihistorialmedico.model.entity.Usuario;
 import com.krivi.apihistorialmedico.model.projection.Id;
 import com.krivi.apihistorialmedico.model.projection.UsuarioLoginProjection;
@@ -16,28 +15,48 @@ import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
 
-
   List<Usuario> findByEstadoOrderByIdUsuarioDesc(Boolean estado);
 
   @Modifying
   @Transactional
-  @Query(value = "update usuario set estado=0 where idusuario=?1", nativeQuery = true)
+  @Query(value = "UPDATE usuario SET estado = 0 WHERE idusuario = ?1",
+          nativeQuery = true)
   void setInactive(int idUsuario);
 
-  @Query(value = "select idUsuario as Id from usuario order by idusuario desc limit 1", nativeQuery = true)
+  @Query(value = """
+        SELECT idusuario AS id
+        FROM usuario
+        ORDER BY idusuario DESC
+        LIMIT 1
+        """, nativeQuery = true)
   List<Id> getUltimoRegistro();
 
-  @Query(value = "select u.idusuario as idUsuario, u.usuario as usuario, u.tipousuario as tipoUsuario, "
-      + "u.estado as estadoUsuario, e.idempleado as idEmpleado, e.nombres as nombres, "
-      + "e.apellidos as apellidos, e.cargo as cargo, e.estado as estadoEmpleado from usuario u "
-      + "inner join empleado e on u.idempleado=e.idempleado "
-      + "where u.usuario = ?1 and u.contrasena = ?2 and u.estado = true and e.estado = true", nativeQuery = true)
-  List<UsuarioLoginProjection> getLogin(String usuario, String contrasena);
+  @Query(value = """
+        SELECT
+            u.idusuario AS idUsuario,
+            u.usuario AS usuario,
+            u.tipousuario AS tipoUsuario,
+            CAST(u.estado AS SIGNED) AS estadoUsuario,
+            e.idempleado AS idEmpleado,
+            e.nombres AS nombres,
+            e.apellidos AS apellidos,
+            e.cargo AS cargo,
+            CAST(e.estado AS SIGNED) AS estadoEmpleado
+        FROM usuario u
+        INNER JOIN empleado e
+            ON u.idempleado = e.idempleado
+        WHERE u.usuario = ?1
+          AND u.contrasena = ?2
+          AND u.estado = 1
+          AND e.estado = 1
+        """, nativeQuery = true)
+  List<UsuarioLoginProjection> getLogin(
+          String usuario,
+          String contrasena
+  );
 
-  Optional<Usuario> findByUsuarioAndEstado(String usuario, Boolean estado);
-
-
-
-
-
+  Optional<Usuario> findByUsuarioAndEstado(
+          String usuario,
+          Boolean estado
+  );
 }

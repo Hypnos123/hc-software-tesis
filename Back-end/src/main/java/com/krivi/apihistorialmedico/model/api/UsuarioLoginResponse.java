@@ -14,11 +14,11 @@ public class UsuarioLoginResponse {
   private Integer idUsuario;
   private String usuario;
   private String tipoUsuario;
-  private Boolean estadoUsuario;
+  private Integer estadoUsuario;
   private Integer idEmpleado;
   private String nombres;
   private String apellidos;
   private String cargo;
-  private Boolean estadoEmpleado;
+  private Integer estadoEmpleado;
 
 }

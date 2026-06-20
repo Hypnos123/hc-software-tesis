@@ -168,17 +168,18 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     UsuarioLoginProjection usuarioLoginProjection = usuarios.get(0);
+
     UsuarioLoginResponse usuarioLoginResponse = UsuarioLoginResponse.builder()
-        .idUsuario(usuarioLoginProjection.getIdUsuario())
-        .usuario(usuarioLoginProjection.getUsuario())
-        .tipoUsuario(usuarioLoginProjection.getTipoUsuario())
-        .estadoUsuario(usuarioLoginProjection.getEstadoUsuario())
-        .idEmpleado(usuarioLoginProjection.getIdEmpleado())
-        .nombres(usuarioLoginProjection.getNombres())
-        .apellidos(usuarioLoginProjection.getApellidos())
-        .cargo(usuarioLoginProjection.getCargo())
-        .estadoEmpleado(usuarioLoginProjection.getEstadoEmpleado())
-        .build();
+            .idUsuario(usuarioLoginProjection.getIdUsuario())
+            .usuario(usuarioLoginProjection.getUsuario())
+            .tipoUsuario(usuarioLoginProjection.getTipoUsuario())
+            .estadoUsuario(usuarioLoginProjection.getEstadoUsuario())
+            .idEmpleado(usuarioLoginProjection.getIdEmpleado())
+            .nombres(usuarioLoginProjection.getNombres())
+            .apellidos(usuarioLoginProjection.getApellidos())
+            .cargo(usuarioLoginProjection.getCargo())
+            .estadoEmpleado(usuarioLoginProjection.getEstadoEmpleado())
+            .build();
 
     LoginResponse loginResponse = new LoginResponse();
     loginResponse.setUsuario(usuarioLoginResponse);
