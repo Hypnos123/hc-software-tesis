@@ -9,10 +9,17 @@ export interface IUsuario {
 }
 
 export interface IUsuarioLogged {
-  apellido: string;
   idUsuario: number;
-  nombre: string;
+  usuario?: string;
   tipoUsuario: string;
+  estadoUsuario?: boolean;
+  idEmpleado?: number;
+  nombres?: string;
+  apellidos?: string;
+  cargo?: string;
+  estadoEmpleado?: boolean;
+  nombre?: string;
+  apellido?: string;
 }
 
 export interface ITipoUsuario {
@@ -30,4 +37,10 @@ export interface IMenu {
 export interface IDetallePermiso {
   idMenu: number,
   idUsuario: number
+}
+
+export interface IResponseModelGet<T> {
+  data?: T[];
+  mensaje?: string;
+  error?: string;
 }
