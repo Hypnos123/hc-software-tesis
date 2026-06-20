@@ -47,11 +47,11 @@ export class EmpleadosComponent implements OnInit {
         tooltip: 'Editar'
       },
       {
-        icono: 'pi pi-trash',
+        icono: 'pi pi-power-off',
         clase: 'rounded',
-        evento: 'eliminar',
+        evento: 'cambiarEstado',
         estado: true,
-        tooltip: 'Eliminar'
+        tooltip: 'Activar / desactivar'
       }
     ]
 
@@ -73,9 +73,9 @@ export class EmpleadosComponent implements OnInit {
         visibility: true,
         formatoFecha: '',
       },
-      { field: 'nombre', header: 'Nombre', visibility: true, formatoFecha: '' },
+      { field: 'nombres', header: 'Nombres', visibility: true, formatoFecha: '' },
       {
-        field: 'apellido',
+        field: 'apellidos',
         header: 'Apellidos',
         visibility: true,
         formatoFecha: '',
@@ -87,6 +87,7 @@ export class EmpleadosComponent implements OnInit {
         formatoFecha: '',
       },
       { field: 'cargo', header: 'Cargo', visibility: true, formatoFecha: '' },
+      { field: 'estado', header: 'Estado', visibility: true, formatoFecha: '' },
     ];
 
     this.colsVisibles = this.cols.filter((x) => x.visibility == true);
@@ -94,7 +95,7 @@ export class EmpleadosComponent implements OnInit {
 
   getAllActivosElementos() {
     const obs = new Observable<boolean>((observer) => {
-      this.empleadoService.getAllActivos().subscribe((resp) => {
+      this.empleadoService.getAll().subscribe((resp) => {
         this.listaElementos = resp;
         observer.next(true);
       });
@@ -108,14 +109,15 @@ export class EmpleadosComponent implements OnInit {
     });
   }
 
-  eliminarElemento(data: any) {
+  cambiarEstadoElemento(data: IEmpleado) {
+    const accion = data.estado ? 'desactivar' : 'activar';
+
     this.servicioMensajesSwal
-      .mensajePregunta('¿Está seguro de eliminar el registro?')
+      .mensajePregunta(`¿Está seguro de ${accion} el empleado?`)
       .then((response) => {
-        if (response.isConfirmed) {
-          this.empleadoService.setInactive(data.idEmpleado).subscribe((res) => {
+        if (response.isConfirmed && data.idEmpleado) {
+          this.empleadoService.changeStatus(data.idEmpleado).subscribe(() => {
             this.getAllActivosElementos();
-            this.servicioMensajesSwal.mensajeRegistroEliminado();
           });
         }
       });
@@ -128,8 +130,8 @@ export class EmpleadosComponent implements OnInit {
         this.editarElemento(data);
         break;
 
-      case 'eliminar':
-        this.eliminarElemento(data);
+      case 'cambiarEstado':
+        this.cambiarEstadoElemento(data);
         break;
 
       default:

@@ -90,11 +90,11 @@
   <br>
   <p-table #dt [columns]="colsEmpleado" selectionMode="single" [value]="listaEmpleados" dataKey="numDocumento"
     [rows]="6" [paginator]="true" [globalFilterFields]="[
-      'nombre',
+      'nombres',
       'numDocumento',
       'tipoDocumento',
       'cargo',
-      'apellido'
+      'apellidos'
     ]" [rowHover]="true" [scrollable]="true" responsiveLayout="scroll" (onRowSelect)="onRowEmpleadoSelected($event)">
     <ng-template pTemplate="caption">
       <div class="caption">

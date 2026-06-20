@@ -15,5 +15,7 @@ public class EmpleadoResponse {
   private String direccion;
   private String telefono;
   private String celular;
+  private String cargo;
+  private Boolean estado;
 
 }

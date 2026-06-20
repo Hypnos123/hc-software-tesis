@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`empleado` (
   `direccion` VARCHAR(125) NULL,
   `telefono` VARCHAR(15) NULL,
   `celular` VARCHAR(15) NULL,
+  `cargo` VARCHAR(65) NULL,
+  `estado` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`idempleado`))
 ENGINE = InnoDB;
 
@@ -150,7 +152,7 @@ ENGINE = InnoDB;
 -- Table `historiaclinicadb`.`menu`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`menu` (
-  `idmenu` INT NOT NULL,
+  `idmenu` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(45) NULL,
   `ruta` VARCHAR(150) NULL,
   `imagen` VARCHAR(150) NULL,
