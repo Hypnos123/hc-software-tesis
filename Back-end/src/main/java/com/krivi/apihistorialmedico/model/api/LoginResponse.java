@@ -1,26 +1,22 @@
 package com.krivi.apihistorialmedico.model.api;
 
-
-
 import com.krivi.apihistorialmedico.model.projection.DetallePermisoLoginProjection;
-import com.krivi.apihistorialmedico.model.projection.UsuarioLoginProjection;
 
 import java.util.List;
 
-
 public class LoginResponse {
 
- UsuarioLoginProjection usuario;
- List<DetallePermisoLoginProjection> detallePermisos;
+  private UsuarioLoginResponse usuario;
+  private List<DetallePermisoLoginProjection> detallePermisos;
 
   public LoginResponse() {
   }
 
-  public UsuarioLoginProjection getUsuario() {
+  public UsuarioLoginResponse getUsuario() {
     return usuario;
   }
 
-  public void setUsuario(UsuarioLoginProjection usuario) {
+  public void setUsuario(UsuarioLoginResponse usuario) {
     this.usuario = usuario;
   }
 

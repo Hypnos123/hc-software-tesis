@@ -7,6 +7,8 @@ import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 
 public interface EmpleadoService {
 
+  ResponseModelGet<EmpleadoResponse> getAll();
+
   ResponseModelGet<EmpleadoResponse> getAllActive();
 
   ResponseModelGet<EmpleadoResponse> findById(int idEmpleado);
@@ -15,5 +17,5 @@ public interface EmpleadoService {
 
   ResponseModelSet update(EmpleadoRequest empleadoRequest);
 
-
+  ResponseModelSet changeStatus(int idEmpleado);
 }

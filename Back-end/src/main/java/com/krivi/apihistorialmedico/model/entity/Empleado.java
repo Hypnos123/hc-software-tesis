@@ -30,6 +30,8 @@ public class Empleado {
   private String direccion;
   private String telefono;
   private String celular;
+  private String cargo;
+  private Boolean estado;
 
   public Empleado(Integer idEmpleado) {
     this.idEmpleado = idEmpleado;
