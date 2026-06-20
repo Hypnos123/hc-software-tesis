@@ -3,7 +3,8 @@ import { IItemMenu } from "@app/shared/components/sidebar/models/sidebar";
 
 export interface IAuth {
   contrasena: string,
-  usuario: string
+  usuario: string,
+  recordarme?: boolean | null
 }
 
 export interface IAuthSuccess {

@@ -51,9 +51,7 @@ export class LoginComponent implements OnInit {
     this.isLoading = true;
 
     this.authService.login(header).subscribe({
-      next: (res) => {
-        const auth = res[0];
-
+      next: (auth) => {
         if (auth?.usuario) {
           setTimeout(() => {
             this.router.navigate(['./dashboard']);
