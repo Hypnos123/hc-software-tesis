@@ -36,6 +36,8 @@ export interface IEmpleadoDoctor {
   estado?: boolean;
   nombreCompleto?: string;
 }
+export interface IResponseModelGet<T> { data?: T[]; mensaje?: string; error?: string; }
+export interface IResponseModelSet { mensaje?: string; error?: string; idGenerado?: number; }
 
 export interface IDetalleConsulta {
   idConsulta?: number;
@@ -92,6 +94,3 @@ export interface INuevaConsultaRequest {
   temperatura?: string | number;
   peso?: string | number;
 }
-
-export interface IResponseModelGet<T> { data?: T[]; mensaje?: string; error?: string; }
-export interface IResponseModelSet { mensaje?: string; error?: string; idGenerado?: number; }
