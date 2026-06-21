@@ -28,14 +28,28 @@ export interface IPacienteBusqueda {
   edad?: string | number;
 }
 
+export interface IEmpleadoDoctor {
+  idEmpleado?: number;
+  nombres?: string;
+  apellidos?: string;
+  cargo?: string;
+  estado?: boolean;
+  nombreCompleto?: string;
+}
 export interface IResponseModelGet<T> { data?: T[]; mensaje?: string; error?: string; }
 export interface IResponseModelSet { mensaje?: string; error?: string; idGenerado?: number; }
 
 export interface IDetalleConsulta {
-  id?: number;
+  idConsulta?: number;
+  idHistoriaClinica?: number;
+  fechaCreacion?: string | Date;
+  estado?: string;
   paciente?: string;
   dni?: string;
   edad?: string | number;
+  nombres?: string;
+  apellidos?: string;
+  numDocumento?: string;
   enfermedadesPrevias?: string;
   cirugiasPrevias?: string;
   alergiaMedicamentos?: string;
@@ -48,6 +62,9 @@ export interface IDetalleConsulta {
   fechaConsulta?: string | Date;
   tiempoEnfermedad?: string;
   tipoEnfermedad?: string;
+  especialidadRequerida?: string;
+  idEmpleadoDoctor?: number;
+  doctorResponsable?: string;
   relatoPaciente?: string;
   diagnostico?: string;
   examenesRecetados?: string;
@@ -57,10 +74,13 @@ export interface IDetalleConsulta {
 }
 
 export interface INuevaConsultaRequest {
+  idConsulta?: number;
   idHistoriaClinica?: number;
   fechaConsulta?: string | Date;
   tiempoEnfermedad?: string;
   tipoEnfermedad?: string;
+  especialidadRequerida?: string;
+  idEmpleadoDoctor?: number;
   relatoPaciente?: string;
   diagnostico?: string;
   examenesRecetados?: string;

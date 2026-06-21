@@ -5,120 +5,47 @@ import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { FormsModule } from '@angular/forms';
-
-
-interface ConsultaRow {
-  id: number;
-  paciente: string;
-  dni: string;
-  especialidad: string;
-  doctor: string;
-  fechaCreacion: string;
-}
+import { TooltipModule } from 'primeng/tooltip';
+import { HistoriaClinicaService } from '../../services/consultas.service';
+import { IDetalleConsulta } from '../../models/historiaClinica';
 
 @Component({
-  selector: 'app-consultas-historia-clinica',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule
-  ],
-  templateUrl: './ver-consultas.component.html',
-  styleUrl: './ver-consultas.component.scss'
+  selector: 'app-consultas-historia-clinica', standalone: true,
+  imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, TooltipModule],
+  templateUrl: './ver-consultas.component.html', styleUrl: './ver-consultas.component.scss'
 })
 export class ConsultasHistoriaClinicaComponent implements OnInit {
-
   idHistoriaClinica!: number;
   paciente = '';
   searchValue = '';
+  consultas: IDetalleConsulta[] = [];
+  loading = false;
+  globalFields = ['idConsulta', 'apellidos', 'nombres', 'numDocumento', 'especialidadRequerida', 'doctorResponsable', 'estado'];
 
-  consultas: ConsultaRow[] = [];
-
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router
-  ) {}
+  constructor(private route: ActivatedRoute, private router: Router, private service: HistoriaClinicaService) {}
 
   ngOnInit(): void {
     this.idHistoriaClinica = Number(this.route.snapshot.paramMap.get('id'));
-
-    this.cargarConsultas(this.idHistoriaClinica);
+    this.cargarCabecera();
+    this.cargarConsultas();
   }
 
-  cargarConsultas(idHistoria: number): void {
-    const dataMock: Record<number, { paciente: string; consultas: ConsultaRow[] }> = {
-      1: {
-        paciente: 'Mendoza Davalos Josefina Vera',
-        consultas: [
-          {
-            id: 1,
-            paciente: 'Mendoza Davalos Josefina Vera',
-            dni: '74526981',
-            especialidad: 'Medicina General',
-            doctor: 'Marcos Chavez',
-            fechaCreacion: '2024-11-20T18:00:00'
-          }
-        ]
-      },
-      2: {
-        paciente: 'Quispe Huamán Luis Alberto',
-        consultas: [
-          {
-            id: 1,
-            paciente: 'Quispe Huamán Luis Alberto',
-            dni: '42831659',
-            especialidad: 'Cardiología',
-            doctor: 'Ana Torres',
-            fechaCreacion: '2024-10-10T10:30:00'
-          }
-        ]
-      },
-      3: {
-        paciente: 'Rojas Salazar María Elena',
-        consultas: [
-          {
-            id: 1,
-            paciente: 'Rojas Salazar María Elena',
-            dni: '76351844',
-            especialidad: 'Dermatología',
-            doctor: 'Luis Pérez',
-            fechaCreacion: '2024-09-15T09:00:00'
-          }
-        ]
-      }
-    };
-
-    const historia = dataMock[idHistoria];
-
-    if (historia) {
-      this.paciente = historia.paciente;
-      this.consultas = historia.consultas;
-    } else {
-      this.paciente = 'Paciente no encontrado';
-      this.consultas = [];
-    }
+  cargarCabecera(): void {
+    this.service.getById(this.idHistoriaClinica).subscribe(h => {
+      this.paciente = h ? [h.apellidos, h.nombres].filter(Boolean).join(' ') : 'Paciente no encontrado';
+    });
   }
 
-  volver(): void {
-    this.router.navigate(['/historiaClinica']);
+  cargarConsultas(): void {
+    this.loading = true;
+    this.service.getConsultasByHistoria(this.idHistoriaClinica).subscribe({
+      next: data => { this.consultas = data; this.loading = false; },
+      error: () => { this.consultas = []; this.loading = false; }
+    });
   }
 
- verConsulta(row: any): void {
-  this.router.navigate([
-    '/historiaClinica/ver-consultas',
-    this.idHistoriaClinica,
-    'ver'
-  ]);
-}
-
-  nuevaConsulta(): void {
-  this.router.navigate([
-    '/historiaClinica/ver-consultas',
-    this.idHistoriaClinica,
-    'nuevo'
-  ]);
-}
+  volver(): void { this.router.navigate(['/historiaClinica']); }
+  verConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'ver'], { queryParams: { idConsulta: row.idConsulta } }); }
+  editarConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'editar'], { queryParams: { idConsulta: row.idConsulta } }); }
+  nuevaConsulta(): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'nuevo']); }
 }

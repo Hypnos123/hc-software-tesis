@@ -46,6 +46,11 @@ public class ConsultaController {
     }
   }
 
+  @GetMapping("/findByHistoriaClinica/{idHistoriaClinica}")
+  public ResponseEntity<ResponseModelGet<ConsultaResponse>> findByHistoriaClinica(@PathVariable int idHistoriaClinica) {
+    return ResponseEntity.ok(consultaService.findByHistoriaClinica(idHistoriaClinica));
+  }
+
   @PostMapping("/insert/consulta")
   public ResponseEntity<ResponseModelSet> create(@RequestBody ConsultaRequest consultaRequest) {
 
@@ -66,7 +71,7 @@ public class ConsultaController {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
       consultaRequest.setIdConsulta(idConsulta);
-      return ResponseEntity.ok(consultaService.save(consultaRequest));
+      return ResponseEntity.ok(consultaService.update(consultaRequest));
     } catch (Exception e) {
       responseModelSet.setError("Error al realizar el update en la base de datos: " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseModelSet);

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from 'environments/environment';
-import { IHistoriaClinica, IHistoriaClinicaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
+import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
 
 @Injectable({ providedIn: 'root' })
 export class HistoriaClinicaService {
@@ -34,5 +34,22 @@ export class HistoriaClinicaService {
   }
   getAntecedentesByPaciente(idPaciente: number): Observable<any | undefined> {
     return this.httpClient.get<any>(`${this.URLServicio}antecedentes/findByPaciente/${idPaciente}`).pipe(map(r => (r.data ?? [])[0]));
+  }
+  getConsultasByHistoria(idHistoriaClinica: number): Observable<IDetalleConsulta[]> {
+    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findByHistoriaClinica/${idHistoriaClinica}`).pipe(map(r => r.data ?? []));
+  }
+  getConsultaById(idConsulta: number): Observable<IDetalleConsulta | undefined> {
+    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findById/${idConsulta}`).pipe(map(r => (r.data ?? [])[0]));
+  }
+  insertConsulta(request: INuevaConsultaRequest): Observable<IResponseModelSet> {
+    return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}consulta/insert/consulta`, request);
+  }
+  updateConsulta(idConsulta: number, request: INuevaConsultaRequest): Observable<IResponseModelSet> {
+    return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}consulta/update/${idConsulta}`, request);
+  }
+  getDoctoresActivos(): Observable<IEmpleadoDoctor[]> {
+    return this.httpClient.get<IResponseModelGet<IEmpleadoDoctor>>(`${this.URLServicio}empleado/doctores-activos`).pipe(
+      map(r => (r.data ?? []).map(d => ({ ...d, nombreCompleto: [d.apellidos, d.nombres].filter(Boolean).join(' ') })))
+    );
   }
 }

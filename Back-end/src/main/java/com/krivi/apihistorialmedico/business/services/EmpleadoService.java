@@ -11,6 +11,8 @@ public interface EmpleadoService {
 
   ResponseModelGet<EmpleadoResponse> getAllActive();
 
+  ResponseModelGet<EmpleadoResponse> getDoctoresActivos();
+
   ResponseModelGet<EmpleadoResponse> findById(int idEmpleado);
 
   ResponseModelSet save(EmpleadoRequest empleadoRequest);

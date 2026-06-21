@@ -3,17 +3,16 @@ package com.krivi.apihistorialmedico.business.services.impl;
 import com.krivi.apihistorialmedico.business.services.ConsultaService;
 import com.krivi.apihistorialmedico.model.api.*;
 import com.krivi.apihistorialmedico.model.entity.*;
-import com.krivi.apihistorialmedico.repository.ConsultaRepository;
-import com.krivi.apihistorialmedico.repository.PacienteRepository;
-import com.krivi.apihistorialmedico.repository.TipoEnfermedadRepository;
-import com.krivi.apihistorialmedico.repository.UsuarioRepository;
+import com.krivi.apihistorialmedico.repository.*;
 import com.krivi.apihistorialmedico.util.Constant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.text.Normalizer;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.*;
 
 import static com.krivi.apihistorialmedico.util.Constant.MENSAJE_GUARDAR_ERROR;
 import static com.krivi.apihistorialmedico.util.Constant.MENSAJE_GUARDAR_OK;
@@ -21,139 +20,141 @@ import static com.krivi.apihistorialmedico.util.Constant.MENSAJE_GUARDAR_OK;
 @Service
 @Slf4j
 public class ConsultaServiceImpl implements ConsultaService {
-
-  @Autowired
-  ConsultaRepository consultaRepository;
-
-  @Autowired
-  PacienteRepository pacienteRepository;
-
-  @Autowired
-  TipoEnfermedadRepository tipoEnfermedadRepository;
-
-  @Autowired
-  UsuarioRepository usuarioRepository;
+  @Autowired ConsultaRepository consultaRepository;
+  @Autowired PacienteRepository pacienteRepository;
+  @Autowired TipoEnfermedadRepository tipoEnfermedadRepository;
+  @Autowired UsuarioRepository usuarioRepository;
+  @Autowired HistoriaClinicaRepository historiaClinicaRepository;
+  @Autowired EmpleadoRepository empleadoRepository;
+  @Autowired AntecedentesRepository antecedentesRepository;
 
   @Override
   public ResponseModelGet<ConsultaResponse> getAllActive() {
-    List<ConsultaResponse> consultaResponseList = new ArrayList<>();
-    consultaRepository.findAll().forEach(consulta -> {
-
-      consultaResponseList.add(ConsultaResponse.builder()
-          .idConsulta(consulta.getIdConsulta())
-          .presionArterial(consulta.getPresionArterial())
-          .frecuenciaCardiaca(consulta.getFrecuenciaCardiaca())
-          .frecuenciaRespiratoria(consulta.getFrecuenciaRespiratoria())
-          .talla(consulta.getTalla())
-          .temperatura(consulta.getTemperatura())
-          .peso(consulta.getPeso())
-          .fechaConsulta(consulta.getFechaConsulta())
-          .tiempoEnfermedad(consulta.getTiempoEnfermedad())
-          .idTipoEnfermedad(consulta.getTipoEnfermedad().getIdTipoEnfermedad())
-              .relatoPaciente(consulta.getRelatoPaciente())
-              .idPaciente(consulta.getPaciente().getIdPaciente())
-              .idUsuario(consulta.getUsuario().getIdUsuario())
-          .build());
-    });
-
-    ResponseModelGet<ConsultaResponse> responseModelGet = new ResponseModelGet<>();
-    responseModelGet.setData(consultaResponseList);
-    responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
-    return responseModelGet;
+    List<ConsultaResponse> data = new ArrayList<>();
+    consultaRepository.findAll().forEach(consulta -> data.add(toResponse(consulta)));
+    return response(data);
   }
 
   @Override
   public ResponseModelGet<ConsultaResponse> findById(int idConsulta) {
-    List<ConsultaResponse> consultaResponseList = new ArrayList<>();
-    Consulta consulta = consultaRepository.findById(idConsulta).orElse(null);
-
-      consultaResponseList.add(ConsultaResponse.builder()
-          .idConsulta(consulta.getIdConsulta())
-          .presionArterial(consulta.getPresionArterial())
-          .frecuenciaCardiaca(consulta.getFrecuenciaCardiaca())
-          .frecuenciaRespiratoria(consulta.getFrecuenciaRespiratoria())
-          .talla(consulta.getTalla())
-          .temperatura(consulta.getTemperatura())
-          .peso(consulta.getPeso())
-          .fechaConsulta(consulta.getFechaConsulta())
-          .tiempoEnfermedad(consulta.getTiempoEnfermedad())
-          .idTipoEnfermedad(consulta.getTipoEnfermedad().getIdTipoEnfermedad())
-          .relatoPaciente(consulta.getRelatoPaciente())
-          .idPaciente(consulta.getPaciente().getIdPaciente())
-          .idUsuario(consulta.getUsuario().getIdUsuario())
-          .build());
-
-
-    ResponseModelGet<ConsultaResponse> responseModelGet = new ResponseModelGet<>();
-    responseModelGet.setData(consultaResponseList);
-    responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
-    return responseModelGet;
+    return response(consultaRepository.findById(idConsulta).map(this::toResponse).map(List::of).orElse(List.of()));
   }
 
   @Override
-  public ResponseModelSet save(ConsultaRequest consultaRequest) {
-    ResponseModelSet responseModelSet = new ResponseModelSet();
+  public ResponseModelGet<ConsultaResponse> findByHistoriaClinica(int idHistoriaClinica) {
+    List<ConsultaResponse> data = new ArrayList<>();
+    consultaRepository.findByHistoriaClinicaIdHistoriaClinica(idHistoriaClinica).forEach(c -> data.add(toResponse(c)));
+    return response(data);
+  }
+
+  @Override
+  public ResponseModelSet save(ConsultaRequest request) {
+    ResponseModelSet response = new ResponseModelSet();
     try {
       Consulta consulta = new Consulta();
-      consulta.setPresionArterial(consultaRequest.getPresionArterial());
-      consulta.setFrecuenciaCardiaca(consulta.getFrecuenciaCardiaca());
-      consulta.setFrecuenciaRespiratoria(consulta.getFrecuenciaRespiratoria());
-      consulta.setTalla(consulta.getTalla());
-      consulta.setTemperatura(consulta.getTemperatura());
-      consulta.setPeso(consulta.getPeso());
-      consulta.setFechaConsulta(consulta.getFechaConsulta());
-      consulta.setTiempoEnfermedad(consulta.getTiempoEnfermedad());
-      consulta.setRelatoPaciente(consultaRequest.getRelatoPaciente());
-      consulta.setTipoEnfermedad(new TipoEnfermedad(consultaRequest.getIdTipoEnfermedad()));
-      consulta.setPaciente(new Paciente(consultaRequest.getIdPaciente()));
-      consulta.setUsuario(new Usuario(consultaRequest.getIdUsuario()));
-
-      consultaRepository.save(consulta);
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
-      return responseModelSet;
-
+      applyRequest(consulta, request, true);
+      Consulta saved = consultaRepository.save(consulta);
+      response.setIdGenerado(saved.getIdConsulta());
+      response.setMensaje(MENSAJE_GUARDAR_OK);
+      return response;
     } catch (Exception e) {
       log.error("save(): {}", e.getMessage());
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
-      return responseModelSet;
+      response.setMensaje(MENSAJE_GUARDAR_ERROR);
+      response.setError(e.getMessage());
+      return response;
     }
   }
 
   @Override
-  public ResponseModelSet update(ConsultaRequest consultaRequest) {
-    ResponseModelSet responseModelSet = new ResponseModelSet();
+  public ResponseModelSet update(ConsultaRequest request) {
+    ResponseModelSet response = new ResponseModelSet();
     try {
-      Consulta consulta = consultaRepository.findById(consultaRequest.getIdConsulta()).orElse(null);
-      if (consulta != null) {
-        consulta.setPresionArterial(consultaRequest.getPresionArterial());
-        consulta.setFrecuenciaCardiaca(consultaRequest.getFrecuenciaCardiaca());
-        consulta.setFrecuenciaRespiratoria(consultaRequest.getFrecuenciaRespiratoria());
-        consulta.setTalla(consultaRequest.getTalla());
-        consulta.setTemperatura(consultaRequest.getTemperatura());
-        consulta.setPeso(consultaRequest.getPeso());
-        consulta.setFechaConsulta(consultaRequest.getFechaConsulta());
-        consulta.setTiempoEnfermedad(consultaRequest.getTiempoEnfermedad());
-        consulta.setRelatoPaciente(consultaRequest.getRelatoPaciente());
-
-        Paciente paciente = pacienteRepository.findById(consultaRequest.getIdPaciente()).orElse(null);
-        TipoEnfermedad tipoEnfermedad = tipoEnfermedadRepository.findById(consultaRequest.getIdTipoEnfermedad()).orElse(null);
-        Usuario usuario = usuarioRepository.findById(consultaRequest.getIdUsuario()).orElse(null);
-
-        consulta.setPaciente(paciente);
-        consulta.setTipoEnfermedad(tipoEnfermedad);
-        consulta.setUsuario(usuario);
-
-        consultaRepository.save(consulta);
-        responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
-      } else {
-        responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
-      }
-      return responseModelSet;
+      Consulta consulta = consultaRepository.findById(request.getIdConsulta())
+          .orElseThrow(() -> new IllegalArgumentException("Consulta no encontrada"));
+      applyRequest(consulta, request, false);
+      Consulta saved = consultaRepository.save(consulta);
+      response.setIdGenerado(saved.getIdConsulta());
+      response.setMensaje(MENSAJE_GUARDAR_OK);
+      return response;
     } catch (Exception e) {
       log.error("update(): {}", e.getMessage());
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
-      return responseModelSet;
+      response.setMensaje(MENSAJE_GUARDAR_ERROR);
+      response.setError(e.getMessage());
+      return response;
     }
   }
+
+  private void applyRequest(Consulta consulta, ConsultaRequest request, boolean nuevo) {
+    Integer idHistoriaClinica = request.getIdHistoriaClinica() != null ? request.getIdHistoriaClinica() : consulta.getHistoriaClinica().getIdHistoriaClinica();
+    HistoriaClinica historia = historiaClinicaRepository.findById(idHistoriaClinica)
+        .orElseThrow(() -> new IllegalArgumentException("Historia clínica no encontrada"));
+    Empleado doctor = empleadoRepository.findById(request.getIdEmpleadoDoctor())
+        .filter(this::isDoctorActivo)
+        .orElseThrow(() -> new IllegalArgumentException("Debe seleccionar un doctor activo"));
+
+    consulta.setHistoriaClinica(historia);
+    consulta.setPaciente(historia.getPaciente());
+    consulta.setDoctorResponsable(doctor);
+    consulta.setPresionArterial(request.getPresionArterial());
+    consulta.setFrecuenciaCardiaca(request.getFrecuenciaCardiaca());
+    consulta.setFrecuenciaRespiratoria(request.getFrecuenciaRespiratoria());
+    consulta.setTalla(request.getTalla());
+    consulta.setTemperatura(request.getTemperatura());
+    consulta.setPeso(request.getPeso());
+    consulta.setFechaConsulta(request.getFechaConsulta());
+    consulta.setTiempoEnfermedad(request.getTiempoEnfermedad());
+    consulta.setRelatoPaciente(request.getRelatoPaciente());
+    consulta.setEspecialidadRequerida(normalizeEspecialidad(request.getEspecialidadRequerida()));
+    consulta.setDiagnostico(request.getDiagnostico());
+    consulta.setExamenesRecetados(request.getExamenesRecetados());
+    consulta.setReceta(request.getReceta());
+    consulta.setTratamiento(request.getTratamiento());
+    consulta.setProximaCita(request.getProximaCita());
+    consulta.setTipoEnfermedad(resolveTipoEnfermedad(request));
+    if (request.getIdUsuario() != null) usuarioRepository.findById(request.getIdUsuario()).ifPresent(consulta::setUsuario);
+    if (!nuevo && tieneEvaluacionMedica(request)) consulta.setEstado("ATENDIDO");
   }
 
+  private TipoEnfermedad resolveTipoEnfermedad(ConsultaRequest request) {
+    if (request.getIdTipoEnfermedad() != null) return tipoEnfermedadRepository.findById(request.getIdTipoEnfermedad()).orElseThrow();
+    String descripcion = normalizeTipoEnfermedad(request.getTipoEnfermedad());
+    return tipoEnfermedadRepository.findByDescripcionIgnoreCase(descripcion).orElseGet(() -> {
+      TipoEnfermedad tipo = new TipoEnfermedad();
+      tipo.setDescripcion(descripcion);
+      return tipoEnfermedadRepository.save(tipo);
+    });
+  }
+
+  private boolean isDoctorActivo(Empleado empleado) {
+    String cargo = normalize(empleado.getCargo());
+    return Boolean.TRUE.equals(empleado.getEstado()) && ("DOCTOR".equals(cargo) || "MEDICO".equals(cargo));
+  }
+
+  private boolean tieneEvaluacionMedica(ConsultaRequest request) {
+    return hasText(request.getDiagnostico()) || hasText(request.getExamenesRecetados()) || hasText(request.getReceta()) || hasText(request.getTratamiento()) || request.getProximaCita() != null;
+  }
+
+  private ConsultaResponse toResponse(Consulta c) {
+    Paciente p = c.getPaciente();
+    Antecedentes a = antecedentesRepository.findByPacienteIdPaciente(p.getIdPaciente()).stream().findFirst().orElse(null);
+    Empleado d = c.getDoctorResponsable();
+    return ConsultaResponse.builder()
+        .idConsulta(c.getIdConsulta()).idHistoriaClinica(c.getHistoriaClinica() == null ? null : c.getHistoriaClinica().getIdHistoriaClinica())
+        .fechaCreacion(c.getFechaCreacion()).estado(c.getEstado()).presionArterial(c.getPresionArterial()).frecuenciaCardiaca(c.getFrecuenciaCardiaca())
+        .frecuenciaRespiratoria(c.getFrecuenciaRespiratoria()).talla(c.getTalla()).temperatura(c.getTemperatura()).peso(c.getPeso()).fechaConsulta(c.getFechaConsulta())
+        .tiempoEnfermedad(c.getTiempoEnfermedad()).tipoEnfermedad(c.getTipoEnfermedad() == null ? null : c.getTipoEnfermedad().getDescripcion())
+        .idTipoEnfermedad(c.getTipoEnfermedad() == null ? null : c.getTipoEnfermedad().getIdTipoEnfermedad()).especialidadRequerida(c.getEspecialidadRequerida())
+        .idEmpleadoDoctor(d == null ? null : d.getIdEmpleado()).doctorResponsable(d == null ? null : d.getApellidos() + " " + d.getNombres())
+        .relatoPaciente(c.getRelatoPaciente()).diagnostico(c.getDiagnostico()).examenesRecetados(c.getExamenesRecetados()).receta(c.getReceta()).tratamiento(c.getTratamiento()).proximaCita(c.getProximaCita())
+        .idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento()))
+        .enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos())
+        .idUsuario(c.getUsuario() == null ? null : c.getUsuario().getIdUsuario()).build();
+  }
+
+  private ResponseModelGet<ConsultaResponse> response(List<ConsultaResponse> data) { ResponseModelGet<ConsultaResponse> r = new ResponseModelGet<>(); r.setData(data); r.setMensaje(Constant.MENSAJE_CONSULTA_OK); return r; }
+  private Integer edad(Date f) { if (f == null) return null; LocalDate b = f.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(); LocalDate n = LocalDate.now(); int e = n.getYear() - b.getYear(); if (n.getDayOfYear() < b.getDayOfYear()) e--; return e; }
+  private String normalizeTipoEnfermedad(String v) { return normalize(v); }
+  private String normalizeEspecialidad(String v) { return normalize(v); }
+  private String normalize(String v) { if (v == null) return null; return Normalizer.normalize(v, Normalizer.Form.NFD).replaceAll("\\p{M}", "").trim().toUpperCase().replace(' ', '_'); }
+  private boolean hasText(String v) { return v != null && !v.trim().isEmpty(); }
+}

@@ -37,6 +37,11 @@ public class EmpleadoServiceImpl implements EmpleadoService {
   }
 
   @Override
+  public ResponseModelGet<EmpleadoResponse> getDoctoresActivos() {
+    return buildResponse(empleadoRepository.findDoctoresActivos());
+  }
+
+  @Override
   public ResponseModelGet<EmpleadoResponse> findById(int idEmpleado) {
     List<EmpleadoResponse> empleadoResponseList = new ArrayList<>();
     empleadoRepository.findById(idEmpleado)

@@ -8,8 +8,8 @@ import java.util.Date;
 @Data
 @Builder
 public class ConsultaRequest {
-
   Integer idConsulta;
+  Integer idHistoriaClinica;
   String presionArterial;
   String frecuenciaCardiaca;
   String frecuenciaRespiratoria;
@@ -18,9 +18,16 @@ public class ConsultaRequest {
   Double peso;
   Date fechaConsulta;
   String tiempoEnfermedad;
-  String relatoPaciente;
-  Integer idPaciente;
+  String tipoEnfermedad;
   Integer idTipoEnfermedad;
-  Integer IdUsuario;
-
+  String especialidadRequerida;
+  Integer idEmpleadoDoctor;
+  String relatoPaciente;
+  String diagnostico;
+  String examenesRecetados;
+  String receta;
+  String tratamiento;
+  Date proximaCita;
+  Integer idPaciente;
+  Integer idUsuario;
 }
