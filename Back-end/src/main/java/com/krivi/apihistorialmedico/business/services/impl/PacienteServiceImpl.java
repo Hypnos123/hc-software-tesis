@@ -34,7 +34,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
-          .estadoCivil(paciente.getEstadoCivil())
+          .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
           .direccion(paciente.getDireccion())
@@ -60,7 +60,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
-          .estadoCivil(paciente.getEstadoCivil())
+          .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
           .direccion(paciente.getDireccion())
@@ -76,6 +76,59 @@ public class PacienteServiceImpl implements PacienteService {
   }
 
   @Override
+  public ResponseModelGet<PacienteResponse> search(String nombre, String dni, Integer limit) {
+    int safeLimit = limit == null || limit < 1 || limit > 25 ? 10 : limit;
+    List<PacienteResponse> pacienteResponseList = new ArrayList<>();
+    Iterable<Paciente> pacientes;
+    if (dni != null && !dni.trim().isEmpty()) {
+      pacientes = pacienteRepository.searchByDni(dni.trim(), safeLimit);
+    } else if (nombre != null && nombre.trim().length() >= 2) {
+      pacientes = pacienteRepository.searchByNombre(nombre.trim(), safeLimit);
+    } else {
+      pacientes = new ArrayList<>();
+    }
+    pacientes.forEach(paciente -> pacienteResponseList.add(toResponse(paciente)));
+    ResponseModelGet<PacienteResponse> responseModelGet = new ResponseModelGet<>();
+    responseModelGet.setData(pacienteResponseList);
+    responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
+    return responseModelGet;
+  }
+
+  private PacienteResponse toResponse(Paciente paciente) {
+    return PacienteResponse.builder()
+        .idPaciente(paciente.getIdPaciente())
+        .nombres(paciente.getNombres())
+        .apellidos(paciente.getApellidos())
+        .fechaIngreso(paciente.getFechaIngreso())
+        .fechaNacimiento(paciente.getFechaNacimiento())
+        .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
+        .numDocumento(paciente.getNumDocumento())
+        .sexo(paciente.getSexo())
+        .direccion(paciente.getDireccion())
+        .distrito(paciente.getDistrito())
+        .traidoPor(paciente.getTraidoPor())
+        .build();
+  }
+
+  private String normalizeEstadoCivil(String estadoCivil) {
+    if (estadoCivil == null || estadoCivil.trim().isEmpty()) {
+      return estadoCivil;
+    }
+
+    String normalized = java.text.Normalizer.normalize(estadoCivil, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .trim()
+        .toUpperCase();
+
+    if (normalized.startsWith("SOLTER")) return "SOLTERO";
+    if (normalized.startsWith("CASAD")) return "CASADO";
+    if (normalized.startsWith("DIVORCIAD")) return "DIVORCIADO";
+    if (normalized.startsWith("VIUD")) return "VIUDO";
+
+    return normalized;
+  }
+
+  @Override
   public ResponseModelSet save(PacienteRequest pacienteRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
@@ -84,7 +137,7 @@ public class PacienteServiceImpl implements PacienteService {
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
       paciente.setFechaNacimiento(pacienteRequest.getFechaNacimiento());
-      paciente.setEstadoCivil(pacienteRequest.getEstadoCivil());
+      paciente.setEstadoCivil(normalizeEstadoCivil(pacienteRequest.getEstadoCivil()));
       paciente.setNumDocumento(pacienteRequest.getNumDocumento());
       paciente.setSexo(pacienteRequest.getSexo());
       paciente.setDireccion(pacienteRequest.getDireccion());
@@ -113,7 +166,7 @@ public class PacienteServiceImpl implements PacienteService {
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
       paciente.setFechaNacimiento(pacienteRequest.getFechaNacimiento());
-      paciente.setEstadoCivil(pacienteRequest.getEstadoCivil());
+      paciente.setEstadoCivil(normalizeEstadoCivil(pacienteRequest.getEstadoCivil()));
       paciente.setNumDocumento(pacienteRequest.getNumDocumento());
       paciente.setSexo(pacienteRequest.getSexo());
       paciente.setDireccion(pacienteRequest.getDireccion());

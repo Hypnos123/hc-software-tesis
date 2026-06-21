@@ -11,13 +11,25 @@
       <div class="col col-5">
         <label>Nombre Paciente</label>
           <input pInputText type="text" formControlName="nombrePacienteSel"
-          (keyup.enter)="buscarPaciente()">
+          (input)="onNombreInput($any($event.target).value)"
+          (keydown.arrowDown)="activeNombre = activeNombre < sugerenciasNombre.length - 1 ? activeNombre + 1 : activeNombre"
+          (keydown.arrowUp)="activeNombre = activeNombre > 0 ? activeNombre - 1 : 0"
+          (keyup.enter)="seleccionarActiva(sugerenciasNombre, activeNombre)">
+        <ul *ngIf="sugerenciasNombre.length" class="autocomplete-list">
+          <li *ngFor="let p of sugerenciasNombre; let i = index" [class.active]="i === activeNombre" (click)="seleccionarPaciente(p)">{{ nombreCompleto(p) }}</li>
+        </ul>
       </div>
 
     <div class="col col-4">
       <label>DNI</label>
         <input pInputText type="text" formControlName="dniSel"
-        (keyup.enter)="buscarPaciente()">
+        (input)="onDniInput($any($event.target).value)"
+        (keydown.arrowDown)="activeDni = activeDni < sugerenciasDni.length - 1 ? activeDni + 1 : activeDni"
+        (keydown.arrowUp)="activeDni = activeDni > 0 ? activeDni - 1 : 0"
+        (keyup.enter)="seleccionarActiva(sugerenciasDni, activeDni)">
+      <ul *ngIf="sugerenciasDni.length" class="autocomplete-list">
+        <li *ngFor="let p of sugerenciasDni; let i = index" [class.active]="i === activeDni" (click)="seleccionarPaciente(p)">{{ p.numDocumento }}</li>
+      </ul>
     </div>
 
     </div>

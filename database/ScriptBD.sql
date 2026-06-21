@@ -61,6 +61,25 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`antecedentes` (
 ENGINE = InnoDB;
 
 
+
+
+-- -----------------------------------------------------
+-- Table `historiaclinicadb`.`historiaclinica`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`historiaclinica` (
+  `idhistoriaclinica` INT NOT NULL AUTO_INCREMENT,
+  `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ultimaactualizacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `idpaciente` INT NOT NULL,
+  PRIMARY KEY (`idhistoriaclinica`),
+  UNIQUE INDEX `uk_historiaclinica_paciente` (`idpaciente` ASC) VISIBLE,
+  CONSTRAINT `fk_historiaclinica_paciente1`
+    FOREIGN KEY (`idpaciente`)
+    REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
 -- -----------------------------------------------------
 -- Table `historiaclinicadb`.`tipoenfermedad`
 -- -----------------------------------------------------
@@ -206,3 +225,14 @@ ENGINE = InnoDB;
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+-- Normalización de valores históricos de estado civil.
+UPDATE `historiaclinicadb`.`paciente`
+SET `estadocivil` = CASE
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('SOLTERO', 'SOLTERA', 'SOLTERO(A)') THEN 'SOLTERO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('CASADO', 'CASADA', 'CASADO(A)') THEN 'CASADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('DIVORCIADO', 'DIVORCIADA', 'DIVORCIADO(A)') THEN 'DIVORCIADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('VIUDO', 'VIUDA', 'VIUDO(A)') THEN 'VIUDO'
+  ELSE UPPER(TRIM(`estadocivil`))
+END
+WHERE `estadocivil` IS NOT NULL;
