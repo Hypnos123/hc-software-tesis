@@ -76,6 +76,41 @@ public class PacienteServiceImpl implements PacienteService {
   }
 
   @Override
+  public ResponseModelGet<PacienteResponse> search(String nombre, String dni, Integer limit) {
+    int safeLimit = limit == null || limit < 1 || limit > 25 ? 10 : limit;
+    List<PacienteResponse> pacienteResponseList = new ArrayList<>();
+    Iterable<Paciente> pacientes;
+    if (dni != null && !dni.trim().isEmpty()) {
+      pacientes = pacienteRepository.searchByDni(dni.trim(), safeLimit);
+    } else if (nombre != null && nombre.trim().length() >= 2) {
+      pacientes = pacienteRepository.searchByNombre(nombre.trim(), safeLimit);
+    } else {
+      pacientes = new ArrayList<>();
+    }
+    pacientes.forEach(paciente -> pacienteResponseList.add(toResponse(paciente)));
+    ResponseModelGet<PacienteResponse> responseModelGet = new ResponseModelGet<>();
+    responseModelGet.setData(pacienteResponseList);
+    responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
+    return responseModelGet;
+  }
+
+  private PacienteResponse toResponse(Paciente paciente) {
+    return PacienteResponse.builder()
+        .idPaciente(paciente.getIdPaciente())
+        .nombres(paciente.getNombres())
+        .apellidos(paciente.getApellidos())
+        .fechaIngreso(paciente.getFechaIngreso())
+        .fechaNacimiento(paciente.getFechaNacimiento())
+        .estadoCivil(paciente.getEstadoCivil())
+        .numDocumento(paciente.getNumDocumento())
+        .sexo(paciente.getSexo())
+        .direccion(paciente.getDireccion())
+        .distrito(paciente.getDistrito())
+        .traidoPor(paciente.getTraidoPor())
+        .build();
+  }
+
+  @Override
   public ResponseModelSet save(PacienteRequest pacienteRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {

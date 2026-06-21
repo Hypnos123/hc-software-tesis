@@ -61,6 +61,25 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`antecedentes` (
 ENGINE = InnoDB;
 
 
+
+
+-- -----------------------------------------------------
+-- Table `historiaclinicadb`.`historiaclinica`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`historiaclinica` (
+  `idhistoriaclinica` INT NOT NULL AUTO_INCREMENT,
+  `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ultimaactualizacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `idpaciente` INT NOT NULL,
+  PRIMARY KEY (`idhistoriaclinica`),
+  UNIQUE INDEX `uk_historiaclinica_paciente` (`idpaciente` ASC) VISIBLE,
+  CONSTRAINT `fk_historiaclinica_paciente1`
+    FOREIGN KEY (`idpaciente`)
+    REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
 -- -----------------------------------------------------
 -- Table `historiaclinicadb`.`tipoenfermedad`
 -- -----------------------------------------------------

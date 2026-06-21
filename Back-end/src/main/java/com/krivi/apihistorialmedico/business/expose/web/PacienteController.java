@@ -46,6 +46,11 @@ public class PacienteController {
     }
   }
 
+  @GetMapping("/search")
+  public ResponseEntity<ResponseModelGet<PacienteResponse>> search(@RequestParam(required = false) String nombre, @RequestParam(required = false) String dni, @RequestParam(required = false) Integer limit) {
+    return ResponseEntity.ok(pacienteService.search(nombre, dni, limit));
+  }
+
   @PostMapping("/insert/paciente")
   public ResponseEntity<ResponseModelSet> create(@RequestBody PacienteRequest pacienteRequest) {
 
