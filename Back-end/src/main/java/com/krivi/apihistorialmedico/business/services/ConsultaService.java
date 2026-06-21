@@ -11,6 +11,8 @@ public interface ConsultaService {
 
   ResponseModelGet<ConsultaResponse> findById(int idAnalisis);
 
+  ResponseModelGet<ConsultaResponse> findByHistoriaClinica(int idHistoriaClinica);
+
   ResponseModelSet save(ConsultaRequest analisisRequest);
 
   ResponseModelSet update(ConsultaRequest analisisRequest);

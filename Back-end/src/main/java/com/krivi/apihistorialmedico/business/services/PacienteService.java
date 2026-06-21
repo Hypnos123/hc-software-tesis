@@ -11,6 +11,8 @@ public interface PacienteService {
 
   ResponseModelGet<PacienteResponse> findById(int idAnalisis);
 
+  ResponseModelGet<PacienteResponse> search(String nombre, String dni, Integer limit);
+
   ResponseModelSet save(PacienteRequest pacienteRequest);
 
   ResponseModelSet update(PacienteRequest pacienteRequest);

@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Getter
@@ -35,6 +36,18 @@ public class Consulta {
   private String tiempoEnfermedad;
   @Column(name = "relatopaciente")
   private String relatoPaciente;
+  @Column(name = "especialidadrequerida")
+  private String especialidadRequerida;
+  private String diagnostico;
+  @Column(name = "examenesrecetados")
+  private String examenesRecetados;
+  private String receta;
+  private String tratamiento;
+  @Column(name = "proximacita")
+  private Date proximaCita;
+  @Column(name = "fechacreacion", nullable = false, updatable = false)
+  private LocalDateTime fechaCreacion;
+  private String estado;
 
   @ManyToOne
   @JoinColumn(name = "idpaciente", nullable = false)
@@ -47,11 +60,23 @@ public class Consulta {
   TipoEnfermedad tipoEnfermedad;
 
   @ManyToOne
-  @JoinColumn(name = "idusuario", nullable = false)
+  @JoinColumn(name = "idusuario")
   @JsonBackReference
   Usuario usuario;
 
+  @ManyToOne
+  @JoinColumn(name = "idhistoriaclinica", nullable = false)
+  @JsonBackReference
+  HistoriaClinica historiaClinica;
 
+  @ManyToOne
+  @JoinColumn(name = "idempleado", nullable = false)
+  @JsonBackReference
+  Empleado doctorResponsable;
 
-
+  @PrePersist
+  void prePersist() {
+    if (fechaCreacion == null) fechaCreacion = LocalDateTime.now();
+    if (estado == null || estado.trim().isEmpty()) estado = "PENDIENTE";
+  }
 }

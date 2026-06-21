@@ -27,7 +27,7 @@
     #dt
     [value]="rows"
     [(selection)]="selected"
-    dataKey="id"
+    dataKey="idHistoriaClinica"
     [rowHover]="true"
     [paginator]="true"
     [rows]="10"
@@ -40,19 +40,19 @@
 
     <ng-template pTemplate="header">
       <tr>
-        <th pSortableColumn="id" style="width: 80px">
-          ID <p-sortIcon field="id" />
-          <p-columnFilter field="id" display="menu" class="ml-auto"/>
+        <th pSortableColumn="idHistoriaClinica" style="width: 80px">
+          ID <p-sortIcon field="idHistoriaClinica" />
+          <p-columnFilter field="idHistoriaClinica" display="menu" class="ml-auto"/>
         </th>
 
-        <th pSortableColumn="paciente.apellidos" style="width: 260px;">
-          Paciente <p-sortIcon field="paciente.apellidos" />
-          <p-columnFilter field="paciente.apellidos" display="menu" class="ml-auto"/>
+        <th pSortableColumn="apellidos" style="width: 260px;">
+          Paciente <p-sortIcon field="apellidos" />
+          <p-columnFilter field="apellidos" display="menu" class="ml-auto"/>
         </th>
 
-        <th pSortableColumn="dni" style="width: 150px">
-          DNI <p-sortIcon field="dni" />
-          <p-columnFilter field="dni" display="menu" class="ml-auto"/>
+        <th pSortableColumn="numDocumento" style="width: 150px">
+          DNI <p-sortIcon field="numDocumento" />
+          <p-columnFilter field="numDocumento" display="menu" class="ml-auto"/>
         </th>
 
         <th pSortableColumn="edad" style="width: 100px">
@@ -76,12 +76,12 @@
 
     <ng-template pTemplate="body" let-r>
       <tr>
-        <td>{{ r.id }}</td>
+        <td>{{ r.idHistoriaClinica }}</td>
         <td class="two-lines">
-          <div>{{ r.paciente.apellidos }}</div>
-          <div>{{ r.paciente.nombres }}</div>
+          <div>{{ r.apellidos }}</div>
+          <div>{{ r.nombres }}</div>
         </td>
-        <td>{{ r.dni }}</td>
+        <td>{{ r.numDocumento }}</td>
         <td>{{ r.edad }}</td>
         <td>{{ r.fechaCreacion | date:'dd/MM/yyyy - HH:mm' }}</td>
         <td>{{ r.ultimaActualizacion | date:'dd/MM/yyyy - HH:mm' }}</td>
@@ -91,8 +91,17 @@
         pButton
         icon="pi pi-eye"
         class="p-button-rounded p-button-text"
-        pTooltip="Ver"
-        (click)="verHistoria(r.id)">
+        pTooltip="Visualizar"
+        (click)="verHistoria(r.idHistoriaClinica)">
+      </button>
+
+
+      <button
+        pButton
+        icon="pi pi-pencil"
+        class="p-button-rounded p-button-text"
+        pTooltip="Editar"
+        (click)="editarHistoria(r.idHistoriaClinica)">
       </button>
 
       <button

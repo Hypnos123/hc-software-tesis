@@ -44,6 +44,11 @@ public class EmpleadoController {
     }
   }
 
+  @GetMapping("/doctores-activos")
+  public ResponseEntity<ResponseModelGet<EmpleadoResponse>> getDoctoresActivos() {
+    return ResponseEntity.ok(empleadoService.getDoctoresActivos());
+  }
+
   @GetMapping("/findById/{idEmpleado}")
   public ResponseEntity<ResponseModelGet<EmpleadoResponse>> findById(@PathVariable("idEmpleado") int idEmpleado) {
 

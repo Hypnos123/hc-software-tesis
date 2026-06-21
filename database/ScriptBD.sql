@@ -61,6 +61,25 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`antecedentes` (
 ENGINE = InnoDB;
 
 
+
+
+-- -----------------------------------------------------
+-- Table `historiaclinicadb`.`historiaclinica`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`historiaclinica` (
+  `idhistoriaclinica` INT NOT NULL AUTO_INCREMENT,
+  `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ultimaactualizacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `idpaciente` INT NOT NULL,
+  PRIMARY KEY (`idhistoriaclinica`),
+  UNIQUE INDEX `uk_historiaclinica_paciente` (`idpaciente` ASC) VISIBLE,
+  CONSTRAINT `fk_historiaclinica_paciente1`
+    FOREIGN KEY (`idpaciente`)
+    REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
 -- -----------------------------------------------------
 -- Table `historiaclinicadb`.`tipoenfermedad`
 -- -----------------------------------------------------
@@ -125,11 +144,23 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`consulta` (
   `idtipoenfermedad` INT NOT NULL,
   `relatopaciente` VARCHAR(250) NULL,
   `idpaciente` INT NOT NULL,
-  `idusuario` INT NOT NULL,
+  `idusuario` INT NULL,
+  `idhistoriaclinica` INT NULL,
+  `idempleado` INT NULL,
+  `especialidadrequerida` VARCHAR(80) NULL,
+  `diagnostico` VARCHAR(250) NULL,
+  `examenesrecetados` VARCHAR(250) NULL,
+  `receta` VARCHAR(250) NULL,
+  `tratamiento` VARCHAR(250) NULL,
+  `proximacita` DATE NULL,
+  `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `estado` VARCHAR(45) NOT NULL DEFAULT 'PENDIENTE',
   PRIMARY KEY (`idconsulta`),
   INDEX `fk_consulta_tipoenferdad_idx` (`idtipoenfermedad` ASC) VISIBLE,
   INDEX `fk_consulta_paciente1_idx` (`idpaciente` ASC) VISIBLE,
   INDEX `fk_consulta_usuario1_idx` (`idusuario` ASC) VISIBLE,
+  INDEX `fk_consulta_historiaclinica1_idx` (`idhistoriaclinica` ASC) VISIBLE,
+  INDEX `fk_consulta_empleado1_idx` (`idempleado` ASC) VISIBLE,
   CONSTRAINT `fk_consulta_tipoenferdad`
     FOREIGN KEY (`idtipoenfermedad`)
     REFERENCES `historiaclinicadb`.`tipoenfermedad` (`idtipoenfermedad`)
@@ -143,6 +174,16 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`consulta` (
   CONSTRAINT `fk_consulta_usuario1`
     FOREIGN KEY (`idusuario`)
     REFERENCES `historiaclinicadb`.`usuario` (`idusuario`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_consulta_historiaclinica1`
+    FOREIGN KEY (`idhistoriaclinica`)
+    REFERENCES `historiaclinicadb`.`historiaclinica` (`idhistoriaclinica`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_consulta_empleado1`
+    FOREIGN KEY (`idempleado`)
+    REFERENCES `historiaclinicadb`.`empleado` (`idempleado`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -180,6 +221,16 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`detallepermiso` (
     FOREIGN KEY (`idusuario`)
     REFERENCES `historiaclinicadb`.`usuario` (`idusuario`)
     ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_consulta_historiaclinica1`
+    FOREIGN KEY (`idhistoriaclinica`)
+    REFERENCES `historiaclinicadb`.`historiaclinica` (`idhistoriaclinica`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_consulta_empleado1`
+    FOREIGN KEY (`idempleado`)
+    REFERENCES `historiaclinicadb`.`empleado` (`idempleado`)
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -206,3 +257,53 @@ ENGINE = InnoDB;
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+
+-- Catálogo inicial normalizado de tipos generales de enfermedad para consultas médicas.
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'RESPIRATORIA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'RESPIRATORIA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'DIGESTIVA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'DIGESTIVA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'CARDIOVASCULAR' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'CARDIOVASCULAR');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'NEUROLOGICA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'NEUROLOGICA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'DERMATOLOGICA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'DERMATOLOGICA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'MUSCULOESQUELETICA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'MUSCULOESQUELETICA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'INFECCIOSA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'INFECCIOSA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'ALERGICA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'ALERGICA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'URINARIA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'URINARIA');
+INSERT INTO `historiaclinicadb`.`tipoenfermedad` (`descripcion`)
+SELECT 'OTRA' WHERE NOT EXISTS (SELECT 1 FROM `historiaclinicadb`.`tipoenfermedad` WHERE `descripcion` = 'OTRA');
+
+-- Normalización de valores históricos de estado civil.
+UPDATE `historiaclinicadb`.`paciente`
+SET `estadocivil` = CASE
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('SOLTERO', 'SOLTERA', 'SOLTERO(A)') THEN 'SOLTERO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('CASADO', 'CASADA', 'CASADO(A)') THEN 'CASADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('DIVORCIADO', 'DIVORCIADA', 'DIVORCIADO(A)') THEN 'DIVORCIADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('VIUDO', 'VIUDA', 'VIUDO(A)') THEN 'VIUDO'
+  ELSE UPPER(TRIM(`estadocivil`))
+END
+WHERE `estadocivil` IS NOT NULL;
+
+-- Migración para bases existentes: agregar columnas faltantes de Consulta si la tabla ya existe.
+-- Ejecutar manualmente solo si la tabla `consulta` fue creada antes de estos cambios.
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `idhistoriaclinica` INT NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `idempleado` INT NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `especialidadrequerida` VARCHAR(80) NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `diagnostico` VARCHAR(250) NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `examenesrecetados` VARCHAR(250) NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `receta` VARCHAR(250) NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `tratamiento` VARCHAR(250) NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `proximacita` DATE NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD COLUMN `estado` VARCHAR(45) NOT NULL DEFAULT 'PENDIENTE';
+-- ALTER TABLE `historiaclinicadb`.`consulta` MODIFY COLUMN `idusuario` INT NULL;
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD CONSTRAINT `fk_consulta_historiaclinica1` FOREIGN KEY (`idhistoriaclinica`) REFERENCES `historiaclinicadb`.`historiaclinica` (`idhistoriaclinica`);
+-- ALTER TABLE `historiaclinicadb`.`consulta` ADD CONSTRAINT `fk_consulta_empleado1` FOREIGN KEY (`idempleado`) REFERENCES `historiaclinicadb`.`empleado` (`idempleado`);

@@ -78,7 +78,12 @@
 
           <div class="col col-4">
             <label>Estado Civil</label>
-            <input pInputText type="text" formControlName="estadoCivil">
+            <p-dropdown
+              formControlName="estadoCivil"
+              [options]="estadoCivil_Opcion"
+              optionLabel="label"
+              placeholder="Seleccionar">
+            </p-dropdown>
           </div>
 
           <div class="col col-4">

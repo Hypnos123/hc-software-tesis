@@ -1,7 +1,7 @@
 <form [formGroup]="frm" class="consulta-page">
   <div class="page-header">
     <h2 class="page-title">
-  {{ esNuevo ? 'Nueva Consulta' : 'Datos Consulta' }}
+  {{ esNuevo ? 'Nueva Consulta' : (modo === 'editar' ? 'Editar Consulta' : 'Datos Consulta') }}
 </h2>
   </div>
 
@@ -112,6 +112,28 @@
           placeholder="Seleccione">
         </p-dropdown>
       </div>
+
+      <div class="field">
+        <label>Especialidad Requerida</label>
+        <p-dropdown
+          formControlName="especialidadRequerida"
+          [options]="especialidades"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccione">
+        </p-dropdown>
+      </div>
+
+      <div class="field">
+        <label>Doctor Responsable</label>
+        <p-dropdown
+          formControlName="idEmpleadoDoctor"
+          [options]="doctores"
+          optionLabel="nombreCompleto"
+          optionValue="idEmpleado"
+          placeholder="Seleccione">
+        </p-dropdown>
+      </div>
     </div>
 
     <div class="field full-width">
@@ -179,9 +201,9 @@
     </button>
 
   <button
-  *ngIf="esNuevo"
+  *ngIf="modo !== 'ver'"
   pButton
-  label="Guardar"
+  [label]="esNuevo ? 'Guardar' : 'Actualizar'"
   icon="pi pi-check"
   (click)="guardar()">
 </button>

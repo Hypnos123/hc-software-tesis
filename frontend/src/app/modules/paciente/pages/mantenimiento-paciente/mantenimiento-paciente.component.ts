@@ -48,6 +48,7 @@ export class MantenimientoPacienteComponent {
   antecedenteId: number | null = null;
 
   sexo_Opcion: IOption[] = [];
+  estadoCivil_Opcion: IOption[] = [];
   educacion_Opcion: IOption[] = [];
 
   constructor(
@@ -65,7 +66,7 @@ export class MantenimientoPacienteComponent {
       nombres: ['', Validators.required],
       fechaIngreso: [new Date(), Validators.required],
       fechaNac: [new Date(), Validators.required],
-      estadoCivil: ['', Validators.required],
+      estadoCivil: [null, Validators.required],
       edad: [null, [Validators.required, Validators.min(0), Validators.max(120)]],
       dni: ['', [Validators.required, Validators.minLength(8)]],
       sexo: [null, Validators.required],
@@ -147,6 +148,13 @@ export class MantenimientoPacienteComponent {
       { label: 'Femenino', value: 'F' },
     ];
 
+    this.estadoCivil_Opcion = [
+      { label: 'Soltero(a)', value: 'SOLTERO' },
+      { label: 'Casado(a)', value: 'CASADO' },
+      { label: 'Divorciado(a)', value: 'DIVORCIADO' },
+      { label: 'Viudo(a)', value: 'VIUDO' },
+    ];
+
     this.educacion_Opcion = [
       { label: 'Primaria', value: 'P' },
       { label: 'Secundaria', value: 'S' },
@@ -160,6 +168,9 @@ export class MantenimientoPacienteComponent {
       if (!paciente) return;
 
       const sexoFiltrado = this.sexo_Opcion.find((sexo) => sexo.value === paciente.sexo || sexo.label === paciente.sexo);
+      const estadoCivilFiltrado = this.estadoCivil_Opcion.find((estadoCivil) =>
+        estadoCivil.value === this.normalizarEstadoCivil(paciente.estadoCivil) || estadoCivil.label === paciente.estadoCivil
+      );
 
       this.frm.patchValue({
         datos: {
@@ -168,7 +179,7 @@ export class MantenimientoPacienteComponent {
           nombres: paciente.nombres ?? '',
           fechaIngreso: this.parseFecha(paciente.fechaIngreso),
           fechaNac: this.parseFecha(paciente.fechaNacimiento),
-          estadoCivil: paciente.estadoCivil ?? '',
+          estadoCivil: estadoCivilFiltrado ?? this.normalizarEstadoCivil(paciente.estadoCivil) ?? null,
           edad: paciente.edad ?? null,
           dni: paciente.numDocumento ?? paciente.dni ?? '',
           sexo: sexoFiltrado ?? paciente.sexo ?? null,
@@ -315,6 +326,7 @@ export class MantenimientoPacienteComponent {
   private buildPacienteRequest(idPaciente?: number): IPaciente {
     const datos = this.frm.getRawValue().datos;
     const sexo = datos.sexo && typeof datos.sexo === 'object' ? datos.sexo.value : datos.sexo;
+    const estadoCivil = datos.estadoCivil && typeof datos.estadoCivil === 'object' ? datos.estadoCivil.value : datos.estadoCivil;
 
     return {
       idPaciente,
@@ -322,7 +334,7 @@ export class MantenimientoPacienteComponent {
       apellidos: datos.apellidos,
       fechaIngreso: datos.fechaIngreso,
       fechaNacimiento: datos.fechaNac,
-      estadoCivil: datos.estadoCivil,
+      estadoCivil: this.normalizarEstadoCivil(estadoCivil) ?? estadoCivil,
       numDocumento: datos.dni,
       sexo,
       direccion: datos.direccion,
@@ -360,6 +372,24 @@ export class MantenimientoPacienteComponent {
       alergiaMedicamentos: antecedentes.alergiasMedicamentos,
     };
   }
+
+  private normalizarEstadoCivil(valor?: string): string | undefined {
+    if (!valor) return undefined;
+
+    const limpio = valor
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+
+    if (limpio.startsWith('SOLTER')) return 'SOLTERO';
+    if (limpio.startsWith('CASAD')) return 'CASADO';
+    if (limpio.startsWith('DIVORCIAD')) return 'DIVORCIADO';
+    if (limpio.startsWith('VIUD')) return 'VIUDO';
+
+    return limpio;
+  }
+
 
   back() {
     this.activeIndex = 0;
