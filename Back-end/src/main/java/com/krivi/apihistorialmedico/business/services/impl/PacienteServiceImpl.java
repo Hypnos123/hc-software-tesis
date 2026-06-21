@@ -34,7 +34,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
-          .estadoCivil(paciente.getEstadoCivil())
+          .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
           .direccion(paciente.getDireccion())
@@ -60,7 +60,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
-          .estadoCivil(paciente.getEstadoCivil())
+          .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
           .direccion(paciente.getDireccion())
@@ -101,13 +101,31 @@ public class PacienteServiceImpl implements PacienteService {
         .apellidos(paciente.getApellidos())
         .fechaIngreso(paciente.getFechaIngreso())
         .fechaNacimiento(paciente.getFechaNacimiento())
-        .estadoCivil(paciente.getEstadoCivil())
+        .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
         .numDocumento(paciente.getNumDocumento())
         .sexo(paciente.getSexo())
         .direccion(paciente.getDireccion())
         .distrito(paciente.getDistrito())
         .traidoPor(paciente.getTraidoPor())
         .build();
+  }
+
+  private String normalizeEstadoCivil(String estadoCivil) {
+    if (estadoCivil == null || estadoCivil.trim().isEmpty()) {
+      return estadoCivil;
+    }
+
+    String normalized = java.text.Normalizer.normalize(estadoCivil, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .trim()
+        .toUpperCase();
+
+    if (normalized.startsWith("SOLTER")) return "SOLTERO";
+    if (normalized.startsWith("CASAD")) return "CASADO";
+    if (normalized.startsWith("DIVORCIAD")) return "DIVORCIADO";
+    if (normalized.startsWith("VIUD")) return "VIUDO";
+
+    return normalized;
   }
 
   @Override
@@ -119,7 +137,7 @@ public class PacienteServiceImpl implements PacienteService {
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
       paciente.setFechaNacimiento(pacienteRequest.getFechaNacimiento());
-      paciente.setEstadoCivil(pacienteRequest.getEstadoCivil());
+      paciente.setEstadoCivil(normalizeEstadoCivil(pacienteRequest.getEstadoCivil()));
       paciente.setNumDocumento(pacienteRequest.getNumDocumento());
       paciente.setSexo(pacienteRequest.getSexo());
       paciente.setDireccion(pacienteRequest.getDireccion());
@@ -148,7 +166,7 @@ public class PacienteServiceImpl implements PacienteService {
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
       paciente.setFechaNacimiento(pacienteRequest.getFechaNacimiento());
-      paciente.setEstadoCivil(pacienteRequest.getEstadoCivil());
+      paciente.setEstadoCivil(normalizeEstadoCivil(pacienteRequest.getEstadoCivil()));
       paciente.setNumDocumento(pacienteRequest.getNumDocumento());
       paciente.setSexo(pacienteRequest.getSexo());
       paciente.setDireccion(pacienteRequest.getDireccion());

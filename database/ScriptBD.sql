@@ -225,3 +225,14 @@ ENGINE = InnoDB;
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+-- Normalización de valores históricos de estado civil.
+UPDATE `historiaclinicadb`.`paciente`
+SET `estadocivil` = CASE
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('SOLTERO', 'SOLTERA', 'SOLTERO(A)') THEN 'SOLTERO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('CASADO', 'CASADA', 'CASADO(A)') THEN 'CASADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('DIVORCIADO', 'DIVORCIADA', 'DIVORCIADO(A)') THEN 'DIVORCIADO'
+  WHEN UPPER(TRIM(`estadocivil`)) IN ('VIUDO', 'VIUDA', 'VIUDO(A)') THEN 'VIUDO'
+  ELSE UPPER(TRIM(`estadocivil`))
+END
+WHERE `estadocivil` IS NOT NULL;

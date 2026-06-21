@@ -62,8 +62,27 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   private HistoriaClinicaResponse toResponse(HistoriaClinica h) {
     Paciente p = h.getPaciente();
     Antecedentes a = antecedentesRepository.findByPacienteIdPaciente(p.getIdPaciente()).stream().findFirst().orElse(null);
-    return HistoriaClinicaResponse.builder().idHistoriaClinica(h.getIdHistoriaClinica()).fechaCreacion(h.getFechaCreacion()).ultimaActualizacion(h.getUltimaActualizacion()).idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).fechaIngreso(p.getFechaIngreso()).fechaNacimiento(p.getFechaNacimiento()).estadoCivil(p.getEstadoCivil()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos()).build();
+    return HistoriaClinicaResponse.builder().idHistoriaClinica(h.getIdHistoriaClinica()).fechaCreacion(h.getFechaCreacion()).ultimaActualizacion(h.getUltimaActualizacion()).idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).fechaIngreso(p.getFechaIngreso()).fechaNacimiento(p.getFechaNacimiento()).estadoCivil(normalizeEstadoCivil(p.getEstadoCivil())).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos()).build();
   }
+
+  private String normalizeEstadoCivil(String estadoCivil) {
+    if (estadoCivil == null || estadoCivil.trim().isEmpty()) {
+      return estadoCivil;
+    }
+
+    String normalized = java.text.Normalizer.normalize(estadoCivil, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .trim()
+        .toUpperCase();
+
+    if (normalized.startsWith("SOLTER")) return "SOLTERO";
+    if (normalized.startsWith("CASAD")) return "CASADO";
+    if (normalized.startsWith("DIVORCIAD")) return "DIVORCIADO";
+    if (normalized.startsWith("VIUD")) return "VIUDO";
+
+    return normalized;
+  }
+
 
   private Integer edad(Date fechaNacimiento) {
     if (fechaNacimiento == null) return null;
