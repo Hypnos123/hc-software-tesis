@@ -20,10 +20,10 @@ public class ConsultaController {
   private ConsultaService consultaService;
 
   @GetMapping("/getAllActive")
-  public ResponseEntity<ResponseModelGet<ConsultaResponse>> getAllActive() {
+  public ResponseEntity<ResponseModelGet<ConsultaResponse>> getAllActive(@RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
     ResponseModelGet<ConsultaResponse> responseModelGet = new ResponseModelGet<>();
     try {
-      return ResponseEntity.ok(consultaService.getAllActive());
+      return ResponseEntity.ok(consultaService.getAllActive(idUsuario));
     } catch (Exception e) {
       log.info("getAllActive() : Error" + e.getMessage());
       responseModelGet.setMensaje(Constant.MENSAJE_ERROR);
@@ -33,12 +33,12 @@ public class ConsultaController {
   }
 
   @GetMapping("/findById/{idConsulta}")
-  public ResponseEntity<ResponseModelGet<ConsultaResponse>> findById(@PathVariable("idConsulta") int idConsulta) {
+  public ResponseEntity<ResponseModelGet<ConsultaResponse>> findById(@PathVariable("idConsulta") int idConsulta, @RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
 
     ResponseModelGet<ConsultaResponse> responseModelGet = new ResponseModelGet<>();
     try {
 
-      return ResponseEntity.status(HttpStatus.OK).body(consultaService.findById(idConsulta));
+      return ResponseEntity.status(HttpStatus.OK).body(consultaService.findById(idConsulta, idUsuario));
     } catch (Exception e) {
       responseModelGet.setMensaje(Constant.MENSAJE_ERROR);
       responseModelGet.setError(e.getMessage());
@@ -78,5 +78,17 @@ public class ConsultaController {
     }
   }
 
+
+  @PutMapping("/finalizar-atencion/{idConsulta}")
+  public ResponseEntity<ResponseModelSet> finalizarAtencion(@RequestBody ConsultaRequest consultaRequest, @PathVariable int idConsulta, @RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
+    ResponseModelSet responseModelSet = new ResponseModelSet();
+    try {
+      return ResponseEntity.ok(consultaService.finalizarAtencion(idConsulta, consultaRequest, idUsuario));
+    } catch (Exception e) {
+      responseModelSet.setMensaje(Constant.MENSAJE_GUARDAR_ERROR);
+      responseModelSet.setError(e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseModelSet);
+    }
+  }
 
 }
