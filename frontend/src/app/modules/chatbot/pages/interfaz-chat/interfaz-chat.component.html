@@ -31,9 +31,7 @@
 
   <!-- PREGUNTAS RÁPIDAS -->
   <div class="quick-questions">
-    <button (click)="quickAsk('historias hoy')">Historias hoy</button>
-    <button (click)="quickAsk('pacientes mes')">Pacientes mes</button>
-    <button (click)="quickAsk('incompletas')">Incompletas</button>
+    <button *ngFor="let question of quickQuestions" (click)="quickAsk(question)" [disabled]="isLoading">{{ question }}</button>
   </div>
 
   <!-- FOOTER -->
@@ -42,10 +40,10 @@
       type="text"
       placeholder="Escribe tu consulta..."
       [(ngModel)]="userMessage"
-      (keyup.enter)="sendMessage()"
+      (keydown.enter)="onEnter($event)" [disabled]="isLoading"
     />
 
-    <button (click)="sendMessage()">
+    <button (click)="sendMessage()" [disabled]="isLoading || !userMessage.trim()">
       Enviar
     </button>
   </div>
