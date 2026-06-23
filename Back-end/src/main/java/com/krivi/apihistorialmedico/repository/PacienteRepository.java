@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Date;
 import java.util.List;
 
 public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
@@ -14,4 +15,6 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
 
   @Query(value = "SELECT * FROM paciente p WHERE p.numdocumento LIKE CONCAT(:dni, '%') LIMIT :limit", nativeQuery = true)
   List<Paciente> searchByDni(@Param("dni") String dni, @Param("limit") int limit);
+
+  long countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date inicio, Date fin);
 }
