@@ -1,38 +1,33 @@
-import { Observable, of } from "rxjs";
-import { IConsulta } from "../models/consultas";
+import { Observable } from "rxjs";
+import { map } from "rxjs/operators";
 import { environment } from "environments/environment";
 import { Injectable } from "@angular/core";
-import { IResponse } from "@app/global/response";
-import { HttpClient } from "@angular/common/http";
-import { getConsultas } from "@app/mocks/mocks";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { IDetalleConsulta, INuevaConsultaRequest, IResponseModelGet, IResponseModelSet } from "@app/modules/historiaClinica/models/historiaClinica";
+import { AuthService } from "@app/auth/services/auth.service";
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ConsultaService {
   URLServicio: string = environment.URLTienda;
 
-  constructor(private httpClient: HttpClient) { }
+  constructor(private httpClient: HttpClient, private authService: AuthService) { }
 
-  getAllActivos(): Observable<IConsulta[]> {
-    return of(getConsultas())
-
-    return this.httpClient.get<IConsulta[]>(`${this.URLServicio}paciente/getAllActive`)
+  getAllActivos(): Observable<any[]> {
+    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/getAllActive`, { headers: this.authHeaders() })
+      .pipe(map(r => r.data ?? []));
   }
 
-  insert(header: IConsulta): Observable<IConsulta> {
-    return this.httpClient.post<IConsulta>(`${this.URLServicio}paciente/insert/paciente`, header);
+  getFindById(id: number): Observable<IDetalleConsulta | undefined> {
+    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findById/${id}`, { headers: this.authHeaders() })
+      .pipe(map(r => (r.data ?? [])[0]));
   }
 
-  getFindById(id: number): Observable<IConsulta[]> {
-    return this.httpClient.get<IConsulta[]>(`${this.URLServicio}paciente/findById/${id}`)
+  finalizarAtencion(id: number, header: INuevaConsultaRequest): Observable<IResponseModelSet> {
+    return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}consulta/finalizar-atencion/${id}`, header, { headers: this.authHeaders() });
   }
 
-  update(id: number, header: IConsulta): Observable<IResponse> {
-    return this.httpClient.put<IResponse>(`${this.URLServicio}paciente/update/${id}`, header);
-  }
-
-  setInactive(id: number): Observable<IResponse> {
-    return this.httpClient.put<IResponse>(`${this.URLServicio}paciente/setInactive/${id}`, id);
+  private authHeaders(): HttpHeaders {
+    const idUsuario = this.authService.usuario?.idUsuario;
+    return idUsuario ? new HttpHeaders({ 'X-Usuario-Id': String(idUsuario) }) : new HttpHeaders();
   }
 }

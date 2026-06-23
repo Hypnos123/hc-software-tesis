@@ -7,15 +7,17 @@ import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 
 public interface ConsultaService {
 
-  ResponseModelGet<ConsultaResponse> getAllActive();
+  ResponseModelGet<ConsultaResponse> getAllActive(Integer idUsuario);
 
-  ResponseModelGet<ConsultaResponse> findById(int idAnalisis);
+  ResponseModelGet<ConsultaResponse> findById(int idAnalisis, Integer idUsuario);
 
   ResponseModelGet<ConsultaResponse> findByHistoriaClinica(int idHistoriaClinica);
 
   ResponseModelSet save(ConsultaRequest analisisRequest);
 
   ResponseModelSet update(ConsultaRequest analisisRequest);
+
+  ResponseModelSet finalizarAtencion(int idConsulta, ConsultaRequest request, Integer idUsuario);
 
 
 }

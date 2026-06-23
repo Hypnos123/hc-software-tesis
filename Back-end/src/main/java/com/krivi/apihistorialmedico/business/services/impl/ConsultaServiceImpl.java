@@ -29,15 +29,22 @@ public class ConsultaServiceImpl implements ConsultaService {
   @Autowired AntecedentesRepository antecedentesRepository;
 
   @Override
-  public ResponseModelGet<ConsultaResponse> getAllActive() {
+  public ResponseModelGet<ConsultaResponse> getAllActive(Integer idUsuario) {
+    Usuario usuario = getUsuarioAutenticado(idUsuario);
     List<ConsultaResponse> data = new ArrayList<>();
-    consultaRepository.findAll().forEach(consulta -> data.add(toResponse(consulta)));
+    Iterable<Consulta> consultas = esAdministrador(usuario)
+        ? consultaRepository.findAll()
+        : consultaRepository.findByDoctorResponsableIdEmpleado(usuario.getEmpleado().getIdEmpleado());
+    consultas.forEach(consulta -> data.add(toResponse(consulta)));
+    data.sort(Comparator.comparing((ConsultaResponse c) -> !"PENDIENTE".equals(normalizeEstado(c.getEstado())))
+        .thenComparing(ConsultaResponse::getFechaCreacion, Comparator.nullsLast(Comparator.reverseOrder())));
     return response(data);
   }
 
   @Override
-  public ResponseModelGet<ConsultaResponse> findById(int idConsulta) {
-    return response(consultaRepository.findById(idConsulta).map(this::toResponse).map(List::of).orElse(List.of()));
+  public ResponseModelGet<ConsultaResponse> findById(int idConsulta, Integer idUsuario) {
+    Usuario usuario = getUsuarioAutenticado(idUsuario);
+    return response(consultaRepository.findById(idConsulta).filter(c -> puedeAcceder(usuario, c)).map(this::toResponse).map(List::of).orElse(List.of()));
   }
 
   @Override
@@ -84,6 +91,35 @@ public class ConsultaServiceImpl implements ConsultaService {
     }
   }
 
+  @Override
+  public ResponseModelSet finalizarAtencion(int idConsulta, ConsultaRequest request, Integer idUsuario) {
+    ResponseModelSet response = new ResponseModelSet();
+    try {
+      Usuario usuario = getUsuarioAutenticado(idUsuario);
+      Consulta consulta = consultaRepository.findById(idConsulta)
+          .orElseThrow(() -> new IllegalArgumentException("Consulta no encontrada"));
+      if (!puedeAcceder(usuario, consulta)) throw new SecurityException("No tiene permiso para atender esta consulta");
+      if (!"PENDIENTE".equals(normalizeEstado(consulta.getEstado()))) throw new IllegalArgumentException("La consulta ya fue atendida o no está pendiente");
+      if (!hasText(request.getDiagnostico()) || !hasText(request.getTratamiento())) throw new IllegalArgumentException("Debe completar diagnóstico y tratamiento");
+      consulta.setDiagnostico(request.getDiagnostico());
+      consulta.setExamenesRecetados(request.getExamenesRecetados());
+      consulta.setReceta(request.getReceta());
+      consulta.setTratamiento(request.getTratamiento());
+      consulta.setProximaCita(request.getProximaCita());
+      consulta.setEstado("ATENDIDO");
+      consulta.setUsuario(usuario);
+      Consulta saved = consultaRepository.save(consulta);
+      response.setIdGenerado(saved.getIdConsulta());
+      response.setMensaje(MENSAJE_GUARDAR_OK);
+      return response;
+    } catch (Exception e) {
+      log.error("finalizarAtencion(): {}", e.getMessage());
+      response.setMensaje(MENSAJE_GUARDAR_ERROR);
+      response.setError(e.getMessage());
+      return response;
+    }
+  }
+
   private void applyRequest(Consulta consulta, ConsultaRequest request, boolean nuevo) {
     Integer idHistoriaClinica = request.getIdHistoriaClinica() != null ? request.getIdHistoriaClinica() : consulta.getHistoriaClinica().getIdHistoriaClinica();
     HistoriaClinica historia = historiaClinicaRepository.findById(idHistoriaClinica)
@@ -114,6 +150,22 @@ public class ConsultaServiceImpl implements ConsultaService {
     if (request.getIdUsuario() != null) usuarioRepository.findById(request.getIdUsuario()).ifPresent(consulta::setUsuario);
     if (!nuevo && tieneEvaluacionMedica(request)) consulta.setEstado("ATENDIDO");
   }
+
+
+  private Usuario getUsuarioAutenticado(Integer idUsuario) {
+    if (idUsuario == null) throw new SecurityException("Usuario autenticado requerido");
+    return usuarioRepository.findById(idUsuario).filter(u -> Boolean.TRUE.equals(u.getEstado()))
+        .orElseThrow(() -> new SecurityException("Usuario autenticado inválido"));
+  }
+
+  private boolean esAdministrador(Usuario usuario) { return "ADMINISTRADOR".equals(normalize(usuario.getTipoUsuario())); }
+
+  private boolean puedeAcceder(Usuario usuario, Consulta consulta) {
+    return esAdministrador(usuario) || (consulta.getDoctorResponsable() != null && usuario.getEmpleado() != null
+        && Objects.equals(consulta.getDoctorResponsable().getIdEmpleado(), usuario.getEmpleado().getIdEmpleado()));
+  }
+
+  private String normalizeEstado(String v) { return normalize(v); }
 
   private TipoEnfermedad resolveTipoEnfermedad(ConsultaRequest request) {
     if (request.getIdTipoEnfermedad() != null) return tipoEnfermedadRepository.findById(request.getIdTipoEnfermedad()).orElseThrow();

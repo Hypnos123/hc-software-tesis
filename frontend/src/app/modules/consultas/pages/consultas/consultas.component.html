@@ -2,8 +2,8 @@
   <h2>Consultas por Atender</h2>
   <app-button
     [label]="'Actualizar'"
-    [router]="'./mantenimiento-consultas'"
     [icono]="'pi pi-sync'"
+    (click)="cargarConsultas()"
   ></app-button>
 </div>
 
@@ -33,7 +33,7 @@
     [responsiveLayout]="'scroll'"
     [rowHover]="true"
     [filterDelay]="0"
-    [globalFilterFields]="['paciente.apellidos','paciente.nombres','motivo','estado']"
+    [globalFilterFields]="['paciente.apellidos','paciente.nombres','dni','especialidadRequerida','estado']"
     styleClass="consultas-table">
 
     <ng-template pTemplate="header">
@@ -50,8 +50,8 @@
           Edad <p-sortIcon field="edad"></p-sortIcon>
         </th>
 
-        <th style="width: 180px" pSortableColumn="motivo">
-          Motivo Consulta <p-sortIcon field="motivo"></p-sortIcon>
+        <th style="width: 180px" pSortableColumn="especialidadRequerida">
+          Especialidad Requerida <p-sortIcon field="especialidadRequerida"></p-sortIcon>
         </th>
 
         <th style="width: 180px" pSortableColumn="fechaRegistro">
@@ -76,7 +76,7 @@
         </td>
 
         <td>{{ r.edad }}</td>
-        <td class="wrap">{{ r.motivo }}</td>
+        <td class="wrap">{{ r.especialidadRequerida }}</td>
         <td>{{ r.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
 
         <td>
@@ -120,7 +120,7 @@
 
   <div class="confirm-body">
     <i class="pi pi-question-circle icon"></i>
-    <p>¿Desea atender esta consulta?</p>
+    <p>¿Está seguro de que desea comenzar la atención de esta consulta?</p>
   </div>
 
   <ng-template pTemplate="footer">
