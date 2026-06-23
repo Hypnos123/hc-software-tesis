@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { Observable, map, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
 import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
+import { AuthService } from '@app/auth/services/auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class HistoriaClinicaService {
   URLServicio: string = environment.URLTienda;
-  constructor(private httpClient: HttpClient) {}
+  constructor(private httpClient: HttpClient, private authService: AuthService) {}
 
   getAll(): Observable<IHistoriaClinica[]> {
     return this.httpClient.get<IResponseModelGet<IHistoriaClinica>>(`${this.URLServicio}historiaClinica/getAll`).pipe(map(r => r.data ?? []));
@@ -39,7 +40,9 @@ export class HistoriaClinicaService {
     return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findByHistoriaClinica/${idHistoriaClinica}`).pipe(map(r => r.data ?? []));
   }
   getConsultaById(idConsulta: number): Observable<IDetalleConsulta | undefined> {
-    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findById/${idConsulta}`).pipe(map(r => (r.data ?? [])[0]));
+    const headers = this.authHeaders();
+    if (!headers) return throwError(() => new Error('Usuario autenticado requerido'));
+    return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findById/${idConsulta}`, { headers }).pipe(map(r => (r.data ?? [])[0]));
   }
   insertConsulta(request: INuevaConsultaRequest): Observable<IResponseModelSet> {
     return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}consulta/insert/consulta`, request);
@@ -51,5 +54,10 @@ export class HistoriaClinicaService {
     return this.httpClient.get<IResponseModelGet<IEmpleadoDoctor>>(`${this.URLServicio}empleado/doctores-activos`).pipe(
       map(r => (r.data ?? []).map(d => ({ ...d, nombreCompleto: [d.apellidos, d.nombres].filter(Boolean).join(' ') })))
     );
+  }
+
+  private authHeaders(): HttpHeaders | null {
+    const idUsuario = this.authService.usuario?.idUsuario;
+    return idUsuario ? new HttpHeaders({ 'X-Usuario-Id': String(idUsuario) }) : null;
   }
 }
