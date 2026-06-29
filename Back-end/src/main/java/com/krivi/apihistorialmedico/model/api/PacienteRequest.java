@@ -18,6 +18,7 @@ public class PacienteRequest {
   private String apellidos;
   private Date fechaIngreso;
   private Date fechaNacimiento;
+  private Integer edad;
   private String estadoCivil;
   private String numDocumento;
   private String sexo;
