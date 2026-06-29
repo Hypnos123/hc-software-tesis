@@ -5,7 +5,7 @@ import { IPaciente } from '../../models/paciente';
 import { PacienteService } from '../../services/paciente.service';
 import { AntecedentesService } from '../../services/antecedentes.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators, ReactiveFormsModule } from '@angular/forms';
 import { TabViewModule } from 'primeng/tabview';
 import { InputTextModule } from 'primeng/inputtext';
 import { CalendarModule } from 'primeng/calendar';
@@ -20,6 +20,8 @@ export interface IOption {
   label: string;
   value: string;
 }
+
+const EDAD_MAXIMA_PACIENTE = 120;
 @Component({
   selector: 'app-mantenimiento-paciente',
   standalone: true,
@@ -46,6 +48,7 @@ export class MantenimientoPacienteComponent {
   titulo = 'Nuevo Paciente';
   pacienteId: number | null = null;
   antecedenteId: number | null = null;
+  fechaMaximaNacimiento = new Date();
 
   sexo_Opcion: IOption[] = [];
   estadoCivil_Opcion: IOption[] = [];
@@ -65,9 +68,9 @@ export class MantenimientoPacienteComponent {
       apellidos: ['', Validators.required],
       nombres: ['', Validators.required],
       fechaIngreso: [new Date(), Validators.required],
-      fechaNac: [new Date(), Validators.required],
+      fechaNac: [null, [Validators.required, this.validarFechaNacimiento.bind(this)]],
       estadoCivil: [null, Validators.required],
-      edad: [null, [Validators.required, Validators.min(0), Validators.max(120)]],
+      edad: [{ value: null, disabled: true }, [Validators.required, Validators.min(0), Validators.max(EDAD_MAXIMA_PACIENTE)]],
       dni: ['', [Validators.required, Validators.minLength(8)]],
       sexo: [null, Validators.required],
       direccion: ['', Validators.required],
@@ -90,6 +93,7 @@ export class MantenimientoPacienteComponent {
   ngOnInit(): void {
     this.obtenerModo();
     this.listarDropdown();
+    this.inicializarCalculoEdad();
 
     if (this.modo === 'ver' || this.modo === 'editar') {
       this.pacienteId = Number(this.route.snapshot.paramMap.get('id'));
@@ -97,6 +101,8 @@ export class MantenimientoPacienteComponent {
       if (this.pacienteId) {
         this.cargarPaciente(this.pacienteId);
       }
+    } else {
+      this.actualizarEdadDesdeFechaNacimiento(this.frm.get('datos.fechaNac')?.value);
     }
 
     if (this.modo === 'ver') {
@@ -142,6 +148,69 @@ export class MantenimientoPacienteComponent {
     return isNaN(date.getTime()) ? null : date;
   }
 
+
+  private inicializarCalculoEdad(): void {
+    this.frm.get('datos.fechaNac')?.valueChanges.subscribe((fechaNacimiento) => {
+      this.actualizarEdadDesdeFechaNacimiento(fechaNacimiento);
+    });
+  }
+
+  private actualizarEdadDesdeFechaNacimiento(fechaNacimiento: Date | string | null): void {
+    const edadControl = this.frm.get('datos.edad');
+    const edad = this.calcularEdad(this.parseFecha(fechaNacimiento ?? undefined));
+
+    edadControl?.setValue(edad, { emitEvent: false });
+    edadControl?.markAsTouched();
+    edadControl?.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private calcularEdad(fechaNacimiento: Date | null): number | null {
+    if (!fechaNacimiento || isNaN(fechaNacimiento.getTime()) || fechaNacimiento > this.inicioDelDia(new Date())) {
+      return null;
+    }
+
+    const hoy = this.inicioDelDia(new Date());
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const mesActual = hoy.getMonth();
+    const diaActual = hoy.getDate();
+    const mesNacimiento = fechaNacimiento.getMonth();
+    const diaNacimiento = fechaNacimiento.getDate();
+
+    if (mesActual < mesNacimiento || (mesActual === mesNacimiento && diaActual < diaNacimiento)) {
+      edad--;
+    }
+
+    return edad >= 0 ? edad : null;
+  }
+
+  private validarFechaNacimiento(control: AbstractControl): ValidationErrors | null {
+    const fecha = this.parseFecha(control.value);
+
+    if (!fecha) return { fechaNacimientoInvalida: true };
+    if (fecha > this.inicioDelDia(new Date())) return { fechaNacimientoFutura: true };
+
+    const edad = this.calcularEdad(fecha);
+    if (edad === null || edad < 0) return { edadNegativa: true };
+    if (edad > EDAD_MAXIMA_PACIENTE) return { edadMaxima: true };
+
+    return null;
+  }
+
+  mensajeErrorFechaNacimiento(): string {
+    const control = this.frm.get('datos.fechaNac');
+    if (!control || !control.errors || !control.touched) return '';
+
+    if (control.errors['required']) return 'La fecha de nacimiento es obligatoria.';
+    if (control.errors['fechaNacimientoFutura']) return 'La fecha de nacimiento no puede ser futura.';
+    if (control.errors['edadMaxima']) return `La edad máxima permitida es ${EDAD_MAXIMA_PACIENTE} años.`;
+
+    return 'Ingresa una fecha de nacimiento válida.';
+  }
+
+  private inicioDelDia(fecha: Date): Date {
+    return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  }
+
   listarDropdown() {
     this.sexo_Opcion = [
       { label: 'Masculino', value: 'M' },
@@ -180,7 +249,7 @@ export class MantenimientoPacienteComponent {
           fechaIngreso: this.parseFecha(paciente.fechaIngreso),
           fechaNac: this.parseFecha(paciente.fechaNacimiento),
           estadoCivil: estadoCivilFiltrado ?? this.normalizarEstadoCivil(paciente.estadoCivil) ?? null,
-          edad: paciente.edad ?? null,
+          edad: this.calcularEdad(this.parseFecha(paciente.fechaNacimiento)),
           dni: paciente.numDocumento ?? paciente.dni ?? '',
           sexo: sexoFiltrado ?? paciente.sexo ?? null,
           direccion: paciente.direccion ?? '',
@@ -199,6 +268,8 @@ export class MantenimientoPacienteComponent {
           alergiasMedicamentos: '',
         }
       });
+
+      this.actualizarEdadDesdeFechaNacimiento(this.frm.get('datos.fechaNac')?.value);
 
       this.cargarAntecedentes(id);
 
@@ -334,6 +405,7 @@ export class MantenimientoPacienteComponent {
       apellidos: datos.apellidos,
       fechaIngreso: datos.fechaIngreso,
       fechaNacimiento: datos.fechaNac,
+      edad: datos.edad,
       estadoCivil: this.normalizarEstadoCivil(estadoCivil) ?? estadoCivil,
       numDocumento: datos.dni,
       sexo,
