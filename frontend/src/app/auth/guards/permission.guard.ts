@@ -39,11 +39,9 @@ export class PermissionGuard implements CanActivate {
       return true;
     }
 
-    if (this.normalizarRuta(state.url) !== 'dashboard') {
-      this.servicioMensajesSwal.mensajeAdvertencia('No tiene permisos para acceder a esta sección');
-    }
+    this.servicioMensajesSwal.mensajeAdvertencia('No tiene permisos para acceder a esta sección');
 
-    return this.router.createUrlTree(['/dashboard']);
+    return this.router.createUrlTree([this.authService.getRutaInicialPermitida()]);
   }
 
   private normalizarRuta(ruta?: string): string {

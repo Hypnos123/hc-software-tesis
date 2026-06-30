@@ -54,7 +54,7 @@ export class LoginComponent implements OnInit {
       next: (auth) => {
         if (auth?.usuario) {
           setTimeout(() => {
-            this.router.navigate(['./dashboard']);
+            this.router.navigateByUrl(this.authService.getRutaInicialPermitida());
             this.isLoading = false;
           }, 2000);
           return;

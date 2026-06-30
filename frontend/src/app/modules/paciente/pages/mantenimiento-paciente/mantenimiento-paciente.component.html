@@ -67,13 +67,14 @@
           </div>
 
           <div class="col col-4">
-            <label>Edad</label>
-            <input pInputText type="number" formControlName="edad">
+            <label>Fech. Nacimiento</label>
+            <p-calendar formControlName="fechaNac" [showIcon]="true" dateFormat="dd/mm/yy" [maxDate]="fechaMaximaNacimiento"></p-calendar>
+            <small class="p-error" *ngIf="mensajeErrorFechaNacimiento()">{{ mensajeErrorFechaNacimiento() }}</small>
           </div>
 
           <div class="col col-4">
-            <label>Fech. Nacimiento</label>
-            <p-calendar formControlName="fechaNac" [showIcon]="true" dateFormat="dd/mm/yy"></p-calendar>
+            <label>Edad <small>(calculada automáticamente)</small></label>
+            <input pInputText type="number" formControlName="edad" readonly>
           </div>
 
           <div class="col col-4">

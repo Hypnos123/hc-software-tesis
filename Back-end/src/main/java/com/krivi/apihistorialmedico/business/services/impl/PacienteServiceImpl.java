@@ -11,7 +11,11 @@ import org.hibernate.annotations.Array;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static com.krivi.apihistorialmedico.util.Constant.*;
@@ -34,6 +38,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
+          .edad(calcularEdad(paciente.getFechaNacimiento()))
           .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
@@ -60,6 +65,7 @@ public class PacienteServiceImpl implements PacienteService {
           .apellidos(paciente.getApellidos())
           .fechaIngreso(paciente.getFechaIngreso())
           .fechaNacimiento(paciente.getFechaNacimiento())
+          .edad(calcularEdad(paciente.getFechaNacimiento()))
           .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
           .numDocumento(paciente.getNumDocumento())
           .sexo(paciente.getSexo())
@@ -101,6 +107,7 @@ public class PacienteServiceImpl implements PacienteService {
         .apellidos(paciente.getApellidos())
         .fechaIngreso(paciente.getFechaIngreso())
         .fechaNacimiento(paciente.getFechaNacimiento())
+        .edad(calcularEdad(paciente.getFechaNacimiento()))
         .estadoCivil(normalizeEstadoCivil(paciente.getEstadoCivil()))
         .numDocumento(paciente.getNumDocumento())
         .sexo(paciente.getSexo())
@@ -108,6 +115,33 @@ public class PacienteServiceImpl implements PacienteService {
         .distrito(paciente.getDistrito())
         .traidoPor(paciente.getTraidoPor())
         .build();
+  }
+
+  private void validarFechaNacimiento(Date fechaNacimiento) {
+    if (fechaNacimiento == null) {
+      throw new IllegalArgumentException("La fecha de nacimiento es obligatoria.");
+    }
+
+    LocalDate nacimiento = toLocalDate(fechaNacimiento);
+    LocalDate hoy = LocalDate.now();
+
+    if (nacimiento.isAfter(hoy)) {
+      throw new IllegalArgumentException("La fecha de nacimiento no puede ser futura.");
+    }
+
+    int edad = Period.between(nacimiento, hoy).getYears();
+    if (edad < 0 || edad > 120) {
+      throw new IllegalArgumentException("La edad calculada debe estar entre 0 y 120 años.");
+    }
+  }
+
+  private Integer calcularEdad(Date fechaNacimiento) {
+    if (fechaNacimiento == null) return null;
+    return Period.between(toLocalDate(fechaNacimiento), LocalDate.now()).getYears();
+  }
+
+  private LocalDate toLocalDate(Date fecha) {
+    return fecha.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
   }
 
   private String normalizeEstadoCivil(String estadoCivil) {
@@ -132,6 +166,7 @@ public class PacienteServiceImpl implements PacienteService {
   public ResponseModelSet save(PacienteRequest pacienteRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
+      validarFechaNacimiento(pacienteRequest.getFechaNacimiento());
       Paciente paciente = new Paciente();
       paciente.setNombres(pacienteRequest.getNombres());
       paciente.setApellidos(pacienteRequest.getApellidos());
@@ -160,6 +195,7 @@ public class PacienteServiceImpl implements PacienteService {
   public ResponseModelSet update(PacienteRequest pacienteRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
+      validarFechaNacimiento(pacienteRequest.getFechaNacimiento());
       Paciente paciente = new Paciente();
       paciente.setIdPaciente(pacienteRequest.getIdPaciente());
       paciente.setNombres(pacienteRequest.getNombres());

@@ -25,7 +25,7 @@
       <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
         <!-- Add icons to the links using the .nav-icon class
                with PrimeIcons -->
-        <li class="nav-item">
+        <li class="nav-item" *ngIf="mostrarDashboard">
           <a [routerLink]="'/dashboard'" routerLinkActive="router-link-active"
             class="nav-link">
             <i class="nav-icon pi pi-home"></i>

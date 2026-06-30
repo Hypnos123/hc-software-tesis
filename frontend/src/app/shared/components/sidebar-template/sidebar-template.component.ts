@@ -15,6 +15,7 @@ export class SidebarTemplateComponent implements OnInit {
 
   menu: IItemMenu[] = [];
   usuario!: any;
+  mostrarDashboard = false;
 
 
   constructor(private authService: AuthService) { }
