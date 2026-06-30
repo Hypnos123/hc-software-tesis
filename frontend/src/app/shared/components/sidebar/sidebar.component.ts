@@ -112,7 +112,8 @@ export class SidebarComponent implements OnInit {
   }
 
   getMenu() {
-    this.menu = (this.authService.detallePermisos ?? []).filter((item) => !!item?.ruta);
+    this.menu = (this.authService.detallePermisos ?? [])
+      .filter((item) => !!item?.ruta && !this.authService.esRutaTemporalmenteDeshabilitada(item.ruta));
   };
 
   getMenuIcon(item: IItemMenu): string {

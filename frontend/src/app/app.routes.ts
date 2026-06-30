@@ -15,11 +15,8 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
-        loadChildren: () =>
-          import('./modules/dashboard/dashboard.routes').then(
-            (r) => r.DASHBOARD_ROUTES
-          ),
-        canActivate: [AuthGuard]
+        redirectTo: 'paciente',
+        pathMatch: 'full'
       },
       {
         path: 'usuarios',

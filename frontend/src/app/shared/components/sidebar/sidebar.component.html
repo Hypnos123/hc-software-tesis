@@ -24,16 +24,7 @@
 
   <ul class="sidenav-nav">
     
-    <li class="sidenav-nav-item">
-      <a class="sidenav-nav-link" [routerLink]="['/dashboard']" routerLinkActive="active"
-        [routerLinkActiveOptions]="{exact: true}">
-        <i class="sidenav-link-icon pi pi-database"></i>
-        <p class="sidenav-link-text" *ngIf="collapsed">
-          Dashboard
-        </p>
-      </a>
-    </li>
-
+    <!-- Dashboard temporalmente oculto. Para reactivarlo, restaurar el enlace y quitar la ruta de rutasTemporalmenteDeshabilitadas. -->
     <li class="sidenav-nav-item" *ngFor="let item of menu">
       <a class="sidenav-nav-link" *ngIf="item.ruta != ''" [routerLink]="[item.ruta]" routerLinkActive="active">
         <i class="sidenav-link-icon" [ngClass]="getMenuIcon(item)"></i>

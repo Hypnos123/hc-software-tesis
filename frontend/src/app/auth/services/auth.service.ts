@@ -10,6 +10,8 @@ import { environment } from 'environments/environment';
   providedIn: 'root',
 })
 export class AuthService {
+  private readonly rutaInicialPreferida = '/paciente';
+  private readonly rutasTemporalmenteDeshabilitadas = ['dashboard'];
   private URLServicio: string = environment.URLTienda;
   private _auth: IAuthSuccess | undefined;
 
@@ -27,6 +29,20 @@ export class AuthService {
 
   get usuario() {
     return this.auth?.usuario;
+  }
+
+  getRutaInicialPermitida(): string {
+    const rutasPermitidas = this.detallePermisos
+      .map((permiso) => permiso?.ruta)
+      .filter((ruta): ruta is string => !!ruta && !this.esRutaTemporalmenteDeshabilitada(ruta));
+
+    const rutaPreferida = rutasPermitidas.find((ruta) => this.normalizarRuta(ruta) === this.normalizarRuta(this.rutaInicialPreferida));
+    return this.conBarraInicial(rutaPreferida ?? rutasPermitidas[0] ?? this.rutaInicialPreferida);
+  }
+
+  esRutaTemporalmenteDeshabilitada(ruta?: string): boolean {
+    const rutaNormalizada = this.normalizarRuta(ruta);
+    return this.rutasTemporalmenteDeshabilitadas.includes(rutaNormalizada);
   }
 
   verificarAuth(): Observable<boolean> {
@@ -49,6 +65,23 @@ export class AuthService {
   logout(): void {
     this._auth = undefined;
     this.storageService.removeItem('token');
+  }
+
+  private normalizarRuta(ruta?: string): string {
+    return (ruta ?? '')
+      .toString()
+      .trim()
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/^\/+|\/+$/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\s_-]+/g, '')
+      .toLowerCase();
+  }
+
+  private conBarraInicial(ruta: string): string {
+    return ruta.startsWith('/') ? ruta : `/${ruta}`;
   }
 
   private isValidAuth(auth: IAuthSuccess | null): boolean {
