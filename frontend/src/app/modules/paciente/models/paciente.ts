@@ -28,6 +28,21 @@ export interface IPaciente {
   alergiaMedicamentos?: string;
 }
 
+export interface IConsultaDniResponse {
+  dni: string;
+  nombres?: string;
+  apellidos?: string;
+  fechaNacimiento?: string | Date;
+  edad?: number;
+  sexo?: string;
+  fuente?: string;
+}
+
+export interface IConsultaDniError {
+  codigo?: string;
+  mensaje?: string;
+}
+
 export interface IResponseModelGet<T> {
   data?: T[];
   mensaje?: string;
