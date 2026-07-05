@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ButtonComponent } from '@app/shared/components';
-import { IPaciente } from '../../models/paciente';
+import { IConsultaDniResponse, IPaciente } from '../../models/paciente';
 import { PacienteService } from '../../services/paciente.service';
 import { AntecedentesService } from '../../services/antecedentes.service';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -49,6 +49,10 @@ export class MantenimientoPacienteComponent {
   pacienteId: number | null = null;
   antecedenteId: number | null = null;
   fechaMaximaNacimiento = new Date();
+  dniConsultaControl = this.fb.control('', [Validators.required, Validators.pattern(/^\d{8}$/)]);
+  consultandoDni = false;
+  mensajeDni = '';
+  tipoMensajeDni: 'success' | 'error' | '' = '';
 
   sexo_Opcion: IOption[] = [];
   estadoCivil_Opcion: IOption[] = [];
@@ -230,6 +234,108 @@ export class MantenimientoPacienteComponent {
       { label: 'Tecnico', value: 'T' },
       { label: 'Superior', value: 'S1' },
     ];
+  }
+
+
+  consultarDni(): void {
+    this.mensajeDni = '';
+    this.tipoMensajeDni = '';
+
+    if (this.dniConsultaControl.invalid) {
+      this.dniConsultaControl.markAsTouched();
+      this.mostrarMensajeDni('error', 'Ingrese un DNI válido de 8 dígitos.');
+      return;
+    }
+
+    if (this.tieneDatosPaciente()) {
+      Swal.fire({
+        title: '¿Autocompletar datos?',
+        text: 'Ya existen datos en el formulario. Si continúas, se reemplazarán los campos disponibles con la información del DNI.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, autocompletar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        confirmButtonColor: '#1179c4',
+        cancelButtonColor: '#6c757d'
+      }).then((result) => {
+        if (result.isConfirmed) this.ejecutarConsultaDni();
+      });
+      return;
+    }
+
+    this.ejecutarConsultaDni();
+  }
+
+  private ejecutarConsultaDni(): void {
+    const dni = this.dniConsultaControl.value ?? '';
+    this.consultandoDni = true;
+    this.mensajeDni = '';
+    this.tipoMensajeDni = '';
+
+    this.pacienteService.consultarDni(dni).subscribe({
+      next: (data) => {
+        this.autocompletarPacienteDesdeDni(data);
+        this.consultandoDni = false;
+        this.mostrarMensajeDni('success', 'Datos encontrados. Se autocompletó el formulario con la información disponible.');
+      },
+      error: (error) => {
+        this.consultandoDni = false;
+        this.manejarErrorConsultaDni(error);
+      }
+    });
+  }
+
+  private autocompletarPacienteDesdeDni(data: IConsultaDniResponse): void {
+    const fechaNacimiento = data.fechaNacimiento ? this.parseFecha(data.fechaNacimiento) : null;
+    const sexoFiltrado = data.sexo
+      ? this.sexo_Opcion.find((sexo) => sexo.value === data.sexo || sexo.label.toUpperCase().startsWith(data.sexo.toUpperCase()))
+      : null;
+
+    this.frm.patchValue({
+      datos: {
+        apellidos: data.apellidos ?? '',
+        nombres: data.nombres ?? '',
+        fechaNac: fechaNacimiento,
+        edad: data.edad ?? null,
+        dni: data.dni ?? this.dniConsultaControl.value ?? '',
+        sexo: sexoFiltrado ?? data.sexo ?? null,
+      }
+    });
+
+    this.actualizarEdadDesdeFechaNacimiento(this.frm.get('datos.fechaNac')?.value);
+  }
+
+  private tieneDatosPaciente(): boolean {
+    const datos = this.frm.getRawValue().datos;
+    return [datos.apellidos, datos.nombres, datos.fechaNac, datos.dni, datos.sexo]
+      .some((valor) => valor !== null && valor !== undefined && valor !== '');
+  }
+
+  private manejarErrorConsultaDni(error: any): void {
+    const codigo = error?.error?.codigo;
+
+    if (codigo === 'DNI_INVALIDO' || error?.status === 400) {
+      this.mostrarMensajeDni('error', 'Ingrese un DNI válido de 8 dígitos.');
+      return;
+    }
+
+    if (codigo === 'DNI_NO_ENCONTRADO' || error?.status === 404) {
+      this.mostrarMensajeDni('error', 'No se encontraron datos para el DNI ingresado. Puede registrar el paciente manualmente.');
+      return;
+    }
+
+    if (error?.status === 0) {
+      this.mostrarMensajeDni('error', 'No se pudo conectar con el servidor. Verifique que el backend esté activo.');
+      return;
+    }
+
+    this.mostrarMensajeDni('error', 'No se pudo consultar el DNI. Intente nuevamente.');
+  }
+
+  private mostrarMensajeDni(tipo: 'success' | 'error', mensaje: string): void {
+    this.tipoMensajeDni = tipo;
+    this.mensajeDni = mensaje;
   }
 
   cargarPaciente(id: number): void {

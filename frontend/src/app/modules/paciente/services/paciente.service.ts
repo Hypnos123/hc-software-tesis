@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { IPaciente, IResponseModelGet } from '../models/paciente';
+import { IConsultaDniResponse, IPaciente, IResponseModelGet } from '../models/paciente';
 import { environment } from 'environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -41,6 +41,10 @@ export class PacienteService {
 
   update(id: number, header: IPaciente): Observable<IResponse> {
     return this.httpClient.put<IResponse>(`${this.URLServicio}paciente/update/${id}`, header);
+  }
+
+  consultarDni(dni: string): Observable<IConsultaDniResponse> {
+    return this.httpClient.get<IConsultaDniResponse>(`${this.URLServicio}api/ia/consultar-dni/${dni}`);
   }
 
   private getResponseData(response: IResponseModelGet<IPaciente> | IPaciente[]): IPaciente[] {

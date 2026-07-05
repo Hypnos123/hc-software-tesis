@@ -1,38 +1,76 @@
-<div class="cronometro-evidencia">
-  <div class="cronometro-label">
-    Tiempo de registro
+<div class="cabecera-registro">
+  <div class="cronometro-evidencia">
+    <div class="cronometro-label">
+      Tiempo de registro
+    </div>
+
+    <div class="cronometro-tiempo">
+      {{ tiempoFormateado }}
+    </div>
+
+    <div class="cronometro-botones">
+      <button
+        type="button"
+        pButton
+        icon="pi pi-play"
+        class="p-button-sm p-button-success"
+        (click)="iniciarCronometro()"
+        [disabled]="cronometroActivo">
+      </button>
+
+      <button
+        type="button"
+        pButton
+        icon="pi pi-pause"
+        class="p-button-sm p-button-warning"
+        (click)="pausarCronometro()"
+        [disabled]="!cronometroActivo">
+      </button>
+
+      <button
+        type="button"
+        pButton
+        icon="pi pi-refresh"
+        class="p-button-sm p-button-secondary"
+        (click)="reiniciarCronometro()">
+      </button>
+    </div>
   </div>
 
-  <div class="cronometro-tiempo">
-    {{ tiempoFormateado }}
-  </div>
+  <div class="asistente-dni" *ngIf="modo === 'nuevo'">
+    <div class="asistente-dni-header">
+      <i class="pi pi-sparkles"></i>
+      <span>Asistente IA - Autocompletar por DNI</span>
+    </div>
 
-  <div class="cronometro-botones">
-    <button
-      type="button"
-      pButton
-      icon="pi pi-play"
-      class="p-button-sm p-button-success"
-      (click)="iniciarCronometro()"
-      [disabled]="cronometroActivo">
-    </button>
+    <div class="asistente-dni-form">
+      <span class="p-input-icon-left asistente-dni-input">
+        <i class="pi pi-id-card"></i>
+        <input
+          pInputText
+          type="text"
+          maxlength="8"
+          placeholder="Ingrese DNI"
+          [formControl]="dniConsultaControl">
+      </span>
 
-    <button
-      type="button"
-      pButton
-      icon="pi pi-pause"
-      class="p-button-sm p-button-warning"
-      (click)="pausarCronometro()"
-      [disabled]="!cronometroActivo">
-    </button>
+      <button
+        type="button"
+        pButton
+        icon="pi pi-search"
+        label="Consultar"
+        class="p-button-sm"
+        (click)="consultarDni()"
+        [disabled]="consultandoDni">
+      </button>
+    </div>
 
-    <button
-      type="button"
-      pButton
-      icon="pi pi-refresh"
-      class="p-button-sm p-button-secondary"
-      (click)="reiniciarCronometro()">
-    </button>
+    <small
+      *ngIf="mensajeDni"
+      class="asistente-dni-mensaje"
+      [ngClass]="{ 'mensaje-ok': tipoMensajeDni === 'success', 'mensaje-error': tipoMensajeDni === 'error' }">
+      {{ mensajeDni }}
+    </small>
   </div>
 </div>
 

@@ -115,3 +115,54 @@
   display: flex;
   gap: 6px;
 }
+.cabecera-registro {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.asistente-dni {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f7fbff;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #1976d2;
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 360px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.asistente-dni-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f4c81;
+  font-weight: 700;
+}
+
+.asistente-dni-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.asistente-dni-input input {
+  width: 180px;
+}
+
+.asistente-dni-mensaje {
+  font-weight: 600;
+}
+
+.mensaje-ok {
+  color: #15803d;
+}
+
+.mensaje-error {
+  color: #dc2626;
+}
