@@ -9,6 +9,7 @@ import com.krivi.apihistorialmedico.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.text.Normalizer;
+import java.text.SimpleDateFormat;
 import java.time.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -46,7 +47,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (matcher.find()) {
       String dni = matcher.group();
       return pacienteRepository.findByNumDocumento(dni)
-          .map(paciente -> resp("BUSQUEDA_DUPLICADO_DNI", "Se encontró un paciente registrado con ese DNI: " + nombreCompleto(paciente) + ", DNI: " + paciente.getNumDocumento() + ". No se recomienda crear una nueva historia clínica.", Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
+          .map(paciente -> resp("BUSQUEDA_DUPLICADO_DNI", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
           .orElse(resp("BUSQUEDA_DUPLICADO_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos. Puede continuar con el registro.", Map.of("tipoBusqueda", "DNI", "dni", dni)));
     }
     String nombre = extraerNombrePaciente(q);
@@ -54,9 +55,8 @@ public class AsistenteServiceImpl implements AsistenteService {
     List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 5);
     if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 5);
     if (coincidencias.isEmpty()) return resp("BUSQUEDA_DUPLICADO_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos. Puede continuar con el registro.", Map.of("tipoBusqueda", "NOMBRE", "nombre", nombre));
-    Paciente principal = coincidencias.get(0);
     List<Map<String, Object>> resultados = coincidencias.stream().map(this::pacienteMap).collect(Collectors.toList());
-    return resp("BUSQUEDA_DUPLICADO_NOMBRE", "Se encontró un posible paciente registrado: " + nombreCompleto(principal) + ", DNI: " + principal.getNumDocumento() + ". Revise antes de crear una nueva historia clínica.", Map.of("tipoBusqueda", "NOMBRE", "resultados", resultados));
+    return resp("BUSQUEDA_DUPLICADO_NOMBRE", respuestaPacientesSimilares(coincidencias), Map.of("tipoBusqueda", "NOMBRE", "resultados", resultados));
   }
 
 
@@ -85,6 +85,38 @@ public class AsistenteServiceImpl implements AsistenteService {
     return q.replaceAll("\\b(busca|buscar|verifica|verificar|si|existe|ya|esta|registrado|registrada|paciente|con|dni|historia|clinica|para|el|la|un|una|por|favor|datos)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
   }
 
+
+  private String respuestaPacienteRegistrado(Paciente paciente) {
+    return "Se encontró un paciente registrado:\n"
+        + detallePaciente(paciente)
+        + "\n\nNo se recomienda crear una nueva historia clínica para este paciente.";
+  }
+
+  private String respuestaPacientesSimilares(List<Paciente> pacientes) {
+    String detalle = pacientes.stream()
+        .map(this::detallePaciente)
+        .collect(Collectors.joining("\n\n"));
+    return "Se encontraron posibles pacientes similares:\n"
+        + detalle
+        + "\n\nRevise la información antes de crear una nueva historia clínica.";
+  }
+
+  private String detallePaciente(Paciente paciente) {
+    return "ID: " + paciente.getIdPaciente()
+        + "\nPaciente: " + nombreCompleto(paciente)
+        + "\nDNI: " + valorSeguro(paciente.getNumDocumento())
+        + "\nFecha de registro: " + fechaRegistro(paciente);
+  }
+
+  private String fechaRegistro(Paciente paciente) {
+    if (paciente.getFechaIngreso() == null) return "Sin fecha registrada";
+    return new SimpleDateFormat("dd/MM/yyyy").format(paciente.getFechaIngreso());
+  }
+
+  private String valorSeguro(String valor) {
+    return valor == null || valor.isBlank() ? "Sin DNI" : valor;
+  }
+
   private String nombreCompleto(Paciente paciente) {
     return String.join(" ", Optional.ofNullable(paciente.getNombres()).orElse(""), Optional.ofNullable(paciente.getApellidos()).orElse("")).trim();
   }
@@ -95,6 +127,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     map.put("nombres", paciente.getNombres());
     map.put("apellidos", paciente.getApellidos());
     map.put("numDocumento", paciente.getNumDocumento());
+    map.put("fechaRegistro", paciente.getFechaIngreso());
     return map;
   }
 
