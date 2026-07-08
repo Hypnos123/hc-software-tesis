@@ -207,3 +207,7 @@
 .quick-questions button:hover {
   background: #cbd5f5;
 }
+.bot-message,
+.user-message {
+  white-space: pre-line;
+}
