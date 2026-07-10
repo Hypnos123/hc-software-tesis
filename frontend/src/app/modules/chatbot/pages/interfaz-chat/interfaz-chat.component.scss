@@ -188,22 +188,32 @@
 
 .quick-questions {
   display: flex;
-  gap: 8px;
-  padding: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
   background: #f1f5f9;
+  scrollbar-width: thin;
 }
 
 .quick-questions button {
+  flex: 0 0 auto;
   border: none;
   background: #e2e8f0;
-  padding: 6px 10px;
-  border-radius: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
   transition: 0.2s;
 }
 
 .quick-questions button:hover {
   background: #cbd5f5;
+}
+.bot-message,
+.user-message {
+  white-space: pre-line;
 }

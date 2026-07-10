@@ -16,6 +16,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Comparator;
 import java.util.List;
 
 import static com.krivi.apihistorialmedico.util.Constant.*;
@@ -89,7 +90,8 @@ public class PacienteServiceImpl implements PacienteService {
     if (dni != null && !dni.trim().isEmpty()) {
       pacientes = pacienteRepository.searchByDni(dni.trim(), safeLimit);
     } else if (nombre != null && nombre.trim().length() >= 2) {
-      pacientes = pacienteRepository.searchByNombre(nombre.trim(), safeLimit);
+      List<Paciente> resultados = pacienteRepository.searchByNombre(nombre.trim(), safeLimit);
+      pacientes = resultados.isEmpty() ? searchByApproximateName(nombre.trim(), safeLimit) : resultados;
     } else {
       pacientes = new ArrayList<>();
     }
@@ -98,6 +100,39 @@ public class PacienteServiceImpl implements PacienteService {
     responseModelGet.setData(pacienteResponseList);
     responseModelGet.setMensaje(Constant.MENSAJE_CONSULTA_OK);
     return responseModelGet;
+  }
+
+
+  private List<Paciente> searchByApproximateName(String nombre, int limit) {
+    String[] tokens = normalize(nombre).split(" ");
+    List<Paciente> resultados = new ArrayList<>();
+    pacienteRepository.findAll().forEach(paciente -> {
+      String nombrePaciente = normalize((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
+      long coincidencias = java.util.Arrays.stream(tokens)
+          .filter(token -> token.length() >= 2 && nombrePaciente.contains(token))
+          .count();
+      if (coincidencias > 0) {
+        resultados.add(paciente);
+      }
+    });
+    resultados.sort(Comparator.comparingInt((Paciente paciente) -> approximateScore(paciente, tokens)).reversed());
+    return resultados.stream().limit(limit).toList();
+  }
+
+  private int approximateScore(Paciente paciente, String[] tokens) {
+    String nombrePaciente = normalize((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
+    return (int) java.util.Arrays.stream(tokens)
+        .filter(token -> token.length() >= 2 && nombrePaciente.contains(token))
+        .count();
+  }
+
+  private String normalize(String value) {
+    if (value == null) return "";
+    return java.text.Normalizer.normalize(value.toLowerCase().trim(), java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .replaceAll("[^a-z0-9]+", " ")
+        .replaceAll("\\s+", " ")
+        .trim();
   }
 
   private PacienteResponse toResponse(Paciente paciente) {
