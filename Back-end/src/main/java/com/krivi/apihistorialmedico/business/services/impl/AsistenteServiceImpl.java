@@ -28,7 +28,10 @@ public class AsistenteServiceImpl implements AsistenteService {
       Periodo p = periodo(q); Usuario u = idUsuario == null ? null : usuarioRepository.findById(idUsuario).orElse(null); Integer idEmpleado = u != null && u.getEmpleado() != null ? u.getEmpleado().getIdEmpleado() : null;
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
+<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
+=======
+>>>>>>> main
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
       if (contiene(q,"paciente") && contiene(q,"sin historia","no tienen historia")) return cantidad("PACIENTES_SIN_HISTORIA_CLINICA", pacienteRepository.count()-historiaClinicaRepository.count(), "Actualmente hay %d pacientes sin historia clínica.", p);
       if (contiene(q,"paciente") && contiene(q,"con historia","tienen historia")) return cantidad("PACIENTES_CON_HISTORIA_CLINICA", historiaClinicaRepository.count(), "Actualmente hay %d pacientes con historia clínica.", p);
@@ -42,6 +45,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     return resp("NO_RECONOCIDA", "No pude identificar la consulta. Puedes preguntarme sobre pacientes, historias clínicas, consultas médicas, especialidades o tipos de enfermedad.", Map.of());
   }
 
+<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
 
   private AsistenteResponse intencionPacientes(String q, Periodo p) {
     if (esUltimosPacientes(q)) return ultimosPacientes();
@@ -134,6 +138,11 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (esAnalisisDuplicados(q) && !matcher.find()) return analizarDuplicadosPacientes();
     matcher.reset();
     if (!esConsultaDuplicadoPaciente(q)) return null;
+=======
+  private AsistenteResponse buscarPacienteDuplicado(String q) {
+    if (!esConsultaDuplicadoPaciente(q)) return null;
+    Matcher matcher = DNI_PATTERN.matcher(q);
+>>>>>>> main
     if (matcher.find()) {
       String dni = matcher.group();
       return pacienteRepository.findByNumDocumento(dni)
@@ -150,6 +159,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
 
+<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
 
   private boolean esAnalisisDuplicados(String q) {
     return contiene(q, "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad");
@@ -172,6 +182,8 @@ public class AsistenteServiceImpl implements AsistenteService {
     return resp("ANALISIS_DUPLICADOS_PACIENTES", "Se encontraron posibles pacientes duplicados:\n" + duplicados.stream().map(this::detallePaciente).collect(Collectors.joining("\n\n")) + "\n\nRevise la información antes de crear una nueva historia clínica.", Map.of("cantidad", duplicados.size(), "resultados", duplicados.stream().map(this::pacienteMap).collect(Collectors.toList())));
   }
 
+=======
+>>>>>>> main
   private List<Paciente> buscarPorNombreAproximado(String nombre, int limit) {
     String[] tokens = nombre.split(" ");
     List<Paciente> resultados = new ArrayList<>();
@@ -190,11 +202,19 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConsultaDuplicadoPaciente(String q) {
+<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
     return contiene(q, "existe", "existen", "registrado", "registrada", "busca", "buscar", "verifica", "verificar", "encuentra", "analizar", "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad", "historia clinica") && contiene(q, "paciente", "pacientes", "dni", "historia clinica", "historias clinicas", "registrado", "registrada");
   }
 
   private String extraerNombrePaciente(String q) {
     return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
+=======
+    return contiene(q, "existe", "registrado", "registrada", "busca", "buscar", "verifica", "verificar", "encuentra", "historia clinica") && contiene(q, "paciente", "dni", "historia clinica", "registrado", "registrada");
+  }
+
+  private String extraerNombrePaciente(String q) {
+    return q.replaceAll("\\b(busca|buscar|verifica|verificar|si|existe|ya|esta|registrado|registrada|paciente|con|dni|historia|clinica|para|el|la|un|una|por|favor|datos)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
+>>>>>>> main
   }
 
 
