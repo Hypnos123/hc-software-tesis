@@ -9,7 +9,6 @@ import com.krivi.apihistorialmedico.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.text.Normalizer;
-import java.text.SimpleDateFormat;
 import java.time.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -28,10 +27,6 @@ public class AsistenteServiceImpl implements AsistenteService {
       Periodo p = periodo(q); Usuario u = idUsuario == null ? null : usuarioRepository.findById(idUsuario).orElse(null); Integer idEmpleado = u != null && u.getEmpleado() != null ? u.getEmpleado().getIdEmpleado() : null;
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
-<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
-      AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
-=======
->>>>>>> main
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
       if (contiene(q,"paciente") && contiene(q,"sin historia","no tienen historia")) return cantidad("PACIENTES_SIN_HISTORIA_CLINICA", pacienteRepository.count()-historiaClinicaRepository.count(), "Actualmente hay %d pacientes sin historia clínica.", p);
       if (contiene(q,"paciente") && contiene(q,"con historia","tienen historia")) return cantidad("PACIENTES_CON_HISTORIA_CLINICA", historiaClinicaRepository.count(), "Actualmente hay %d pacientes con historia clínica.", p);
@@ -45,108 +40,13 @@ public class AsistenteServiceImpl implements AsistenteService {
     return resp("NO_RECONOCIDA", "No pude identificar la consulta. Puedes preguntarme sobre pacientes, historias clínicas, consultas médicas, especialidades o tipos de enfermedad.", Map.of());
   }
 
-<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
-
-  private AsistenteResponse intencionPacientes(String q, Periodo p) {
-    if (esUltimosPacientes(q)) return ultimosPacientes();
-    if (esBusquedaAvanzadaPaciente(q)) return busquedaAvanzadaPaciente(q);
-    if (esEstadisticaEdad(q)) return estadisticaEdad(q);
-    if (esConteoPacientes(q)) {
-      long c = p.total() ? pacienteRepository.count() : pacienteRepository.countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
-      return cantidad("PACIENTES_REGISTRADOS", c, pref(p) + "hay %d pacientes registrados.", p);
-    }
-    return null;
-  }
-
-  private boolean esConteoPacientes(String q) {
-    return contiene(q, "paciente") && contiene(q, "cuantos", "cuantas", "cantidad", "total", "actuales", "registrados", "registradas", "hay");
-  }
-
-  private boolean esUltimosPacientes(String q) {
-    return contiene(q, "paciente", "registro", "registros") && contiene(q, "ultimos", "ultimas", "recientes", "nuevos", "nuevas");
-  }
-
-  private boolean esBusquedaAvanzadaPaciente(String q) {
-    return contiene(q, "buscar", "consultar") && contiene(q, "dni", "nombre", "id", "paciente");
-  }
-
-  private boolean esEstadisticaEdad(String q) {
-    return contiene(q, "edad", "edades", "mayores", "menores") && contiene(q, "paciente", "pacientes", "promedio", "mayores", "menores");
-  }
-
-  private AsistenteResponse busquedaAvanzadaPaciente(String q) {
-    Matcher dniMatcher = DNI_PATTERN.matcher(q);
-    if (dniMatcher.find()) {
-      String dni = dniMatcher.group();
-      return pacienteRepository.findByNumDocumento(dni)
-          .map(paciente -> resp("BUSQUEDA_PACIENTE_DNI", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
-          .orElse(resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos.", Map.of("tipoBusqueda", "DNI", "dni", dni)));
-    }
-    Matcher idMatcher = Pattern.compile("\\b(?:id|codigo|cod)\\s*(\\d+)\\b").matcher(q);
-    if (idMatcher.find()) {
-      Integer id = Integer.valueOf(idMatcher.group(1));
-      return pacienteRepository.findById(id)
-          .map(paciente -> resp("BUSQUEDA_PACIENTE_ID", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "ID", "paciente", pacienteMap(paciente))))
-          .orElse(resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con ese ID.", Map.of("tipoBusqueda", "ID", "idPaciente", id)));
-    }
-    if (contiene(q, "dni")) return resp("BUSQUEDA_PACIENTE_REQUIERE_DNI", "Indica el DNI de 8 dígitos para buscar al paciente. Ejemplo: Buscar paciente por DNI 45678912", Map.of("tipoBusqueda", "DNI"));
-    String nombre = extraerNombrePaciente(q);
-    if (nombre.length() < 3 || contiene(nombre, "nombre")) return resp("BUSQUEDA_PACIENTE_REQUIERE_NOMBRE", "Indica nombres y/o apellidos para buscar posibles coincidencias del paciente.", Map.of("tipoBusqueda", "NOMBRE"));
-    List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 5);
-    if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 5);
-    if (coincidencias.isEmpty()) return resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos.", Map.of("tipoBusqueda", "NOMBRE", "nombre", nombre));
-    return resp("BUSQUEDA_PACIENTE_NOMBRE", respuestaPacientesSimilares(coincidencias), Map.of("tipoBusqueda", "NOMBRE", "resultados", coincidencias.stream().map(this::pacienteMap).collect(Collectors.toList())));
-  }
-
-  private AsistenteResponse ultimosPacientes() {
-    List<Paciente> pacientes = new ArrayList<>();
-    pacienteRepository.findAll().forEach(pacientes::add);
-    pacientes.sort(Comparator.comparing(Paciente::getFechaIngreso, Comparator.nullsLast(Date::compareTo)).reversed());
-    List<Paciente> ultimos = pacientes.stream().limit(5).collect(Collectors.toList());
-    if (ultimos.isEmpty()) return resp("ULTIMOS_PACIENTES", "No se encontraron pacientes registrados.", Map.of("resultados", List.of()));
-    return resp("ULTIMOS_PACIENTES", "Últimos pacientes registrados:\n" + ultimos.stream().map(this::detallePaciente).collect(Collectors.joining("\n\n")), Map.of("resultados", ultimos.stream().map(this::pacienteMap).collect(Collectors.toList())));
-  }
-
-  private AsistenteResponse estadisticaEdad(String q) {
-    List<Paciente> pacientes = new ArrayList<>();
-    pacienteRepository.findAll().forEach(pacientes::add);
-    List<Integer> edades = pacientes.stream().map(this::edadPaciente).filter(Objects::nonNull).collect(Collectors.toList());
-    if (edades.isEmpty()) return resp("ESTADISTICAS_EDAD_PACIENTES", "No hay fechas de nacimiento suficientes para calcular estadísticas de edad.", Map.of());
-    Matcher mayores = Pattern.compile("mayores?\\s+de\\s+(\\d+)").matcher(q);
-    if (mayores.find()) {
-      int edad = Integer.parseInt(mayores.group(1));
-      long cantidad = edades.stream().filter(e -> e > edad).count();
-      return resp("PACIENTES_MAYORES_EDAD", "Hay " + cantidad + " pacientes mayores de " + edad + " años.", Map.of("edad", edad, "cantidad", cantidad));
-    }
-    double promedio = edades.stream().mapToInt(Integer::intValue).average().orElse(0);
-    if (contiene(q, "promedio")) return resp("EDAD_PROMEDIO_PACIENTES", String.format("La edad promedio de los pacientes es %.1f años.", promedio), Map.of("edadPromedio", promedio));
-    Map<String, Long> rangos = new LinkedHashMap<>();
-    rangos.put("0-17", edades.stream().filter(e -> e <= 17).count());
-    rangos.put("18-29", edades.stream().filter(e -> e >= 18 && e <= 29).count());
-    rangos.put("30-59", edades.stream().filter(e -> e >= 30 && e <= 59).count());
-    rangos.put("60+", edades.stream().filter(e -> e >= 60).count());
-    return resp("PACIENTES_POR_EDAD", "Pacientes por edad:\n" + rangos.entrySet().stream().map(e -> e.getKey() + " años: " + e.getValue()).collect(Collectors.joining("\n")), Map.of("rangos", rangos, "edadPromedio", promedio));
-  }
-
-  private Integer edadPaciente(Paciente paciente) {
-    if (paciente.getFechaNacimiento() == null) return null;
-    return Period.between(paciente.getFechaNacimiento().toInstant().atZone(ZoneId.systemDefault()).toLocalDate(), LocalDate.now()).getYears();
-  }
-
-  private AsistenteResponse buscarPacienteDuplicado(String q) {
-    Matcher matcher = DNI_PATTERN.matcher(q);
-    if (esAnalisisDuplicados(q) && !matcher.find()) return analizarDuplicadosPacientes();
-    matcher.reset();
-    if (!esConsultaDuplicadoPaciente(q)) return null;
-=======
   private AsistenteResponse buscarPacienteDuplicado(String q) {
     if (!esConsultaDuplicadoPaciente(q)) return null;
     Matcher matcher = DNI_PATTERN.matcher(q);
->>>>>>> main
     if (matcher.find()) {
       String dni = matcher.group();
       return pacienteRepository.findByNumDocumento(dni)
-          .map(paciente -> resp("BUSQUEDA_DUPLICADO_DNI", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
+          .map(paciente -> resp("BUSQUEDA_DUPLICADO_DNI", "Se encontró un paciente registrado con ese DNI: " + nombreCompleto(paciente) + ", DNI: " + paciente.getNumDocumento() + ". No se recomienda crear una nueva historia clínica.", Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
           .orElse(resp("BUSQUEDA_DUPLICADO_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos. Puede continuar con el registro.", Map.of("tipoBusqueda", "DNI", "dni", dni)));
     }
     String nombre = extraerNombrePaciente(q);
@@ -154,36 +54,12 @@ public class AsistenteServiceImpl implements AsistenteService {
     List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 5);
     if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 5);
     if (coincidencias.isEmpty()) return resp("BUSQUEDA_DUPLICADO_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos. Puede continuar con el registro.", Map.of("tipoBusqueda", "NOMBRE", "nombre", nombre));
+    Paciente principal = coincidencias.get(0);
     List<Map<String, Object>> resultados = coincidencias.stream().map(this::pacienteMap).collect(Collectors.toList());
-    return resp("BUSQUEDA_DUPLICADO_NOMBRE", respuestaPacientesSimilares(coincidencias), Map.of("tipoBusqueda", "NOMBRE", "resultados", resultados));
+    return resp("BUSQUEDA_DUPLICADO_NOMBRE", "Se encontró un posible paciente registrado: " + nombreCompleto(principal) + ", DNI: " + principal.getNumDocumento() + ". Revise antes de crear una nueva historia clínica.", Map.of("tipoBusqueda", "NOMBRE", "resultados", resultados));
   }
 
 
-<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
-
-  private boolean esAnalisisDuplicados(String q) {
-    return contiene(q, "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad");
-  }
-
-  private AsistenteResponse analizarDuplicadosPacientes() {
-    Map<String, List<Paciente>> grupos = new LinkedHashMap<>();
-    pacienteRepository.findAll().forEach(paciente -> {
-      String dni = paciente.getNumDocumento() == null ? "" : paciente.getNumDocumento().trim();
-      String nombre = normalizar(nombreCompleto(paciente));
-      String key = !dni.isBlank() ? "DNI " + dni : nombre.isBlank() ? "" : "NOMBRE " + nombre;
-      if (!key.isBlank()) grupos.computeIfAbsent(key, ignored -> new ArrayList<>()).add(paciente);
-    });
-    List<Paciente> duplicados = grupos.values().stream()
-        .filter(lista -> lista.size() > 1)
-        .flatMap(List::stream)
-        .limit(10)
-        .collect(Collectors.toList());
-    if (duplicados.isEmpty()) return resp("ANALISIS_DUPLICADOS_SIN_RESULTADOS", "No se encontraron pacientes duplicados evidentes por DNI o nombre completo.", Map.of("cantidad", 0));
-    return resp("ANALISIS_DUPLICADOS_PACIENTES", "Se encontraron posibles pacientes duplicados:\n" + duplicados.stream().map(this::detallePaciente).collect(Collectors.joining("\n\n")) + "\n\nRevise la información antes de crear una nueva historia clínica.", Map.of("cantidad", duplicados.size(), "resultados", duplicados.stream().map(this::pacienteMap).collect(Collectors.toList())));
-  }
-
-=======
->>>>>>> main
   private List<Paciente> buscarPorNombreAproximado(String nombre, int limit) {
     String[] tokens = nombre.split(" ");
     List<Paciente> resultados = new ArrayList<>();
@@ -202,51 +78,11 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConsultaDuplicadoPaciente(String q) {
-<<<<<<< codex/implementar-busqueda-de-pacientes-en-el-chat-5it15g
-    return contiene(q, "existe", "existen", "registrado", "registrada", "busca", "buscar", "verifica", "verificar", "encuentra", "analizar", "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad", "historia clinica") && contiene(q, "paciente", "pacientes", "dni", "historia clinica", "historias clinicas", "registrado", "registrada");
-  }
-
-  private String extraerNombrePaciente(String q) {
-    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
-=======
     return contiene(q, "existe", "registrado", "registrada", "busca", "buscar", "verifica", "verificar", "encuentra", "historia clinica") && contiene(q, "paciente", "dni", "historia clinica", "registrado", "registrada");
   }
 
   private String extraerNombrePaciente(String q) {
     return q.replaceAll("\\b(busca|buscar|verifica|verificar|si|existe|ya|esta|registrado|registrada|paciente|con|dni|historia|clinica|para|el|la|un|una|por|favor|datos)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
->>>>>>> main
-  }
-
-
-  private String respuestaPacienteRegistrado(Paciente paciente) {
-    return "Se encontró un paciente registrado:\n"
-        + detallePaciente(paciente)
-        + "\n\nNo se recomienda crear una nueva historia clínica para este paciente.";
-  }
-
-  private String respuestaPacientesSimilares(List<Paciente> pacientes) {
-    String detalle = pacientes.stream()
-        .map(this::detallePaciente)
-        .collect(Collectors.joining("\n\n"));
-    return "Se encontraron posibles pacientes similares:\n"
-        + detalle
-        + "\n\nRevise la información antes de crear una nueva historia clínica.";
-  }
-
-  private String detallePaciente(Paciente paciente) {
-    return "ID: " + paciente.getIdPaciente()
-        + "\nPaciente: " + nombreCompleto(paciente)
-        + "\nDNI: " + valorSeguro(paciente.getNumDocumento())
-        + "\nFecha de registro: " + fechaRegistro(paciente);
-  }
-
-  private String fechaRegistro(Paciente paciente) {
-    if (paciente.getFechaIngreso() == null) return "Sin fecha registrada";
-    return new SimpleDateFormat("dd/MM/yyyy").format(paciente.getFechaIngreso());
-  }
-
-  private String valorSeguro(String valor) {
-    return valor == null || valor.isBlank() ? "Sin DNI" : valor;
   }
 
   private String nombreCompleto(Paciente paciente) {
@@ -259,7 +95,6 @@ public class AsistenteServiceImpl implements AsistenteService {
     map.put("nombres", paciente.getNombres());
     map.put("apellidos", paciente.getApellidos());
     map.put("numDocumento", paciente.getNumDocumento());
-    map.put("fechaRegistro", paciente.getFechaIngreso());
     return map;
   }
 
