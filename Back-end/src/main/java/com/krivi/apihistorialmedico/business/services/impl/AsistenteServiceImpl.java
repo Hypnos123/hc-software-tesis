@@ -39,15 +39,15 @@ public class AsistenteServiceImpl implements AsistenteService {
       if (contiene(q,"doctor") && contiene(q,"mas","cada doctor")) return ranking("DOCTORES_CON_MAS_ATENCIONES", consultaRepository.rankingDoctoresAtenciones(), "doctores");
       if (contiene(q,"consulta","atencion","atenciones")) { if (contiene(q,"incompleta","todavia no","faltan")) return incompletas(); if (contiene(q,"pendiente","por atender","faltan")) return cantidad("CONSULTAS_PENDIENTES", p.total()?consultaRepository.countByEstado("PENDIENTE"):consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("PENDIENTE",p.inicio(),p.fin()), pref(p)+"hay %d consultas por atender.", p); if (contiene(q,"atendida","atendidas","atendio")) return cantidad("CONSULTAS_ATENDIDAS", p.total()?consultaRepository.countByEstado("ATENDIDO"):consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("ATENDIDO",p.inicio(),p.fin()), pref(p)+"hay %d consultas atendidas.", p); long c=p.total()?consultaRepository.count():consultaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(),p.fin()); return cantidad("CONSULTAS_REGISTRADAS",c,pref(p)+"hay %d consultas médicas registradas.",p); }
     } catch (Exception e) { return resp("ERROR_INTERNO", "No pude obtener la información en este momento. Inténtalo nuevamente.", Map.of()); }
-    return resp("NO_RECONOCIDA", mensajeAyudaConsultas(), Map.of());
+    return resp("NO_RECONOCIDA", mensajeConsultaNoReconocida(), Map.of());
   }
 
 
   private AsistenteResponse intencionPacientes(String q, Periodo p) {
     if (esAnalisisDuplicados(q)) return null;
     if (esUltimosPacientes(q)) return ultimosPacientes();
-    if (esBusquedaAvanzadaPaciente(q)) return busquedaAvanzadaPaciente(q);
     if (esEstadisticaEdad(q)) return estadisticaEdad(q);
+    if (esBusquedaAvanzadaPaciente(q)) return busquedaAvanzadaPaciente(q);
     if (esConteoPacientes(q)) {
       long c = p.total() ? pacienteRepository.count() : pacienteRepository.countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
       return cantidad("PACIENTES_REGISTRADOS", c, pref(p) + "hay %d pacientes registrados.", p);
@@ -258,16 +258,38 @@ public class AsistenteServiceImpl implements AsistenteService {
 
 
   private String mensajeAyudaConsultas() {
-    return "No pude identificar la consulta. Puedes preguntarme, por ejemplo:\n\n"
+    return "Puedes realizar estas consultas:\n\n"
+        + "PACIENTES\n"
         + "- ¿Cuántos pacientes hay registrados?\n"
+        + "- ¿Cuántos pacientes se registraron hoy?\n"
         + "- Muéstrame los últimos pacientes registrados.\n"
-        + "- Busca un paciente por DNI.\n"
-        + "- Consulta un paciente por ID.\n"
-        + "- Verifica si un paciente ya está registrado.\n"
+        + "- ¿Cuáles son los pacientes más recientes?\n\n"
+        + "BÚSQUEDA DE PACIENTES\n"
+        + "- Busca un paciente por DNI 72845292.\n"
+        + "- Consulta el paciente ID 4.\n"
+        + "- Buscar paciente por nombre Rafael Velásquez.\n"
+        + "- Verifica si existe un paciente con DNI 72845292.\n\n"
+        + "DUPLICADOS\n"
         + "- ¿Existen pacientes duplicados?\n"
+        + "- Busca pacientes duplicados.\n"
+        + "- Verifica si hay pacientes repetidos.\n"
+        + "- Analiza posibles duplicados.\n"
+        + "- Revisa la duplicidad de historias clínicas.\n\n"
+        + "ESTADÍSTICAS\n"
         + "- ¿Cuál es la edad promedio de los pacientes?\n"
-        + "- ¿Cuántos pacientes son mayores de 60 años?\n\n"
-        + "También puedes escribir ‘ayuda’ o ‘qué preguntas puedo hacer’ para ver las opciones disponibles.";
+        + "- ¿Cuántos pacientes son mayores de 60 años?\n"
+        + "- Muéstrame los pacientes por rango de edad.\n\n"
+        + "OTRAS CONSULTAS DEL SISTEMA\n"
+        + "- Historias clínicas creadas hoy.\n"
+        + "- Consultas pendientes.\n"
+        + "- Consultas atendidas hoy.\n"
+        + "- Consultas incompletas.\n"
+        + "- Especialidad más requerida.\n"
+        + "- Enfermedad más registrada.";
+  }
+
+  private String mensajeConsultaNoReconocida() {
+    return "No entiendo tu pregunta.\nEscribe ‘¿Qué preguntas puedo hacer?’ para ver las consultas disponibles.";
   }
 
   private AsistenteResponse incompletas(){List<Map<String,Object>> items=consultaRepository.findIncompletas().stream().limit(5).map(c->{Map<String,Object>m=new LinkedHashMap<>();m.put("idConsulta",c.getIdConsulta());m.put("estado",estado(c.getEstado()));m.put("especialidad",c.getEspecialidadRequerida());m.put("fecha",c.getFechaCreacion());m.put("doctor",c.getDoctorResponsable()==null?null:c.getDoctorResponsable().getNombres()+" "+c.getDoctorResponsable().getApellidos());return m;}).collect(Collectors.toList());return resp("CONSULTAS_INCOMPLETAS",items.isEmpty()?"No se encontraron registros para el periodo solicitado.":"Actualmente existen "+consultaRepository.countIncompletas()+" consultas incompletas. Te muestro hasta 5 resultados.",Map.of("resultados",items));}
@@ -275,5 +297,5 @@ public class AsistenteServiceImpl implements AsistenteService {
   private AsistenteResponse cantidad(String i,long c,String f,Periodo p){return resp(i,String.format(f,c),Map.of("cantidad",c,"periodo",p.nombre()));} private AsistenteResponse sinPermiso(){return resp("SIN_PERMISOS","No tienes permisos para consultar esa información.",Map.of());} private AsistenteResponse resp(String i,String r,Map<String,Object>d){return AsistenteResponse.builder().intencion(i).respuesta(r).datos(d).build();}
   private boolean contiene(String q,String...xs){return Arrays.stream(xs).anyMatch(q::contains);} private String estado(String e){return "PENDIENTE".equals(e)?"Por atender":"ATENDIDO".equals(e)?"Atendido":e;} private String normalizar(String s){if(s==null)return"";return Normalizer.normalize(s.toLowerCase().trim(),Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[¿?¡!.,;:]+"," ").replaceAll("\\s+"," ");} private String pref(Periodo p){return p.total()?"Actualmente ":p.nombre().equals("HOY")?"Hoy ":p.nombre().equals("SEMANA_ACTUAL")?"Esta semana ":"Este mes ";}
   private Periodo periodo(String q){LocalDate n=LocalDate.now();if(q.contains("hoy"))return new Periodo("HOY",n.atStartOfDay(),n.plusDays(1).atStartOfDay(),false);if(q.contains("semana")){LocalDate i=n.with(DayOfWeek.MONDAY);return new Periodo("SEMANA_ACTUAL",i.atStartOfDay(),i.plusWeeks(1).atStartOfDay(),false);}if(q.contains("mes")){LocalDate i=n.withDayOfMonth(1);return new Periodo("MES_ACTUAL",i.atStartOfDay(),i.plusMonths(1).atStartOfDay(),false);}return new Periodo("TOTAL",null,null,true);} record Periodo(String nombre,LocalDateTime inicio,LocalDateTime fin,boolean total){}
-  private String ayuda(String q){if(contiene(q,"ayuda","que preguntas puedo hacer","que puedo preguntarte","como puedo usar el asistente","que puedes consultar","mostrar opciones","comandos disponibles"))return mensajeAyudaConsultas();if(contiene(q,"como registro un paciente"))return"Para registrar un paciente ingresa a Pacientes, selecciona Agregar Pacientes, completa los datos obligatorios y guarda.";if(contiene(q,"como edito un paciente"))return"Para editar un paciente ingresa a Pacientes, busca el registro y usa la acción Editar.";if(contiene(q,"historia clinica")&&contiene(q,"como creo","crear"))return"Para crear una historia clínica selecciona el paciente y registra su historia desde el módulo Historia Clínica.";if(contiene(q,"consulta")&&contiene(q,"agrego","agregar","crear"))return"Para agregar una consulta médica abre la historia clínica del paciente y usa la opción para registrar una nueva consulta.";if(contiene(q,"atiendo una consulta","atender una consulta"))return"Para atender una consulta entra a Consultas, abre el detalle pendiente, completa diagnóstico y tratamiento, y finaliza la atención.";if(contiene(q,"empleado"))return"Para registrar o activar/desactivar empleados ingresa al módulo Empleados y usa las acciones disponibles.";if(contiene(q,"usuario","permisos"))return"Para crear usuarios o asignar permisos ingresa al módulo Usuarios y configura sus permisos por menú.";return null;}
+  private String ayuda(String q){if(contiene(q,"ayuda","que preguntas puedo hacer","que puedo preguntarte","como puedo usar el asistente","que puedes consultar","que consultas soportas","mostrar opciones","mostrar preguntas disponibles","preguntas disponibles","muestrame las opciones","comandos disponibles"))return mensajeAyudaConsultas();if(contiene(q,"como registro un paciente"))return"Para registrar un paciente ingresa a Pacientes, selecciona Agregar Pacientes, completa los datos obligatorios y guarda.";if(contiene(q,"como edito un paciente"))return"Para editar un paciente ingresa a Pacientes, busca el registro y usa la acción Editar.";if(contiene(q,"historia clinica")&&contiene(q,"como creo","crear"))return"Para crear una historia clínica selecciona el paciente y registra su historia desde el módulo Historia Clínica.";if(contiene(q,"consulta")&&contiene(q,"agrego","agregar","crear"))return"Para agregar una consulta médica abre la historia clínica del paciente y usa la opción para registrar una nueva consulta.";if(contiene(q,"atiendo una consulta","atender una consulta"))return"Para atender una consulta entra a Consultas, abre el detalle pendiente, completa diagnóstico y tratamiento, y finaliza la atención.";if(contiene(q,"empleado"))return"Para registrar o activar/desactivar empleados ingresa al módulo Empleados y usa las acciones disponibles.";if(contiene(q,"usuario","permisos"))return"Para crear usuarios o asignar permisos ingresa al módulo Usuarios y configura sus permisos por menú.";return null;}
 }
