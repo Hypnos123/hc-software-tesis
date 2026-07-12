@@ -3,6 +3,7 @@ package com.krivi.apihistorialmedico.business.services.impl;
 import com.krivi.apihistorialmedico.business.services.AsistenteService;
 import com.krivi.apihistorialmedico.model.api.AsistenteRequest;
 import com.krivi.apihistorialmedico.model.api.AsistenteResponse;
+import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
 import com.krivi.apihistorialmedico.model.entity.Usuario;
 import com.krivi.apihistorialmedico.repository.*;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +29,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     try {
       Periodo p = periodo(q); Usuario u = idUsuario == null ? null : usuarioRepository.findById(idUsuario).orElse(null); Integer idEmpleado = u != null && u.getEmpleado() != null ? u.getEmpleado().getIdEmpleado() : null;
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
+      AsistenteResponse historiaPaciente = verificarHistoriaClinicaPaciente(q); if (historiaPaciente != null) return historiaPaciente;
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
@@ -42,6 +45,67 @@ public class AsistenteServiceImpl implements AsistenteService {
     return resp("NO_RECONOCIDA", mensajeConsultaNoReconocida(), Map.of());
   }
 
+
+
+  private AsistenteResponse verificarHistoriaClinicaPaciente(String q) {
+    if (!esConsultaHistoriaClinicaPaciente(q)) return null;
+    Optional<Paciente> paciente = buscarPacienteDesdeConsulta(q);
+    if (paciente.isEmpty()) {
+      String nombre = extraerNombrePaciente(q);
+      if (nombre.length() < 3 && !DNI_PATTERN.matcher(q).find() && !contiene(q, "id")) {
+        return resp("HISTORIA_CLINICA_REQUIERE_PACIENTE", "Indica el DNI, ID o nombre completo del paciente para verificar si tiene historia clínica.", Map.of());
+      }
+      return resp("HISTORIA_CLINICA_PACIENTE_NO_ENCONTRADO", "No se encontró un paciente registrado con esos datos.", Map.of());
+    }
+    Paciente pacienteEncontrado = paciente.get();
+    return historiaClinicaRepository.findByPacienteIdPaciente(pacienteEncontrado.getIdPaciente())
+        .map(historia -> resp("HISTORIA_CLINICA_EXISTENTE", respuestaHistoriaClinicaExistente(historia, pacienteEncontrado), Map.of("historiaClinica", historiaMap(historia, pacienteEncontrado), "paciente", pacienteMap(pacienteEncontrado))))
+        .orElse(resp("HISTORIA_CLINICA_NO_EXISTE", "El paciente está registrado, pero no cuenta con una historia clínica. Puede continuar con la creación.", Map.of("paciente", pacienteMap(pacienteEncontrado))));
+  }
+
+  private boolean esConsultaHistoriaClinicaPaciente(String q) {
+    boolean mencionaHistoria = contiene(q, "historia clinica", "historias clinicas");
+    boolean consultaPaciente = contiene(q, "paciente", "dni", " id ", "para ", "este paciente");
+    boolean accion = contiene(q, "tiene", "cuenta", "existe", "consulta", "consultar", "verifica", "verificar", "busca", "buscar", "ya tiene", "ya cuenta");
+    boolean conteoGeneral = contiene(q, "cuantas", "cuantos", "cantidad", "total", "creadas", "creados") && !contiene(q, "paciente", "dni", " id ", "para ");
+    return mencionaHistoria && consultaPaciente && accion && !conteoGeneral;
+  }
+
+  private Optional<Paciente> buscarPacienteDesdeConsulta(String q) {
+    Matcher dniMatcher = DNI_PATTERN.matcher(q);
+    if (dniMatcher.find()) return pacienteRepository.findByNumDocumento(dniMatcher.group());
+    Matcher idMatcher = Pattern.compile("\\b(?:id|codigo|cod)\\s*(\\d+)\\b").matcher(q);
+    if (idMatcher.find()) return pacienteRepository.findById(Integer.valueOf(idMatcher.group(1)));
+    Matcher pacienteIdMatcher = Pattern.compile("\\bpaciente\\s+(\\d{1,7})\\b").matcher(q);
+    if (pacienteIdMatcher.find()) return pacienteRepository.findById(Integer.valueOf(pacienteIdMatcher.group(1)));
+    String nombre = extraerNombrePaciente(q);
+    if (nombre.length() < 3) return Optional.empty();
+    List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 1);
+    if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 1);
+    return coincidencias.stream().findFirst();
+  }
+
+  private String respuestaHistoriaClinicaExistente(HistoriaClinica historia, Paciente paciente) {
+    return "Este paciente ya cuenta con una historia clínica registrada. No se recomienda crear una nueva. Abra la historia existente para registrar una nueva consulta.\n\n"
+        + "ID historia clínica: " + historia.getIdHistoriaClinica()
+        + "\nID paciente: " + paciente.getIdPaciente()
+        + "\nPaciente: " + nombreCompleto(paciente)
+        + "\nDNI: " + valorSeguro(paciente.getNumDocumento())
+        + "\nFecha de creación: " + fechaHistoria(historia.getFechaCreacion());
+  }
+
+  private Map<String, Object> historiaMap(HistoriaClinica historia, Paciente paciente) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.put("idHistoriaClinica", historia.getIdHistoriaClinica());
+    map.put("idPaciente", paciente.getIdPaciente());
+    map.put("fechaCreacion", historia.getFechaCreacion());
+    return map;
+  }
+
+  private String fechaHistoria(LocalDateTime fecha) {
+    if (fecha == null) return "Sin fecha registrada";
+    return fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+  }
 
   private AsistenteResponse intencionPacientes(String q, Periodo p) {
     if (esAnalisisDuplicados(q)) return null;
@@ -207,7 +271,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private String extraerNombrePaciente(String q) {
-    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
+    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad|tiene|cuenta|contiene|asociada|asociado|del|este|esa|ese)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
   }
 
 
@@ -269,6 +333,11 @@ public class AsistenteServiceImpl implements AsistenteService {
         + "- Consulta el paciente ID 4.\n"
         + "- Buscar paciente por nombre Rafael Velásquez.\n"
         + "- Verifica si existe un paciente con DNI 72845292.\n\n"
+        + "HISTORIAS CLÍNICAS POR PACIENTE\n"
+        + "- ¿El paciente con DNI 72845292 ya tiene historia clínica?\n"
+        + "- Consulta si el paciente ID 4 tiene historia clínica.\n"
+        + "- ¿Existe una historia clínica para Rafael Velásquez Morales?\n"
+        + "- Busca la historia clínica del paciente con DNI 72845292.\n\n"
         + "DUPLICADOS\n"
         + "- ¿Existen pacientes duplicados?\n"
         + "- Busca pacientes duplicados.\n"
