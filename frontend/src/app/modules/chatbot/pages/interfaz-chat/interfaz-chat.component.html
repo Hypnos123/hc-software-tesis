@@ -13,7 +13,10 @@
       <span>Control de historias clínicas</span>
     </div>
 
-    <button class="chatbot-close" (click)="toggleChat()">×</button>
+    <div class="chatbot-header-actions">
+      <button class="chatbot-minimize" type="button" title="Minimizar" aria-label="Minimizar" (click)="minimizeChat()">−</button>
+      <button class="chatbot-close" type="button" title="Cerrar y borrar conversación" aria-label="Cerrar y borrar conversación" (click)="closeChat()">×</button>
+    </div>
   </div>
 
   <!-- BODY -->
