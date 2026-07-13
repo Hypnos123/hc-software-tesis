@@ -49,15 +49,17 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private AsistenteResponse verificarHistoriaClinicaPaciente(String q) {
     if (!esConsultaHistoriaClinicaPaciente(q)) return null;
-    Optional<Paciente> paciente = buscarPacienteDesdeConsulta(q);
-    if (paciente.isEmpty()) {
-      String nombre = extraerNombrePaciente(q);
-      if (nombre.length() < 3 && !DNI_PATTERN.matcher(q).find() && !contiene(q, "id")) {
-        return resp("HISTORIA_CLINICA_REQUIERE_PACIENTE", "Indica el DNI, ID o nombre completo del paciente para verificar si tiene historia clínica.", Map.of());
+    ResultadoBusquedaHistoria resultado = buscarPacienteParaHistoria(q);
+    if (resultado.requiereDatos()) {
+      return resp("HISTORIA_CLINICA_REQUIERE_PACIENTE", "Indica el DNI, ID o nombre completo del paciente para verificar si tiene historia clínica.", Map.of());
+    }
+    if (resultado.paciente().isEmpty()) {
+      if (!resultado.similares().isEmpty()) {
+        return resp("HISTORIA_CLINICA_PACIENTE_SIMILARES", respuestaPacienteNoEncontradoConSimilares(resultado.similares()), Map.of("resultados", resultado.similares().stream().map(this::pacienteMap).collect(Collectors.toList())));
       }
       return resp("HISTORIA_CLINICA_PACIENTE_NO_ENCONTRADO", "No se encontró un paciente registrado con esos datos.", Map.of());
     }
-    Paciente pacienteEncontrado = paciente.get();
+    Paciente pacienteEncontrado = resultado.paciente().get();
     return historiaClinicaRepository.findByPacienteIdPaciente(pacienteEncontrado.getIdPaciente())
         .map(historia -> resp("HISTORIA_CLINICA_EXISTENTE", respuestaHistoriaClinicaExistente(historia, pacienteEncontrado), Map.of("historiaClinica", historiaMap(historia, pacienteEncontrado), "paciente", pacienteMap(pacienteEncontrado))))
         .orElse(resp("HISTORIA_CLINICA_NO_EXISTE", "El paciente está registrado, pero no cuenta con una historia clínica. Puede continuar con la creación.", Map.of("paciente", pacienteMap(pacienteEncontrado))));
@@ -71,19 +73,55 @@ public class AsistenteServiceImpl implements AsistenteService {
     return mencionaHistoria && consultaPaciente && accion && !conteoGeneral;
   }
 
-  private Optional<Paciente> buscarPacienteDesdeConsulta(String q) {
+  private ResultadoBusquedaHistoria buscarPacienteParaHistoria(String q) {
     Matcher dniMatcher = DNI_PATTERN.matcher(q);
-    if (dniMatcher.find()) return pacienteRepository.findByNumDocumento(dniMatcher.group());
+    if (dniMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findByNumDocumento(dniMatcher.group()), List.of(), false);
     Matcher idMatcher = Pattern.compile("\\b(?:id|codigo|cod)\\s*(\\d+)\\b").matcher(q);
-    if (idMatcher.find()) return pacienteRepository.findById(Integer.valueOf(idMatcher.group(1)));
+    if (idMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findById(Integer.valueOf(idMatcher.group(1))), List.of(), false);
     Matcher pacienteIdMatcher = Pattern.compile("\\bpaciente\\s+(\\d{1,7})\\b").matcher(q);
-    if (pacienteIdMatcher.find()) return pacienteRepository.findById(Integer.valueOf(pacienteIdMatcher.group(1)));
+    if (pacienteIdMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findById(Integer.valueOf(pacienteIdMatcher.group(1))), List.of(), false);
+
     String nombre = extraerNombrePaciente(q);
-    if (nombre.length() < 3) return Optional.empty();
-    List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 1);
-    if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 1);
-    return coincidencias.stream().findFirst();
+    List<String> terminos = terminosNombre(nombre);
+    if (terminos.size() < 2) {
+      List<Paciente> similares = nombre.length() < 3 ? List.of() : buscarPorNombreAproximado(nombre, 5);
+      return new ResultadoBusquedaHistoria(Optional.empty(), similares, nombre.length() < 3);
+    }
+
+    List<Paciente> candidatos = pacienteRepository.searchByNombre(nombre, 10);
+    if (candidatos.isEmpty()) candidatos = buscarPorNombreAproximado(nombre, 10);
+    List<Paciente> coincidenciasEstrictas = candidatos.stream()
+        .filter(paciente -> nombrePacienteContieneTerminos(paciente, terminos))
+        .collect(Collectors.toList());
+    if (coincidenciasEstrictas.size() == 1) return new ResultadoBusquedaHistoria(Optional.of(coincidenciasEstrictas.get(0)), List.of(), false);
+    if (coincidenciasEstrictas.size() > 1) return new ResultadoBusquedaHistoria(Optional.empty(), coincidenciasEstrictas, false);
+    return new ResultadoBusquedaHistoria(Optional.empty(), candidatos.stream().limit(5).collect(Collectors.toList()), false);
   }
+
+  private List<String> terminosNombre(String nombre) {
+    if (nombre == null || nombre.isBlank()) return List.of();
+    return Arrays.stream(normalizar(nombre).split(" "))
+        .filter(termino -> termino.length() >= 2)
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  private boolean nombrePacienteContieneTerminos(Paciente paciente, List<String> terminos) {
+    String nombrePaciente = normalizar((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
+    return terminos.stream().allMatch(nombrePaciente::contains);
+  }
+
+  private String respuestaPacienteNoEncontradoConSimilares(List<Paciente> similares) {
+    String resultados = similares.stream()
+        .map(paciente -> "- " + nombreCompleto(paciente) + ", DNI: " + valorSeguro(paciente.getNumDocumento()))
+        .collect(Collectors.joining("\n"));
+    return "No se encontró un paciente registrado con ese nombre.\n"
+        + "Se encontraron posibles coincidencias:\n"
+        + resultados
+        + "\n\nIndique el DNI o ID del paciente para realizar una búsqueda exacta.";
+  }
+
+  private record ResultadoBusquedaHistoria(Optional<Paciente> paciente, List<Paciente> similares, boolean requiereDatos) {}
 
   private String respuestaHistoriaClinicaExistente(HistoriaClinica historia, Paciente paciente) {
     return "Este paciente ya cuenta con una historia clínica registrada. No se recomienda crear una nueva. Abra la historia existente para registrar una nueva consulta.\n\n"
