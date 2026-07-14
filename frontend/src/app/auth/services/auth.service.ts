@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { IAuth, IAuthSuccess, IResponseModelGet } from '../models/auth';
 import { StorageService } from '@app/shared/services/storage.service';
@@ -14,6 +14,8 @@ export class AuthService {
   private readonly rutasTemporalmenteDeshabilitadas = ['dashboard'];
   private URLServicio: string = environment.URLTienda;
   private _auth: IAuthSuccess | undefined;
+  private logoutSubject = new Subject<void>();
+  logout$ = this.logoutSubject.asObservable();
 
   constructor(private http: HttpClient, private storageService: StorageService) { }
 
@@ -65,6 +67,9 @@ export class AuthService {
   logout(): void {
     this._auth = undefined;
     this.storageService.removeItem('token');
+    localStorage.removeItem('asistenteChatState');
+    sessionStorage.removeItem('asistenteChatState');
+    this.logoutSubject.next();
   }
 
   private normalizarRuta(ruta?: string): string {
