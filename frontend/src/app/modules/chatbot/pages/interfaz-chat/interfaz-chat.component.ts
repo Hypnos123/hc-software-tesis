@@ -75,28 +75,32 @@ export class InterfazChatComponent implements OnDestroy {
 
   private activeRequest?: Subscription;
   private logoutSubscription: Subscription;
+  private readonly selectedMenuOptions = new Set<string>();
   private messageSequence = 0;
   private scrollPosition = 0;
-  isOpen = false; userMessage = ''; isLoading = false; currentMenu: string | null = 'principal'; showMenuOptions = true;
+  isOpen = false; userMessage = ''; isLoading = false; currentMenu = 'principal';
   messages: ChatMessage[] = this.getInitialMessages();
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
 
   constructor(private asistenteService: AsistenteService, private authService: AuthService) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
-  get currentOptions(): MenuOption[] { return this.currentMenu ? this.menus[this.currentMenu].options : []; }
+  getVisibleMenuOptions(): MenuOption[] { return this.menus[this.currentMenu].options.filter(option => option.action === 'menu' || !this.selectedMenuOptions.has(this.menuOptionKey(option))); }
+  get allOptionsReviewed(): boolean {
+    const options = this.menus[this.currentMenu].options.filter(option => option.action !== 'menu');
+    return options.length > 0 && options.every(option => this.selectedMenuOptions.has(this.menuOptionKey(option)));
+  }
   ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.saveScrollPosition(); this.isOpen = false; }
   closeChat(): void { this.resetChat(true); }
-  sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.hideMenuOptions(); this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta, true); }
+  sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta, true); }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
   selectOption(option: MenuOption): void {
     if (this.isLoading) return;
     const selection = this.addUserMessage(option.label);
-    if (option.action === 'request') { this.hideMenuOptions(); this.askBackend(option.label, false); this.scrollToNewBlock(selection.id); return; }
-    if (option.action === 'prompt') { this.hideMenuOptions(); this.addBotMessage(option.text || ''); this.scrollToNewBlock(selection.id); return; }
+    if (option.action === 'request') { this.selectedMenuOptions.add(this.menuOptionKey(option)); this.askBackend(option.label, false); this.scrollToNewBlock(selection.id); return; }
+    if (option.action === 'prompt') { this.selectedMenuOptions.add(this.menuOptionKey(option)); this.addBotMessage(option.text || ''); this.scrollToNewBlock(selection.id); return; }
     this.currentMenu = option.target || 'principal';
-    this.showMenuOptions = true;
     if (this.currentMenu !== 'principal' && this.menus[this.currentMenu].question) this.addBotMessage(this.menus[this.currentMenu].question || '');
     this.scrollToNewBlock(selection.id);
   }
@@ -127,10 +131,10 @@ export class InterfazChatComponent implements OnDestroy {
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
-  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.currentMenu = 'principal'; this.showMenuOptions = true; this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.currentMenu = 'principal'; this.selectedMenuOptions.clear(); this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
   private getInitialMessages(): ChatMessage[] { return [this.createMessage('bot', this.initialMessage)]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
-  private hideMenuOptions(): void { this.showMenuOptions = false; this.currentMenu = null; }
+  private menuOptionKey(option: MenuOption): string { return `${this.currentMenu}:${option.label}`; }
   private formatResponse(response: IAsistenteResponse): string { return response.respuesta || 'No pude identificar la consulta.'; }
 }

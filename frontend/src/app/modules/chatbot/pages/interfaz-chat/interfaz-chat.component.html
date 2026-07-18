@@ -11,11 +11,12 @@
 
   <div class="chatbot-body" #chatBody>
     <div #conversationBlock [attr.data-block-id]="message.id" *ngFor="let message of messages" [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'">{{ message.text }}</div>
-    <div *ngIf="showMenuOptions && currentMenu" class="navigation-options" [class.main-categories]="currentMenu === 'principal'" aria-label="Opciones del asistente">
-      <button *ngFor="let option of currentOptions" type="button" class="navigation-option" [class.category-card]="currentMenu === 'principal'" [disabled]="isLoading" [title]="option.description || option.label" (click)="selectOption(option)">
+    <div class="navigation-options" [class.main-categories]="currentMenu === 'principal'" aria-label="Opciones del asistente">
+      <button *ngFor="let option of getVisibleMenuOptions()" type="button" class="navigation-option" [class.category-card]="currentMenu === 'principal'" [disabled]="isLoading" [title]="option.description || option.label" (click)="selectOption(option)">
         <i *ngIf="option.icon" [class]="option.icon" aria-hidden="true"></i>
         <span class="option-content"><strong>{{ option.label }}</strong><small *ngIf="option.description">{{ option.description }}</small></span>
       </button>
+      <p *ngIf="allOptionsReviewed" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
     </div>
   </div>
 
