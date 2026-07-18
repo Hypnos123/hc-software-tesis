@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -7,14 +7,15 @@ import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
 import { IAsistenteResponse } from '../../models/asistente';
 
-interface ChatMessage { text: string; sender: 'user' | 'bot'; }
-type MenuAction = 'menu' | 'back' | 'prompt' | 'request';
+interface ChatMessage { id: string; text: string; sender: 'user' | 'bot'; }
+type MenuAction = 'menu' | 'prompt' | 'request';
 interface MenuOption { label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
 
 @Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
 export class InterfazChatComponent implements OnDestroy {
   @ViewChild('chatBody') chatBody!: ElementRef;
+  @ViewChildren('conversationBlock') conversationBlocks!: QueryList<ElementRef<HTMLElement>>;
 
   private readonly initialMessage = 'Hola, soy el Asistente IA del sistema de historias clínicas.\n\nPuedo ayudarte a usar el sistema, consultar información registrada, verificar datos y revisar las opciones disponibles.\n\nSelecciona una categoría para continuar o escribe tu pregunta.';
   private readonly menus: Record<string, ChatMenu> = {
@@ -29,8 +30,7 @@ export class InterfazChatComponent implements OnDestroy {
     consultar: { question: '¿Sobre qué sección deseas consultar información?', options: [
       { label: 'Pacientes', icon: 'pi pi-users', action: 'menu', target: 'pacientes' },
       { label: 'Historias clínicas', icon: 'pi pi-folder-open', action: 'menu', target: 'historias' },
-      { label: 'Consultas médicas', icon: 'pi pi-calendar', action: 'menu', target: 'consultas' },
-      { label: 'Volver al menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: 'Consultas médicas', icon: 'pi pi-calendar', action: 'menu', target: 'consultas' }
     ] },
     pacientes: { question: 'Puedes realizar estas consultas sobre pacientes:', options: [
       { label: '¿Cuántos pacientes hay registrados?', action: 'request' },
@@ -38,18 +38,14 @@ export class InterfazChatComponent implements OnDestroy {
       { label: 'Buscar paciente por DNI', action: 'prompt', text: 'Escribe el DNI de 8 dígitos del paciente.\nEjemplo: Buscar paciente por DNI 72845292' },
       { label: 'Buscar paciente por nombre', action: 'prompt', text: 'Escribe los nombres y apellidos del paciente.\nEjemplo: Buscar paciente por nombre Rafael Velásquez Morales' },
       { label: 'Consulta el paciente por ID', action: 'prompt', text: 'Escribe el ID del paciente.\nEjemplo: Consulta el paciente ID 4' },
-      { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' },
-      { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'consultar' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' }
     ] },
     historias: { question: 'Puedes realizar estas consultas sobre historias clínicas:', options: [
       { label: '¿Cuántas historias clínicas hay registradas?', action: 'request' },
       { label: '¿El paciente con DNI 72845292 tiene historia clínica?', action: 'request' },
       { label: 'Consulta si el paciente ID 4 tiene historia clínica', action: 'request' },
       { label: 'Busca la historia clínica de un paciente por nombre', action: 'prompt', text: 'Escribe el nombre completo del paciente.\nEjemplo: ¿Existe una historia clínica para Rafael Velásquez Morales?' },
-      { label: 'Historias clínicas creadas hoy', action: 'request' },
-      { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'consultar' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: 'Historias clínicas creadas hoy', action: 'request' }
     ] },
     consultas: { question: 'Puedes realizar estas consultas médicas:', options: [
       { label: '¿Cuántas consultas médicas hay registradas?', action: 'request' },
@@ -57,34 +53,30 @@ export class InterfazChatComponent implements OnDestroy {
       { label: 'Muéstrame las consultas médicas del paciente ID 4', action: 'request' },
       { label: '¿Cuál fue la última consulta médica de un paciente?', action: 'prompt', text: 'Indica el DNI, ID o nombre completo del paciente.\nEjemplo: ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?' },
       { label: '¿Tiene consultas médicas pendientes?', action: 'prompt', text: 'Indica el DNI, ID o nombre completo del paciente.\nEjemplo: ¿El paciente con DNI 72845292 tiene consultas médicas pendientes?' },
-      { label: 'Consultas médicas atendidas hoy', action: 'request' },
-      { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'consultar' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: 'Consultas médicas atendidas hoy', action: 'request' }
     ] },
     verificar: { question: 'Selecciona qué información deseas verificar:', options: [
       { label: 'Verificar si un paciente existe', action: 'prompt', text: 'Puedes verificarlo por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿Existe un paciente con DNI 72845292?\n- Consulta el paciente ID 4\n- Verifica si Rafael Velásquez Morales está registrado.' },
       { label: 'Verificar si un paciente tiene historia clínica', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene historia clínica?\n- Consulta si el paciente ID 4 tiene historia clínica.\n- ¿Existe una historia clínica para Rafael Velásquez Morales?' },
       { label: 'Verificar consultas médicas de un paciente', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene consultas médicas?\n- Muéstrame las consultas médicas del paciente ID 4.\n- ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?' },
-      { label: 'Detectar posibles pacientes duplicados', action: 'prompt', text: 'Puedes usar estas preguntas:\n- ¿Existen pacientes duplicados?\n- Verifica si hay pacientes repetidos.\n- Analiza posibles duplicados.\n- Revisa la duplicidad de historias clínicas.' },
-      { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'principal' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: 'Detectar posibles pacientes duplicados', action: 'prompt', text: 'Puedes usar estas preguntas:\n- ¿Existen pacientes duplicados?\n- Verifica si hay pacientes repetidos.\n- Analiza posibles duplicados.\n- Revisa la duplicidad de historias clínicas.' }
     ] },
     manejo: { question: 'Selecciona una pregunta sobre el manejo del sistema:', options: [
       { label: '¿Cómo registro un paciente?', action: 'request' }, { label: '¿Cómo edito un paciente?', action: 'request' },
       { label: '¿Cómo creo una historia clínica?', action: 'request' }, { label: '¿Cómo agrego una consulta médica?', action: 'request' },
       { label: '¿Cómo atiendo una consulta médica?', action: 'request' }, { label: '¿Cómo gestiono empleados?', action: 'request' },
-      { label: '¿Cómo gestiono usuarios y permisos?', action: 'request' }, { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'principal' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: '¿Cómo gestiono usuarios y permisos?', action: 'request' }
     ] },
     ayuda: { question: 'Selecciona una opción de soporte y ayuda:', options: [
       { label: '¿Qué preguntas puedo hacer?', action: 'request' }, { label: 'Mostrar consultas disponibles', action: 'request' },
-      { label: 'Cómo usar el asistente', action: 'request' }, { label: 'Volver', icon: 'pi pi-arrow-left', action: 'back', target: 'principal' },
-      { label: 'Menú principal', icon: 'pi pi-home', action: 'menu', target: 'principal' }
+      { label: 'Cómo usar el asistente', action: 'request' }
     ] }
   };
 
   private activeRequest?: Subscription;
   private logoutSubscription: Subscription;
+  private messageSequence = 0;
+  private scrollPosition = 0;
   isOpen = false; userMessage = ''; isLoading = false; currentMenu = 'principal';
   messages: ChatMessage[] = this.getInitialMessages();
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
@@ -93,19 +85,19 @@ export class InterfazChatComponent implements OnDestroy {
   get currentOptions(): MenuOption[] { return this.menus[this.currentMenu].options; }
   ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
-  openChat(): void { this.isOpen = true; this.scrollToBottom(); }
-  minimizeChat(): void { this.isOpen = false; }
+  openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
+  minimizeChat(): void { this.saveScrollPosition(); this.isOpen = false; }
   closeChat(): void { this.resetChat(true); }
-  sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta); }
+  sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta, true); }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
   selectOption(option: MenuOption): void {
     if (this.isLoading) return;
-    this.addUserMessage(option.label);
-    if (option.action === 'request') { this.askBackend(option.label); return; }
-    if (option.action === 'prompt') { this.messages.push({ sender: 'bot', text: option.text || '' }); this.scrollToBottom(); return; }
+    const selection = this.addUserMessage(option.label);
+    if (option.action === 'request') { this.askBackend(option.label, false); this.scrollToNewBlock(selection.id); return; }
+    if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selection.id); return; }
     this.currentMenu = option.target || 'principal';
-    if (this.currentMenu !== 'principal' && this.menus[this.currentMenu].question) this.messages.push({ sender: 'bot', text: this.menus[this.currentMenu].question || '' });
-    this.scrollToBottom();
+    if (this.currentMenu !== 'principal' && this.menus[this.currentMenu].question) this.addBotMessage(this.menus[this.currentMenu].question || '');
+    this.scrollToNewBlock(selection.id);
   }
   quickAsk(text: string): void {
     if (text === 'Menú principal') { this.selectOption({ label: text, action: 'menu', target: 'principal' }); return; }
@@ -118,18 +110,25 @@ export class InterfazChatComponent implements OnDestroy {
           : { label: text, action: 'request' as MenuAction };
     this.selectOption(quickOption);
   }
-  scrollToBottom(): void { setTimeout(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }, 50); }
-  private addUserMessage(text: string): void { this.messages.push({ sender: 'user', text }); this.scrollToBottom(); }
-  private askBackend(pregunta: string): void {
-    this.isLoading = true; this.messages.push({ sender: 'bot', text: 'Escribiendo...' }); this.scrollToBottom();
-    this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; this.scrollToBottom(); })).subscribe({
-      next: (response) => { this.removeTypingMessage(); this.messages.push({ sender: 'bot', text: this.formatResponse(response) }); },
-      error: () => { this.removeTypingMessage(); this.messages.push({ sender: 'bot', text: 'No pude obtener la información en este momento. Inténtalo nuevamente.' }); }
+  scrollToBottom(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
+  private scrollToNewBlock(blockId: string): void {
+    requestAnimationFrame(() => this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+  private saveScrollPosition(): void { if (this.chatBody) this.scrollPosition = this.chatBody.nativeElement.scrollTop; }
+  private restoreScrollPosition(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.scrollPosition; }); }
+  private addUserMessage(text: string): ChatMessage { const message = this.createMessage('user', text); this.messages.push(message); return message; }
+  private addBotMessage(text: string): ChatMessage { const message = this.createMessage('bot', text); this.messages.push(message); return message; }
+  private createMessage(sender: ChatMessage['sender'], text: string): ChatMessage { this.messageSequence += 1; return { id: `message-${this.messageSequence}`, sender, text }; }
+  private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
+    this.isLoading = true; this.addBotMessage('Escribiendo...');
+    this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
+      next: (response) => { this.removeTypingMessage(); this.addBotMessage(this.formatResponse(response)); if (scrollAfterResponse) this.scrollToBottom(); },
+      error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
-  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.currentMenu = 'principal'; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.currentMenu = 'principal'; this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
-  private getInitialMessages(): ChatMessage[] { return [{ sender: 'bot', text: this.initialMessage }]; }
+  private getInitialMessages(): ChatMessage[] { return [this.createMessage('bot', this.initialMessage)]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
   private formatResponse(response: IAsistenteResponse): string { return response.respuesta || 'No pude identificar la consulta.'; }
 }
