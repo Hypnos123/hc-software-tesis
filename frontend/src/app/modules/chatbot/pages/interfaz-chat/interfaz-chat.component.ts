@@ -82,6 +82,11 @@ export class InterfazChatComponent implements OnDestroy {
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
 
   constructor(private asistenteService: AsistenteService, private authService: AuthService) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
+  getVisibleMenuOptions(): MenuOption[] { return this.menus[this.currentMenu].options.filter(option => option.action === 'menu' || !this.selectedMenuOptions.has(this.menuOptionKey(option))); }
+  get allOptionsReviewed(): boolean {
+    const options = this.menus[this.currentMenu].options.filter(option => option.action !== 'menu');
+    return options.length > 0 && options.every(option => this.selectedMenuOptions.has(this.menuOptionKey(option)));
+  }
   ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
