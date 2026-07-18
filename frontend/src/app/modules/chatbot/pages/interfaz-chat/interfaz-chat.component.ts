@@ -9,7 +9,7 @@ import { IAsistenteResponse } from '../../models/asistente';
 
 interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
 type MenuAction = 'menu' | 'prompt' | 'request';
-interface MenuOption { label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
+interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
 
 @Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
@@ -124,7 +124,7 @@ export class InterfazChatComponent implements OnDestroy {
   private addMenuBlock(menuId: string): void {
     const menu = this.menus[menuId];
     if (menuId !== 'principal' && menu.question) this.addBotMessage(menu.question);
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId, options: menu.options.map(option => ({ ...option })) });
+    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId, options: this.createMenuOptions(menuId) });
   }
   private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage { return { id: this.nextMessageId(), sender, type: 'text', text }; }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
@@ -137,9 +137,10 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
-  private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); const principal = this.menus['principal']; return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: principal.options.map(option => ({ ...option })) }]; }
+  private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
-  private removeMenuOption(menuMessage: ChatMessage, option: MenuOption): void { menuMessage.options = (menuMessage.options || []).filter(item => item.label !== option.label); }
+  private createMenuOptions(menuId: string): MenuOption[] { return this.menus[menuId].options.map((option, index) => ({ ...option, id: `${menuId}-${index}` })); }
+  private removeMenuOption(menuMessage: ChatMessage, option: MenuOption): void { menuMessage.options = (menuMessage.options || []).filter(item => item.id !== option.id); }
   private executeMenuOption(option: MenuOption, selectionId: string): void {
     if (option.action === 'request') { this.askBackend(option.label, false); this.scrollToNewBlock(selectionId); return; }
     if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selectionId); return; }
