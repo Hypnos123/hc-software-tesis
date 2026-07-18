@@ -7,7 +7,7 @@ import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
 import { IAsistenteResponse } from '../../models/asistente';
 
-interface ChatMessage { id: string; text: string; sender: 'user' | 'bot'; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
 type MenuAction = 'menu' | 'prompt' | 'request';
 interface MenuOption { label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -75,10 +75,9 @@ export class InterfazChatComponent implements OnDestroy {
 
   private activeRequest?: Subscription;
   private logoutSubscription: Subscription;
-  private readonly selectedMenuOptions = new Set<string>();
   private messageSequence = 0;
   private scrollPosition = 0;
-  isOpen = false; userMessage = ''; isLoading = false; currentMenu = 'principal';
+  isOpen = false; userMessage = ''; isLoading = false;
   messages: ChatMessage[] = this.getInitialMessages();
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
 
@@ -95,17 +94,15 @@ export class InterfazChatComponent implements OnDestroy {
   closeChat(): void { this.resetChat(true); }
   sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta, true); }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
-  selectOption(option: MenuOption): void {
+  selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
     if (this.isLoading) return;
     const selection = this.addUserMessage(option.label);
-    if (option.action === 'request') { this.selectedMenuOptions.add(this.menuOptionKey(option)); this.askBackend(option.label, false); this.scrollToNewBlock(selection.id); return; }
-    if (option.action === 'prompt') { this.selectedMenuOptions.add(this.menuOptionKey(option)); this.addBotMessage(option.text || ''); this.scrollToNewBlock(selection.id); return; }
-    this.currentMenu = option.target || 'principal';
-    if (this.currentMenu !== 'principal' && this.menus[this.currentMenu].question) this.addBotMessage(this.menus[this.currentMenu].question || '');
-    this.scrollToNewBlock(selection.id);
+    this.removeMenuOption(menuMessage, option);
+    this.executeMenuOption(option, selection.id);
   }
   quickAsk(text: string): void {
-    if (text === 'Menú principal') { this.selectOption({ label: text, action: 'menu', target: 'principal' }); return; }
+    if (this.isLoading) return;
+    if (text === 'Menú principal') { const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
       : text === 'Verificar historia clínica'
@@ -113,7 +110,8 @@ export class InterfazChatComponent implements OnDestroy {
         : text === 'Consultas médicas de un paciente'
           ? this.menus['verificar'].options[2]
           : { label: text, action: 'request' as MenuAction };
-    this.selectOption(quickOption);
+    const selection = this.addUserMessage(quickOption.label);
+    this.executeMenuOption(quickOption, selection.id);
   }
   scrollToBottom(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
   private scrollToNewBlock(blockId: string): void {
@@ -121,9 +119,15 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private saveScrollPosition(): void { if (this.chatBody) this.scrollPosition = this.chatBody.nativeElement.scrollTop; }
   private restoreScrollPosition(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.scrollPosition; }); }
-  private addUserMessage(text: string): ChatMessage { const message = this.createMessage('user', text); this.messages.push(message); return message; }
-  private addBotMessage(text: string): ChatMessage { const message = this.createMessage('bot', text); this.messages.push(message); return message; }
-  private createMessage(sender: ChatMessage['sender'], text: string): ChatMessage { this.messageSequence += 1; return { id: `message-${this.messageSequence}`, sender, text }; }
+  private addUserMessage(text: string): ChatMessage { const message = this.createTextMessage('user', text); this.messages.push(message); return message; }
+  private addBotMessage(text: string): ChatMessage { const message = this.createTextMessage('bot', text); this.messages.push(message); return message; }
+  private addMenuBlock(menuId: string): void {
+    const menu = this.menus[menuId];
+    if (menuId !== 'principal' && menu.question) this.addBotMessage(menu.question);
+    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId, options: menu.options.map(option => ({ ...option })) });
+  }
+  private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage { return { id: this.nextMessageId(), sender, type: 'text', text }; }
+  private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
     this.isLoading = true; this.addBotMessage('Escribiendo...');
     this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
@@ -131,10 +135,16 @@ export class InterfazChatComponent implements OnDestroy {
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
-  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.currentMenu = 'principal'; this.selectedMenuOptions.clear(); this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
-  private getInitialMessages(): ChatMessage[] { return [this.createMessage('bot', this.initialMessage)]; }
+  private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); const principal = this.menus['principal']; return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: principal.options.map(option => ({ ...option })) }]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
-  private menuOptionKey(option: MenuOption): string { return `${this.currentMenu}:${option.label}`; }
+  private removeMenuOption(menuMessage: ChatMessage, option: MenuOption): void { menuMessage.options = (menuMessage.options || []).filter(item => item.label !== option.label); }
+  private executeMenuOption(option: MenuOption, selectionId: string): void {
+    if (option.action === 'request') { this.askBackend(option.label, false); this.scrollToNewBlock(selectionId); return; }
+    if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selectionId); return; }
+    this.addMenuBlock(option.target || 'principal');
+    this.scrollToNewBlock(selectionId);
+  }
   private formatResponse(response: IAsistenteResponse): string { return response.respuesta || 'No pude identificar la consulta.'; }
 }
