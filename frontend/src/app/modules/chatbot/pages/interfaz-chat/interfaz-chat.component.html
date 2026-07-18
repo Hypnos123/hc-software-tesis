@@ -1,54 +1,31 @@
-<!-- BOTÓN FLOTANTE -->
-<button class="chatbot-floating-btn" (click)="toggleChat()">
-  <i class="pi pi-comments"></i>
-</button>
+<button class="chatbot-floating-btn" type="button" title="Abrir Asistente IA" aria-label="Abrir Asistente IA" (click)="toggleChat()"><i class="pi pi-comments"></i></button>
 
-<!-- VENTANA CHAT -->
 <div class="chatbot-window" *ngIf="isOpen">
-
-  <!-- HEADER -->
   <div class="chatbot-header">
-    <div>
-      <h4>Asistente IA</h4>
-      <span>Control de historias clínicas</span>
-    </div>
-
+    <div><h4>Asistente IA</h4><span>Control de historias clínicas</span></div>
     <div class="chatbot-header-actions">
       <button class="chatbot-minimize" type="button" title="Minimizar" aria-label="Minimizar" (click)="minimizeChat()">−</button>
       <button class="chatbot-close" type="button" title="Cerrar y borrar conversación" aria-label="Cerrar y borrar conversación" (click)="closeChat()">×</button>
     </div>
   </div>
 
-  <!-- BODY -->
   <div class="chatbot-body" #chatBody>
-
-    <!-- MENSAJES -->
-    <div
-      *ngFor="let message of messages"
-      [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'"
-    >
-      {{ message.text }}
+    <div #conversationBlock [attr.data-block-id]="message.id" *ngFor="let message of messages" [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'">{{ message.text }}</div>
+    <div class="navigation-options" [class.main-categories]="currentMenu === 'principal'" aria-label="Opciones del asistente">
+      <button *ngFor="let option of getVisibleMenuOptions()" type="button" class="navigation-option" [class.category-card]="currentMenu === 'principal'" [disabled]="isLoading" [title]="option.description || option.label" (click)="selectOption(option)">
+        <i *ngIf="option.icon" [class]="option.icon" aria-hidden="true"></i>
+        <span class="option-content"><strong>{{ option.label }}</strong><small *ngIf="option.description">{{ option.description }}</small></span>
+      </button>
+      <p *ngIf="allOptionsReviewed" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
     </div>
-
   </div>
 
-  <!-- PREGUNTAS RÁPIDAS -->
-  <div class="quick-questions">
-    <button *ngFor="let question of quickQuestions" (click)="quickAsk(question)" [disabled]="isLoading">{{ question }}</button>
+  <div class="quick-questions" aria-label="Preguntas rápidas">
+    <button *ngFor="let question of quickQuestions" type="button" (click)="quickAsk(question)" [disabled]="isLoading" [title]="question">{{ question }}</button>
   </div>
 
-  <!-- FOOTER -->
   <div class="chatbot-footer">
-    <input
-      type="text"
-      placeholder="Escribe tu consulta..."
-      [(ngModel)]="userMessage"
-      (keydown.enter)="onEnter($event)" [disabled]="isLoading"
-    />
-
-    <button (click)="sendMessage()" [disabled]="isLoading || !userMessage.trim()">
-      Enviar
-    </button>
+    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading" />
+    <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || !userMessage.trim()">Enviar</button>
   </div>
-
 </div>
