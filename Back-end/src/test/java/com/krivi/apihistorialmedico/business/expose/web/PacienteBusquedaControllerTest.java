@@ -57,4 +57,23 @@ class PacienteBusquedaControllerTest {
         .andExpect(jsonPath("$.codigo").value("CRITERIO_VACIO"))
         .andExpect(jsonPath("$.mensaje").value("El criterio de búsqueda es obligatorio."));
   }
+
+  @Test
+  void incluyeListaPacientesVaciaCuandoNoHayResultados() throws Exception {
+    BusquedaPacienteResponse response = BusquedaPacienteResponse.builder()
+        .encontrado(false)
+        .tipoResultado("sin_resultados")
+        .pacientes(List.of())
+        .mensaje("No se encontró ningún paciente con el criterio indicado.")
+        .build();
+    when(pacienteService.buscarParaIntegracion("99999999")).thenReturn(response);
+
+    mockMvc.perform(get("/api/pacientes/buscar").param("criterio", "99999999"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.encontrado").value(false))
+        .andExpect(jsonPath("$.tipoResultado").value("sin_resultados"))
+        .andExpect(jsonPath("$.pacientes").isArray())
+        .andExpect(jsonPath("$.pacientes").isEmpty())
+        .andExpect(jsonPath("$.mensaje").value("No se encontró ningún paciente con el criterio indicado."));
+  }
 }
