@@ -63,3 +63,27 @@ También se puede probar desde Swagger UI en `http://localhost:8080/swagger-ui.h
 ## Alcance de seguridad
 
 Esta integración es local y temporal para la demostración. No incorpora Botpress, Webchat, Spring Security, JWT, API keys ni cambios globales de CORS. Para cualquier despliegue fuera de ese contexto se recomienda añadir autenticación de servicio, autorización, limitación de solicitudes, auditoría y una política CORS restrictiva.
+
+## Estadísticas y registros de pacientes
+
+Los siguientes endpoints usan `fechaCreacion`, una fecha técnica inmutable calculada en la zona horaria `America/Lima`:
+
+| Endpoint | Descripción |
+| --- | --- |
+| `GET /api/pacientes/estadisticas` | Total de pacientes y cantidad registrada hoy. |
+| `GET /api/pacientes/ultimos?limite=5` | Últimos pacientes por fecha de creación; `limite` es opcional y debe estar entre 1 y 10. |
+| `GET /api/pacientes/registrados-hoy` | Fecha de Lima, cantidad y pacientes creados hoy. |
+| `GET /api/pacientes/duplicados` | Grupos de pacientes con el mismo DNI exacto no vacío. |
+
+```bash
+curl -i "http://localhost:8080/api/pacientes/estadisticas"
+curl -i "http://localhost:8080/api/pacientes/ultimos?limite=5"
+curl -i "http://localhost:8080/api/pacientes/registrados-hoy"
+curl -i "http://localhost:8080/api/pacientes/duplicados"
+```
+
+### Migración de `fechaCreacion`
+
+Para una instalación existente, ejecute una sola vez `database/migrations/20260722_add_fecha_creacion_paciente.sql`. La migración agrega `paciente.fechacreacion` como `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`, crea el índice `idx_paciente_fechacreacion` y completa datos existentes con `fechaingreso`; si este es nulo, usa `NOW()` al ejecutar la migración.
+
+Por esa razón, las fechas de creación de pacientes históricos son fechas migradas de referencia y podrían no reflejar exactamente el instante original de alta. Los nuevos pacientes reciben la fecha automáticamente y las actualizaciones no pueden cambiarla desde JPA.

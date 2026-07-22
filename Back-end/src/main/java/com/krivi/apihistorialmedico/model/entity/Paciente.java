@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 
@@ -18,10 +20,14 @@ import java.util.List;
 @Table(name = "paciente")
 public class Paciente {
 
+  private static final ZoneId ZONA_HORARIA_LIMA = ZoneId.of("America/Lima");
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "idpaciente")
   private Integer idPaciente;
+  @Column(name = "fechacreacion", nullable = false, updatable = false)
+  private LocalDateTime fechaCreacion;
   private String nombres;
   private String apellidos;
   @Column(name = "fechaingreso")
@@ -40,6 +46,13 @@ public class Paciente {
 
   public Paciente(Integer idPaciente) {
     this.idPaciente = idPaciente;
+  }
+
+  @PrePersist
+  void asignarFechaCreacion() {
+    if (fechaCreacion == null) {
+      fechaCreacion = LocalDateTime.now(ZONA_HORARIA_LIMA);
+    }
   }
 
   @OneToMany(mappedBy = "paciente" , cascade = CascadeType.ALL, orphanRemoval = false)

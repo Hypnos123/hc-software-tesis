@@ -4,6 +4,9 @@ import com.krivi.apihistorialmedico.business.exception.BusquedaPacienteException
 import com.krivi.apihistorialmedico.business.services.PacienteService;
 import com.krivi.apihistorialmedico.model.api.BusquedaPacienteResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteBusquedaItemResponse;
+import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.GrupoDuplicadoDniResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -75,5 +78,34 @@ class PacienteBusquedaControllerTest {
         .andExpect(jsonPath("$.pacientes").isArray())
         .andExpect(jsonPath("$.pacientes").isEmpty())
         .andExpect(jsonPath("$.mensaje").value("No se encontró ningún paciente con el criterio indicado."));
+  }
+
+  @Test
+  void exponeEstadisticasDePacientes() throws Exception {
+    when(pacienteService.obtenerEstadisticasParaIntegracion())
+        .thenReturn(EstadisticasPacientesResponse.builder().totalPacientes(25).registradosHoy(3).build());
+
+    mockMvc.perform(get("/api/pacientes/estadisticas"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalPacientes").value(25))
+        .andExpect(jsonPath("$.registradosHoy").value(3));
+  }
+
+  @Test
+  void exponeGruposDeDuplicadosPorDni() throws Exception {
+    DuplicadosPacientesResponse response = DuplicadosPacientesResponse.builder()
+        .hayDuplicados(true)
+        .totalGrupos(1)
+        .duplicados(List.of(GrupoDuplicadoDniResponse.builder()
+            .tipo("dni").valorCoincidente("72845292").cantidad(2).pacientes(List.of()).build()))
+        .build();
+    when(pacienteService.obtenerDuplicadosParaIntegracion()).thenReturn(response);
+
+    mockMvc.perform(get("/api/pacientes/duplicados"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.hayDuplicados").value(true))
+        .andExpect(jsonPath("$.totalGrupos").value(1))
+        .andExpect(jsonPath("$.duplicados[0].tipo").value("dni"))
+        .andExpect(jsonPath("$.duplicados[0].valorCoincidente").value("72845292"));
   }
 }

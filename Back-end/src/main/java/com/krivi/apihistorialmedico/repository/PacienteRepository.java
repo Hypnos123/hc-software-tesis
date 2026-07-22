@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +21,15 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
   List<Paciente> searchByDni(@Param("dni") String dni, @Param("limit") int limit);
 
   long countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date inicio, Date fin);
+
+  long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
+
+  List<Paciente> findByFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(LocalDateTime inicio, LocalDateTime fin);
+
+  List<Paciente> findTop10ByOrderByFechaCreacionDesc();
+
+  @Query("select p.numDocumento from Paciente p where p.numDocumento is not null and trim(p.numDocumento) <> '' group by p.numDocumento having count(p) > 1 order by p.numDocumento")
+  List<String> findDnisDuplicados();
+
+  List<Paciente> findByNumDocumentoOrderByIdPacienteAsc(String numDocumento);
 }

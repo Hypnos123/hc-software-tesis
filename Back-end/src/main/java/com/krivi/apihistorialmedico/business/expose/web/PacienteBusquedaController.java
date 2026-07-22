@@ -4,6 +4,10 @@ import com.krivi.apihistorialmedico.business.exception.BusquedaPacienteException
 import com.krivi.apihistorialmedico.business.services.PacienteService;
 import com.krivi.apihistorialmedico.model.api.ApiErrorResponse;
 import com.krivi.apihistorialmedico.model.api.BusquedaPacienteResponse;
+import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.PacientesRegistradosHoyResponse;
+import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -44,6 +48,39 @@ public class PacienteBusquedaController {
       @Parameter(in = ParameterIn.QUERY, required = true, description = "DNI, ID de paciente o nombre completo", example = "78451268")
       @RequestParam(required = false) String criterio) {
     return ResponseEntity.ok(pacienteService.buscarParaIntegracion(criterio));
+  }
+
+  @Operation(summary = "Obtener estadísticas de pacientes", description = "Devuelve el total de pacientes y los creados hoy según la zona horaria America/Lima.")
+  @ApiResponse(responseCode = "200", description = "Estadísticas obtenidas", content = @Content(schema = @Schema(implementation = EstadisticasPacientesResponse.class), examples = @ExampleObject(value = "{\"totalPacientes\":25,\"registradosHoy\":3}")))
+  @GetMapping("/estadisticas")
+  public ResponseEntity<EstadisticasPacientesResponse> estadisticas() {
+    return ResponseEntity.ok(pacienteService.obtenerEstadisticasParaIntegracion());
+  }
+
+  @Operation(summary = "Obtener últimos pacientes registrados", description = "Ordena por fecha técnica de creación descendente. El límite predeterminado es 5 y debe estar entre 1 y 10.")
+  @ApiResponses({
+      @ApiResponse(responseCode = "200", description = "Pacientes obtenidos", content = @Content(schema = @Schema(implementation = UltimosPacientesResponse.class))),
+      @ApiResponse(responseCode = "400", description = "Límite inválido", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+  })
+  @GetMapping("/ultimos")
+  public ResponseEntity<UltimosPacientesResponse> ultimos(
+      @Parameter(in = ParameterIn.QUERY, description = "Cantidad de resultados, entre 1 y 10", example = "5")
+      @RequestParam(required = false) Integer limite) {
+    return ResponseEntity.ok(pacienteService.obtenerUltimosParaIntegracion(limite));
+  }
+
+  @Operation(summary = "Obtener pacientes registrados hoy", description = "Calcula hoy en la zona horaria America/Lima y devuelve solo datos mínimos de registro.")
+  @ApiResponse(responseCode = "200", description = "Pacientes obtenidos", content = @Content(schema = @Schema(implementation = PacientesRegistradosHoyResponse.class)))
+  @GetMapping("/registrados-hoy")
+  public ResponseEntity<PacientesRegistradosHoyResponse> registradosHoy() {
+    return ResponseEntity.ok(pacienteService.obtenerRegistradosHoyParaIntegracion());
+  }
+
+  @Operation(summary = "Detectar pacientes duplicados por DNI", description = "Incluye solo DNI exactos no nulos ni vacíos con más de un paciente asociado.")
+  @ApiResponse(responseCode = "200", description = "Duplicados obtenidos", content = @Content(schema = @Schema(implementation = DuplicadosPacientesResponse.class)))
+  @GetMapping("/duplicados")
+  public ResponseEntity<DuplicadosPacientesResponse> duplicados() {
+    return ResponseEntity.ok(pacienteService.obtenerDuplicadosParaIntegracion());
   }
 
   @ExceptionHandler(BusquedaPacienteException.class)

@@ -16,6 +16,14 @@ public interface PacienteService {
 
   BusquedaPacienteResponse buscarParaIntegracion(String criterio);
 
+  EstadisticasPacientesResponse obtenerEstadisticasParaIntegracion();
+
+  UltimosPacientesResponse obtenerUltimosParaIntegracion(Integer limite);
+
+  PacientesRegistradosHoyResponse obtenerRegistradosHoyParaIntegracion();
+
+  DuplicadosPacientesResponse obtenerDuplicadosParaIntegracion();
+
   ResponseModelSet save(PacienteRequest pacienteRequest);
 
   ResponseModelSet update(PacienteRequest pacienteRequest);

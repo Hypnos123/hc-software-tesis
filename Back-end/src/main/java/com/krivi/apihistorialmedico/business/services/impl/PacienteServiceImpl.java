@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -37,6 +38,8 @@ public class PacienteServiceImpl implements PacienteService {
   HistoriaClinicaRepository historiaClinicaRepository;
 
   private static final int LIMITE_BUSQUEDA_INTEGRACION = 10;
+  private static final int LIMITE_ULTIMOS_PACIENTES_POR_DEFECTO = 5;
+  private static final ZoneId ZONA_HORARIA_LIMA = ZoneId.of("America/Lima");
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
   private static final Pattern ID_PATTERN = Pattern.compile("[1-9]\\d{0,6}");
   private static final Pattern SOLO_DIGITOS_PATTERN = Pattern.compile("\\d+");
@@ -139,6 +142,87 @@ public class PacienteServiceImpl implements PacienteService {
         .build();
   }
 
+  @Override
+  public EstadisticasPacientesResponse obtenerEstadisticasParaIntegracion() {
+    LocalDateTime inicioHoy = LocalDate.now(ZONA_HORARIA_LIMA).atStartOfDay();
+    LocalDateTime inicioManana = inicioHoy.plusDays(1);
+    return EstadisticasPacientesResponse.builder()
+        .totalPacientes(pacienteRepository.count())
+        .registradosHoy(pacienteRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(inicioHoy, inicioManana))
+        .build();
+  }
+
+  @Override
+  public UltimosPacientesResponse obtenerUltimosParaIntegracion(Integer limite) {
+    int limiteValidado = validarLimiteUltimos(limite);
+    List<PacienteRegistroResponse> pacientes = pacienteRepository.findTop10ByOrderByFechaCreacionDesc().stream()
+        .limit(limiteValidado)
+        .map(this::toPacienteRegistroResponse)
+        .toList();
+    return UltimosPacientesResponse.builder().cantidad(pacientes.size()).pacientes(pacientes).build();
+  }
+
+  @Override
+  public PacientesRegistradosHoyResponse obtenerRegistradosHoyParaIntegracion() {
+    LocalDate fechaHoy = LocalDate.now(ZONA_HORARIA_LIMA);
+    LocalDateTime inicioHoy = fechaHoy.atStartOfDay();
+    List<PacienteRegistroResponse> pacientes = pacienteRepository
+        .findByFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(inicioHoy, inicioHoy.plusDays(1))
+        .stream()
+        .map(this::toPacienteRegistroResponse)
+        .toList();
+    return PacientesRegistradosHoyResponse.builder()
+        .fecha(fechaHoy)
+        .cantidad(pacientes.size())
+        .pacientes(pacientes)
+        .build();
+  }
+
+  @Override
+  public DuplicadosPacientesResponse obtenerDuplicadosParaIntegracion() {
+    List<GrupoDuplicadoDniResponse> duplicados = pacienteRepository.findDnisDuplicados().stream()
+        .map(this::toGrupoDuplicadoDniResponse)
+        .toList();
+    return DuplicadosPacientesResponse.builder()
+        .hayDuplicados(!duplicados.isEmpty())
+        .totalGrupos(duplicados.size())
+        .duplicados(duplicados)
+        .build();
+  }
+
+  private int validarLimiteUltimos(Integer limite) {
+    if (limite == null) return LIMITE_ULTIMOS_PACIENTES_POR_DEFECTO;
+    if (limite < 1 || limite > LIMITE_BUSQUEDA_INTEGRACION) {
+      throw new BusquedaPacienteException("LIMITE_INVALIDO", "El límite debe estar entre 1 y 10.", HttpStatus.BAD_REQUEST);
+    }
+    return limite;
+  }
+
+  private PacienteRegistroResponse toPacienteRegistroResponse(Paciente paciente) {
+    return PacienteRegistroResponse.builder()
+        .idPaciente(paciente.getIdPaciente())
+        .dni(paciente.getNumDocumento())
+        .nombreCompleto(nombreCompleto(paciente))
+        .fechaCreacion(paciente.getFechaCreacion())
+        .build();
+  }
+
+  private GrupoDuplicadoDniResponse toGrupoDuplicadoDniResponse(String dni) {
+    List<PacienteDuplicadoItemResponse> pacientes = pacienteRepository.findByNumDocumentoOrderByIdPacienteAsc(dni).stream()
+        .map(paciente -> PacienteDuplicadoItemResponse.builder()
+            .idPaciente(paciente.getIdPaciente())
+            .dni(paciente.getNumDocumento())
+            .nombreCompleto(nombreCompleto(paciente))
+            .build())
+        .toList();
+    return GrupoDuplicadoDniResponse.builder()
+        .tipo("dni")
+        .valorCoincidente(dni)
+        .cantidad(pacientes.size())
+        .pacientes(pacientes)
+        .build();
+  }
+
   private String validarCriterioBusqueda(String criterio) {
     if (criterio == null || criterio.trim().isEmpty()) {
       throw new BusquedaPacienteException("CRITERIO_VACIO", "El criterio de búsqueda es obligatorio.", HttpStatus.BAD_REQUEST);
@@ -166,15 +250,18 @@ public class PacienteServiceImpl implements PacienteService {
   }
 
   private PacienteBusquedaItemResponse toBusquedaResponse(Paciente paciente) {
-    String nombreCompleto = String.join(" ",
-        Optional.ofNullable(paciente.getNombres()).orElse(""),
-        Optional.ofNullable(paciente.getApellidos()).orElse("")).trim();
     return PacienteBusquedaItemResponse.builder()
         .idPaciente(paciente.getIdPaciente())
         .dni(paciente.getNumDocumento())
-        .nombreCompleto(nombreCompleto)
+        .nombreCompleto(nombreCompleto(paciente))
         .tieneHistoriaClinica(historiaClinicaRepository.existsByPacienteIdPaciente(paciente.getIdPaciente()))
         .build();
+  }
+
+  private String nombreCompleto(Paciente paciente) {
+    return String.join(" ",
+        Optional.ofNullable(paciente.getNombres()).orElse(""),
+        Optional.ofNullable(paciente.getApellidos()).orElse("")).trim();
   }
 
 
