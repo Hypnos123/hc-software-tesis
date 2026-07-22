@@ -22,6 +22,7 @@ USE `historiaclinicadb` ;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`paciente` (
   `idpaciente` INT NOT NULL AUTO_INCREMENT,
+  `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `nombres` VARCHAR(120) NULL,
   `apellidos` VARCHAR(120) NULL,
   `fechaingreso` DATE NULL,
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`paciente` (
   `direccion` VARCHAR(45) NULL,
   `distrito` VARCHAR(45) NULL,
   `traidopor` VARCHAR(45) NULL,
-  PRIMARY KEY (`idpaciente`))
+  PRIMARY KEY (`idpaciente`),
+  INDEX `idx_paciente_fechacreacion` (`fechacreacion` ASC))
 ENGINE = InnoDB;
 
 
