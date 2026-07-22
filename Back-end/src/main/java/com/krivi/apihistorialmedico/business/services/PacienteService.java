@@ -5,6 +5,10 @@ import com.krivi.apihistorialmedico.model.api.PacienteResponse;
 import com.krivi.apihistorialmedico.model.api.BusquedaPacienteResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
+import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.PacientesRegistradosHoyResponse;
+import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 
 public interface PacienteService {
 
