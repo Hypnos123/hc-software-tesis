@@ -2,9 +2,12 @@ spring:
   application:
     name: apihistorialmedico
   datasource:
-    url: jdbc:mysql://localhost:3306/historiaclinicadb
+    url: jdbc:mysql://localhost:3306/historiaclinicadb?connectionTimeZone=-05:00&forceConnectionTimeZoneToSession=true
     username: visit
     password: Paco123
+  jpa:
+    properties:
+      hibernate.jdbc.time_zone: America/Lima
 
 server:
   port: 8080
@@ -16,4 +19,3 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
-
