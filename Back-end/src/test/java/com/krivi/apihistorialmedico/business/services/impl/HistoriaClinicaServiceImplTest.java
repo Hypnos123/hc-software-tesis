@@ -63,9 +63,24 @@ class HistoriaClinicaServiceImplTest {
   }
 
   @Test
-  void buscaPorNombreParcial() {
-    when(historiaClinicaRepository.findForIntegracionByNombre("Rosa")).thenReturn(List.of(historia(1, 2, "12345678", "Rosa", "López")));
-    assertEquals("Rosa López", historiaClinicaService.buscarParaIntegracion("Rosa").getHistoriasClinicas().getFirst().getNombreCompleto());
+  void buscaPorNombreSinMayusculasNiTildesYPermiteOmitirSegundoNombre() {
+    HistoriaClinica patricia = historia(1, 2, "12345678", "Patricia Elena", "Cárdenas Torres");
+    when(historiaClinicaRepository.findAllForIntegracion()).thenReturn(List.of(patricia));
+
+    assertEquals("Patricia Elena Cárdenas Torres", historiaClinicaService.buscarParaIntegracion("Patricia").getHistoriasClinicas().getFirst().getNombreCompleto());
+    assertEquals("Patricia Elena Cárdenas Torres", historiaClinicaService.buscarParaIntegracion("Patricia Cardenas Torres").getHistoriasClinicas().getFirst().getNombreCompleto());
+    assertEquals("Patricia Elena Cárdenas Torres", historiaClinicaService.buscarParaIntegracion("Cárdenas Patricia").getHistoriasClinicas().getFirst().getNombreCompleto());
+  }
+
+  @Test
+  void devuelveSinResultadosParaNombreInexistente() {
+    when(historiaClinicaRepository.findAllForIntegracion()).thenReturn(List.of(historia(1, 2, "12345678", "Patricia Elena", "Cárdenas Torres")));
+
+    BusquedaHistoriasClinicasResponse response = historiaClinicaService.buscarParaIntegracion("Inexistente");
+
+    assertFalse(response.isEncontrado());
+    assertEquals("sin_resultados", response.getTipoResultado());
+    assertTrue(response.getHistoriasClinicas().isEmpty());
   }
 
   @Test

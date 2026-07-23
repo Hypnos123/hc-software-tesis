@@ -111,8 +111,30 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
         historias.addAll(historiaClinicaRepository.findForIntegracionByIdPaciente(Integer.parseInt(criterio.valor())));
         yield historias;
       }
-      case NOMBRE -> historiaClinicaRepository.findForIntegracionByNombre(criterio.valor());
+      case NOMBRE -> buscarPorNombre(criterio.valor());
     };
+  }
+
+  private List<HistoriaClinica> buscarPorNombre(String criterio) {
+    String[] palabras = normalizarTexto(criterio).split(" ");
+    return historiaClinicaRepository.findAllForIntegracion().stream()
+        .filter(historia -> contieneTodasLasPalabras(historia.getPaciente(), palabras))
+        .toList();
+  }
+
+  private boolean contieneTodasLasPalabras(Paciente paciente, String[] palabras) {
+    String nombrePaciente = normalizarTexto(String.join(" ",
+        Optional.ofNullable(paciente.getNombres()).orElse(""),
+        Optional.ofNullable(paciente.getApellidos()).orElse("")));
+    return Arrays.stream(palabras).allMatch(nombrePaciente::contains);
+  }
+
+  private String normalizarTexto(String valor) {
+    return java.text.Normalizer.normalize(valor, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .toLowerCase(Locale.ROOT)
+        .replaceAll("[^a-z0-9]+", " ")
+        .trim();
   }
 
   private CriterioBusqueda validarCriterioBusqueda(String criterio) {
@@ -125,6 +147,7 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     if (DNI_PATTERN.matcher(valor).matches()) return new CriterioBusqueda(TipoCriterio.DNI, valor);
     if (ID_PATTERN.matcher(valor).matches()) return new CriterioBusqueda(TipoCriterio.NUMERICO_AMBIGUO, valor);
     if (SOLO_DIGITOS_PATTERN.matcher(valor).matches()) throw criterioInvalido();
+    if (normalizarTexto(valor).isEmpty()) throw criterioInvalido();
     return new CriterioBusqueda(TipoCriterio.NOMBRE, valor);
   }
 

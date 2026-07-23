@@ -23,8 +23,8 @@ public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinic
   @Query("select h from HistoriaClinica h join fetch h.paciente p where trim(p.numDocumento) = :dni")
   List<HistoriaClinica> findForIntegracionByDni(@Param("dni") String dni);
 
-  @Query("select h from HistoriaClinica h join fetch h.paciente p where lower(concat(coalesce(p.nombres, ''), ' ', coalesce(p.apellidos, ''))) like lower(concat('%', :criterio, '%')) or lower(concat(coalesce(p.apellidos, ''), ' ', coalesce(p.nombres, ''))) like lower(concat('%', :criterio, '%')) order by h.idHistoriaClinica")
-  List<HistoriaClinica> findForIntegracionByNombre(@Param("criterio") String criterio);
+  @Query("select h from HistoriaClinica h join fetch h.paciente order by h.idHistoriaClinica")
+  List<HistoriaClinica> findAllForIntegracion();
 
   @Query(value = "select h.idpaciente from historiaclinica h where h.idpaciente is not null group by h.idpaciente having count(*) > 1 order by h.idpaciente", nativeQuery = true)
   List<Integer> findIdsPacienteConHistoriasDuplicadas();
