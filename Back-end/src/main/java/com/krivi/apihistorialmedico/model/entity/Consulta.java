@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 
 @Getter
@@ -17,6 +18,7 @@ import java.util.Date;
 @Entity
 @Table(name = "consulta")
 public class Consulta {
+  private static final ZoneId ZONA_HORARIA_LIMA = ZoneId.of("America/Lima");
   @Id
   @Column(name = "idconsulta")
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,6 +49,8 @@ public class Consulta {
   private Date proximaCita;
   @Column(name = "fechacreacion", nullable = false, updatable = false)
   private LocalDateTime fechaCreacion;
+  @Column(name = "fechaatencion")
+  private LocalDateTime fechaAtencion;
   private String estado;
 
   @ManyToOne
@@ -76,7 +80,7 @@ public class Consulta {
 
   @PrePersist
   void prePersist() {
-    if (fechaCreacion == null) fechaCreacion = LocalDateTime.now();
+    if (fechaCreacion == null) fechaCreacion = LocalDateTime.now(ZONA_HORARIA_LIMA);
     if (estado == null || estado.trim().isEmpty()) estado = "PENDIENTE";
   }
 }

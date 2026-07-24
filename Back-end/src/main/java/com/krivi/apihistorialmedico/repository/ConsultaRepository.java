@@ -4,6 +4,7 @@ import com.krivi.apihistorialmedico.model.entity.Consulta;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +17,15 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   long countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(String estado, LocalDateTime inicio, LocalDateTime fin);
   long countByDoctorResponsableIdEmpleado(Integer idEmpleado);
   long countByDoctorResponsableIdEmpleadoAndEstado(Integer idEmpleado, String estado);
+  long countByPacienteIdPaciente(Integer idPaciente);
+  long countByPacienteIdPacienteAndEstado(Integer idPaciente, String estado);
+  long countByFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(LocalDateTime inicio, LocalDateTime fin);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by c.fechaCreacion desc")
+  List<Consulta> findAdministrativasRecientesByPacienteId(@Param("idPaciente") Integer idPaciente, Pageable pageable);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.estado = 'PENDIENTE' order by c.fechaCreacion asc")
+  List<Consulta> findPendientesAdministrativas();
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable order by c.fechaCreacion desc")
+  List<Consulta> findUltimasAdministrativas(Pageable pageable);
   @Query("select count(c) from Consulta c where c.estado = 'PENDIENTE' or c.diagnostico is null or trim(c.diagnostico) = '' or c.tratamiento is null or trim(c.tratamiento) = ''") long countIncompletas();
   @Query("select c from Consulta c where c.estado = 'PENDIENTE' or c.diagnostico is null or trim(c.diagnostico) = '' or c.tratamiento is null or trim(c.tratamiento) = '' order by c.fechaCreacion desc") List<Consulta> findIncompletas();
   @Query("select c.especialidadRequerida, count(c) from Consulta c where c.especialidadRequerida is not null and trim(c.especialidadRequerida) <> '' group by c.especialidadRequerida order by count(c) desc") List<Object[]> rankingEspecialidades();

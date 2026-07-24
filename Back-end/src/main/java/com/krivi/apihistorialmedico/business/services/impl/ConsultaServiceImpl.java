@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
@@ -107,6 +108,7 @@ public class ConsultaServiceImpl implements ConsultaService {
       consulta.setTratamiento(request.getTratamiento());
       consulta.setProximaCita(request.getProximaCita());
       consulta.setEstado("ATENDIDO");
+      if (consulta.getFechaAtencion() == null) consulta.setFechaAtencion(LocalDateTime.now(ZoneId.of("America/Lima")));
       consulta.setUsuario(usuario);
       Consulta saved = consultaRepository.save(consulta);
       response.setIdGenerado(saved.getIdConsulta());
@@ -148,7 +150,12 @@ public class ConsultaServiceImpl implements ConsultaService {
     consulta.setProximaCita(request.getProximaCita());
     consulta.setTipoEnfermedad(resolveTipoEnfermedad(request));
     if (request.getIdUsuario() != null) usuarioRepository.findById(request.getIdUsuario()).ifPresent(consulta::setUsuario);
-    if (!nuevo && tieneEvaluacionMedica(request)) consulta.setEstado("ATENDIDO");
+    if (!nuevo && tieneEvaluacionMedica(request)) {
+      if (!"ATENDIDO".equals(normalizeEstado(consulta.getEstado()))) {
+        consulta.setEstado("ATENDIDO");
+        if (consulta.getFechaAtencion() == null) consulta.setFechaAtencion(LocalDateTime.now(ZoneId.of("America/Lima")));
+      }
+    }
   }
 
 
