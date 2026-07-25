@@ -17,6 +17,9 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
   @Query(value = "SELECT * FROM paciente p WHERE LOWER(CONCAT(p.apellidos, ' ', p.nombres)) LIKE LOWER(CONCAT('%', :term, '%')) OR LOWER(CONCAT(p.nombres, ' ', p.apellidos)) LIKE LOWER(CONCAT('%', :term, '%')) LIMIT :limit", nativeQuery = true)
   List<Paciente> searchByNombre(@Param("term") String term, @Param("limit") int limit);
 
+  @Query("select p from Paciente p where lower(concat(coalesce(p.nombres, ''), ' ', coalesce(p.apellidos, ''))) like lower(concat('%', :term, '%'))")
+  List<Paciente> searchByNombreToken(@Param("term") String term);
+
   @Query(value = "SELECT * FROM paciente p WHERE p.numdocumento = :dni LIMIT :limit", nativeQuery = true)
   List<Paciente> searchByDni(@Param("dni") String dni, @Param("limit") int limit);
 

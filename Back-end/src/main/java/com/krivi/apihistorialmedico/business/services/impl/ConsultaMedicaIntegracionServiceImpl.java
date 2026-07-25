@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -112,7 +113,18 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
     if (DNI_PATTERN.matcher(valor).matches()) return pacienteRepository.findByNumDocumento(valor).map(List::of).orElse(List.of());
     if (ID_PATTERN.matcher(valor).matches()) return pacienteRepository.findById(Integer.parseInt(valor)).map(List::of).orElse(List.of());
     if (SOLO_DIGITOS_PATTERN.matcher(valor).matches()) throw error("CRITERIO_INVALIDO", "El criterio numérico debe ser un DNI de 8 dígitos o un ID de paciente positivo de hasta 7 dígitos.");
-    return pacienteRepository.searchByNombre(valor, LIMITE_CANDIDATOS);
+    return buscarPorNombre(valor);
+  }
+
+  private List<Paciente> buscarPorNombre(String criterio) {
+    List<String> terminos = List.of(criterio.trim().toLowerCase(Locale.ROOT).split("\\s+"));
+    return pacienteRepository.searchByNombreToken(terminos.getFirst()).stream()
+        .filter(paciente -> {
+          String nombre = nombreCompleto(paciente).toLowerCase(Locale.ROOT);
+          return terminos.stream().allMatch(nombre::contains);
+        })
+        .limit(LIMITE_CANDIDATOS)
+        .toList();
   }
 
   private int validarLimite(Integer limite) {

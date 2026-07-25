@@ -63,11 +63,52 @@ class ConsultaMedicaIntegracionServiceImplTest {
     verify(pacienteRepository, times(2)).findById(8);
   }
 
-  @Test void buscaPorNombreYNoSeleccionaMultiplesCoincidencias() {
-    when(pacienteRepository.searchByNombre("patricia", 5)).thenReturn(List.of(paciente(1, "11111111", "Patricia", "Uno"), paciente(2, "22222222", "Patricia", "Dos")));
-    BusquedaConsultasMedicasResponse response = service.buscar("patricia");
+  @Test void buscaPorNombreSimple() {
+    Paciente felipe = paciente(1, "11111111", "Felipe Luis", "Saravia Martines");
+    when(pacienteRepository.searchByNombreToken("felipe")).thenReturn(List.of(felipe));
+    prepararPacienteSinConsultas(felipe);
+
+    BusquedaConsultasMedicasResponse response = service.buscar("  Felipe  ");
+
+    assertTrue(response.isEncontrado()); assertEquals("unico", response.getTipoResultado());
+    assertEquals("Felipe Luis Saravia Martines", response.getPacientes().getFirst().getNombreCompleto());
+  }
+
+  @Test void buscaPorNombreYApellidoNoConsecutivos() {
+    Paciente felipe = paciente(1, "11111111", "Felipe Luis", "Saravia Martines");
+    when(pacienteRepository.searchByNombreToken("felipe")).thenReturn(List.of(felipe));
+    prepararPacienteSinConsultas(felipe);
+
+    assertTrue(service.buscar("Felipe Saravia").isEncontrado());
+  }
+
+  @Test void buscaPorTerminosEnOrdenInvertido() {
+    Paciente felipe = paciente(1, "11111111", "Felipe Luis", "Saravia Martines");
+    when(pacienteRepository.searchByNombreToken("saravia")).thenReturn(List.of(felipe));
+    prepararPacienteSinConsultas(felipe);
+
+    assertTrue(service.buscar("Saravia Felipe").isEncontrado());
+  }
+
+  @Test void buscaPorNombreYDevuelveMultiplesCandidatosSinSeleccionarUno() {
+    when(pacienteRepository.searchByNombreToken("patricia")).thenReturn(List.of(
+        paciente(1, "11111111", "Patricia Elena", "Cardenas Uno"),
+        paciente(2, "22222222", "Patricia Rosa", "Cardenas Dos")));
+
+    BusquedaConsultasMedicasResponse response = service.buscar("patricia cardenas");
+
     assertTrue(response.isEncontrado()); assertEquals("multiple", response.getTipoResultado()); assertEquals(2, response.getPacientes().size());
     assertNull(response.getPacientes().getFirst().getTotalConsultas());
+  }
+
+  @Test void noEncuentraCuandoLosTerminosNoPertenecenAlMismoPaciente() {
+    when(pacienteRepository.searchByNombreToken("felipe")).thenReturn(List.of(
+        paciente(1, "11111111", "Felipe Luis", "Saravia Martines"),
+        paciente(2, "22222222", "Fernando Josset", "Vargas Rios")));
+
+    BusquedaConsultasMedicasResponse response = service.buscar("Felipe Vargas");
+
+    assertFalse(response.isEncontrado()); assertEquals("sin_resultados", response.getTipoResultado());
   }
 
   @Test void informaPacienteInexistenteYSinConsultas() {
