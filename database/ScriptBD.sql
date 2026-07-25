@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`consulta` (
   `tratamiento` VARCHAR(250) NULL,
   `proximacita` DATE NULL,
   `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fechaatencion` DATETIME NULL,
   `estado` VARCHAR(45) NOT NULL DEFAULT 'PENDIENTE',
   PRIMARY KEY (`idconsulta`),
   INDEX `fk_consulta_tipoenferdad_idx` (`idtipoenfermedad` ASC) VISIBLE,
@@ -164,6 +165,9 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`consulta` (
   INDEX `fk_consulta_usuario1_idx` (`idusuario` ASC) VISIBLE,
   INDEX `fk_consulta_historiaclinica1_idx` (`idhistoriaclinica` ASC) VISIBLE,
   INDEX `fk_consulta_empleado1_idx` (`idempleado` ASC) VISIBLE,
+  INDEX `idx_consulta_fechacreacion` (`fechacreacion` ASC) VISIBLE,
+  INDEX `idx_consulta_fechaatencion` (`fechaatencion` ASC) VISIBLE,
+  INDEX `idx_consulta_estado_fechacreacion` (`estado` ASC, `fechacreacion` ASC) VISIBLE,
   CONSTRAINT `fk_consulta_tipoenferdad`
     FOREIGN KEY (`idtipoenfermedad`)
     REFERENCES `historiaclinicadb`.`tipoenfermedad` (`idtipoenfermedad`)
