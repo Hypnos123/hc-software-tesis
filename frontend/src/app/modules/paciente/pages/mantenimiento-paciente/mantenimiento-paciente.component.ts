@@ -53,6 +53,7 @@ export class MantenimientoPacienteComponent {
   consultandoDni = false;
   mensajeDni = '';
   tipoMensajeDni: 'success' | 'error' | '' = '';
+  mostrarAsistenteDni = false;
 
   sexo_Opcion: IOption[] = [];
   estadoCivil_Opcion: IOption[] = [];
