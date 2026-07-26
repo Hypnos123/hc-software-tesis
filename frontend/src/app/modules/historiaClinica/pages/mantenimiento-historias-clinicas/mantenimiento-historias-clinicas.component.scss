@@ -50,26 +50,14 @@ p-fieldset {
     cursor: pointer;
     font-weight: 600; }
 }
-.autocomplete-list {
-  background: #fff;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  list-style: none;
-  margin: 2px 0 0;
-  max-height: 180px;
-  overflow-y: auto;
-  padding: 0;
-  position: absolute;
-  z-index: 10;
-  width: 100%;
-}
-
-.autocomplete-list li {
-  cursor: pointer;
-  padding: .5rem .75rem;
-}
-
-.autocomplete-list li:hover,
-.autocomplete-list li.active {
-  background: #eef2ff;
+.manual-save-notice {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e40af;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
 }
