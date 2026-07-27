@@ -11,6 +11,22 @@ p-fieldset {
   margin-bottom: 16px;
 }
 
+.manual-save-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.chatbot-prefill-warning {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
