@@ -79,6 +79,11 @@
     </div>
   </p-fieldset>
 
+  <div *ngIf="modo === 'nuevo'" class="manual-save-notice" role="status">
+    <i class="pi pi-info-circle" aria-hidden="true"></i>
+    <span>{{ mensajeGuardadoManual }}</span>
+  </div>
+
   <div class="footer-actions">
     <app-button
       [label]="'Regresar'"
