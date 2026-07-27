@@ -268,8 +268,8 @@ export class InterfazChatComponent implements OnDestroy {
       return;
     }
     if (resolution.kind === 'multiple') {
-      this.resetClinicalHistoryFlow();
-      this.addBotMessage('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos.');
+      this.clinicalHistoryFlow = { step: 'awaitingDni' };
+      this.addBotMessage('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos. Ingresa otro DNI o cancela la operación.');
       this.scrollToBottom();
       return;
     }

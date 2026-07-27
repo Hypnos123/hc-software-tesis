@@ -147,15 +147,40 @@ describe('InterfazChatComponent', () => {
     expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
   });
 
-  it('debe detenerse ante varios pacientes exactos sin seleccionar el primero', () => {
+  it('debe mantener la captura activa ante varios pacientes sin seleccionar el primero', () => {
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }]));
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
 
-    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
-    expect(component.messages.at(-1)?.text).toBe('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos.');
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('idPaciente');
+    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('prefill');
+    expect(component.messages.at(-1)?.text).toBe('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos. Ingresa otro DNI o cancela la operación.');
     expect(antecedentesService.getByPacienteId).not.toHaveBeenCalled();
     expect(historiaClinicaService.getByPaciente).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cancel-action')?.textContent).toContain('Cancelar');
+  });
+
+  it('debe permitir buscar otro DNI después del conflicto sin enviarlo al asistente', () => {
+    const segundoPaciente = { ...paciente, idPaciente: 10, dni: '87654321', numDocumento: '87654321' };
+    historiaClinicaService.buscarPacientesPorDni.and.callFake(dni => dni === '01234567'
+      ? of([paciente, { ...paciente, idPaciente: 9 }])
+      : of([segundoPaciente]));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    enviarDni('87654321');
+
+    expect(historiaClinicaService.buscarPacientesPorDni.calls.allArgs()).toEqual([['01234567'], ['87654321']]);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(antecedentesService.getByPacienteId).toHaveBeenCalledOnceWith(10);
+    expect(historiaClinicaService.getByPaciente).toHaveBeenCalledOnceWith(10);
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+    expect((component.clinicalHistoryFlow as any).dni).toBe('87654321');
+
+    component.cancelClinicalHistoryFlow();
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
   });
 
   it('debe consultar en paralelo antecedentes e historias para un paciente único', () => {
