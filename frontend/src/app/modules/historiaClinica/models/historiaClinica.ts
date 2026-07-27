@@ -42,6 +42,7 @@ export interface IHistoriaClinicaUpdateRequest {
 
 export interface IPacienteBusqueda {
   idPaciente?: number;
+  dni?: string;
   nombres?: string;
   apellidos?: string;
   fechaIngreso?: string | Date;
