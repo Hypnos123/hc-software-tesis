@@ -31,6 +31,20 @@ describe('InterfazChatComponent', () => {
 
   afterEach(() => logoutSubject.complete());
 
+  function abrirMenuHistorias(): any {
+    const menuPrincipal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options!.find(opcion => opcion.label === 'Consultar información')!);
+    const menuConsultar = component.messages.find(mensaje => mensaje.menuId === 'consultar')!;
+    component.selectHistoricalMenuOption(menuConsultar, menuConsultar.options!.find(opcion => opcion.label === 'Historias clínicas')!);
+    return component.messages.find(mensaje => mensaje.menuId === 'historias')!;
+  }
+
+  function iniciarFlujoHistoriaClinica(): void {
+    const menuHistorias = abrirMenuHistorias();
+    const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear historia clínica');
+    component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+  }
+
   it('debe iniciar con el saludo y el menú principal', () => {
     expect(component.messages.length).toBe(2);
     expect(component.messages[0]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'text' }));
@@ -56,6 +70,60 @@ describe('InterfazChatComponent', () => {
 
     expect(component.messages.at(-1)?.text).toContain('DNI de 8 dígitos');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar Crear historia clínica en el menú de historias', () => {
+    const menuHistorias = abrirMenuHistorias();
+
+    expect(menuHistorias.options.some((opcion: any) => opcion.label === 'Crear historia clínica')).toBeTrue();
+  });
+
+  it('debe iniciar localmente el flujo y solicitar el DNI sin consultar al asistente', () => {
+    iniciarFlujoHistoriaClinica();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(component.messages.at(-1)?.text).toBe('Ingresa el DNI de ocho dígitos del paciente existente.');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.clinical-history-flow-actions button')?.textContent).toContain('Cancelar');
+  });
+
+  it('debe capturar el siguiente mensaje como DNI string sin enviarlo al backend', () => {
+    iniciarFlujoHistoriaClinica();
+    component.userMessage = '  00123456  ';
+
+    component.sendMessage();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'dniCaptured', dni: '00123456' });
+    expect(typeof (component.clinicalHistoryFlow as { step: 'dniCaptured'; dni: string }).dni).toBe('string');
+    expect(component.messages.at(-1)?.text).toBe('DNI recibido. La búsqueda del paciente se realizará en el siguiente paso del flujo.');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe cancelar el flujo, limpiar el DNI y conservar el historial', () => {
+    iniciarFlujoHistoriaClinica();
+    component.userMessage = '00123456';
+    component.sendMessage();
+    const mensajesAntesDeCancelar = component.messages.length;
+
+    component.cancelClinicalHistoryFlow();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(component.messages.length).toBe(mensajesAntesDeCancelar + 2);
+    expect(component.messages.at(-1)?.text).toBe('La creación de la historia clínica fue cancelada.');
+    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('00123456');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe limpiar el flujo al volver al Menú principal', () => {
+    iniciarFlujoHistoriaClinica();
+    component.userMessage = '00123456';
+    component.sendMessage();
+
+    component.quickAsk('Menú principal');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
   });
 
   it('debe enviar las opciones request al backend y mostrar su respuesta', fakeAsync(() => {
@@ -103,6 +171,17 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.length).toBe(cantidadMensajes);
   });
 
+  it('debe conservar el estado del flujo al minimizar y reabrir', () => {
+    component.openChat();
+    iniciarFlujoHistoriaClinica();
+
+    component.minimizeChat();
+    component.openChat();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
   it('debe cerrar y reiniciar la conversación y limpiar el almacenamiento', () => {
     spyOn(localStorage, 'removeItem');
     spyOn(sessionStorage, 'removeItem');
@@ -117,14 +196,23 @@ describe('InterfazChatComponent', () => {
     expect(sessionStorage.removeItem).toHaveBeenCalledWith('asistenteChatState');
   });
 
+  it('debe limpiar el flujo especializado al cerrar el chat', () => {
+    iniciarFlujoHistoriaClinica();
+
+    component.closeChat();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+  });
+
   it('debe reiniciar la conversación al cerrar sesión', () => {
     component.openChat();
-    component.quickAsk('Buscar paciente por DNI');
+    iniciarFlujoHistoriaClinica();
 
     logoutSubject.next();
 
     expect(component.isOpen).toBeFalse();
     expect(component.messages.length).toBe(2);
     expect(component.messages[0].text).toContain('Hola, soy el Asistente IA');
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
   });
 });
