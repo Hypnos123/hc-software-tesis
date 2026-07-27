@@ -2,6 +2,8 @@ import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testin
 import { Subject, of, throwError } from 'rxjs';
 
 import { AuthService } from '@app/auth/services/auth.service';
+import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
+import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
 import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 
@@ -9,17 +11,30 @@ describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
   let fixture: ComponentFixture<InterfazChatComponent>;
   let asistenteService: jasmine.SpyObj<AsistenteService>;
+  let historiaClinicaService: jasmine.SpyObj<HistoriaClinicaService>;
+  let antecedentesService: jasmine.SpyObj<AntecedentesService>;
   let logoutSubject: Subject<void>;
+  const paciente = {
+    idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
+    apellidos: 'Quispe Ramírez', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
+  };
 
   beforeEach(async () => {
     logoutSubject = new Subject<void>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
+    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert']);
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
+    historiaClinicaService.getByPaciente.and.returnValue(of([]));
+    antecedentesService = jasmine.createSpyObj<AntecedentesService>('AntecedentesService', ['getByPacienteId']);
+    antecedentesService.getByPacienteId.and.returnValue(of(undefined));
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
       providers: [
         { provide: AsistenteService, useValue: asistenteService },
+        { provide: HistoriaClinicaService, useValue: historiaClinicaService },
+        { provide: AntecedentesService, useValue: antecedentesService },
         { provide: AuthService, useValue: { logout$: logoutSubject.asObservable() } }
       ]
     }).compileComponents();
@@ -43,6 +58,11 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = abrirMenuHistorias();
     const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear historia clínica');
     component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+  }
+
+  function enviarDni(dni: string): void {
+    component.userMessage = dni;
+    component.sendMessage();
   }
 
   it('debe iniciar con el saludo y el menú principal', () => {
@@ -88,42 +108,163 @@ describe('InterfazChatComponent', () => {
     expect(fixture.nativeElement.querySelector('.clinical-history-flow-actions button')?.textContent).toContain('Cancelar');
   });
 
-  it('debe capturar el siguiente mensaje como DNI string sin enviarlo al backend', () => {
+  ['', '12A45678', '1234567', '123456789'].forEach(dni => {
+    it(`debe rechazar el DNI inválido ${dni || 'vacío'} sin consultar servicios`, () => {
+      iniciarFlujoHistoriaClinica();
+      enviarDni(dni);
+
+      expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+      expect(component.messages.at(-1)?.text).toBe('El DNI debe contener exactamente ocho dígitos. Inténtalo nuevamente o cancela la operación.');
+      expect(historiaClinicaService.buscarPacientesPorDni).not.toHaveBeenCalled();
+      expect(antecedentesService.getByPacienteId).not.toHaveBeenCalled();
+    });
+  });
+
+  it('debe recortar espacios, conservar el cero inicial y buscar una sola vez', () => {
     iniciarFlujoHistoriaClinica();
-    component.userMessage = '  00123456  ';
+    enviarDni('  01234567  ');
 
-    component.sendMessage();
-
-    expect(component.clinicalHistoryFlow).toEqual({ step: 'dniCaptured', dni: '00123456' });
-    expect(typeof (component.clinicalHistoryFlow as { step: 'dniCaptured'; dni: string }).dni).toBe('string');
-    expect(component.messages.at(-1)?.text).toBe('DNI recibido. La búsqueda del paciente se realizará en el siguiente paso del flujo.');
+    expect(historiaClinicaService.buscarPacientesPorDni).toHaveBeenCalledOnceWith('01234567');
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+    expect((component.clinicalHistoryFlow as any).dni).toBe('01234567');
+    expect(typeof (component.clinicalHistoryFlow as any).dni).toBe('string');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
-  it('debe cancelar el flujo, limpiar el DNI y conservar el historial', () => {
+  it('debe aceptar solo coincidencias defensivas exactas y permitir reintentar cuando no existen', () => {
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([{ ...paciente, dni: '99999999', numDocumento: '99999999' }]));
     iniciarFlujoHistoriaClinica();
-    component.userMessage = '00123456';
-    component.sendMessage();
-    const mensajesAntesDeCancelar = component.messages.length;
+    enviarDni('01234567');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(component.messages.at(-1)?.text).toBe('No existe un paciente registrado con el DNI indicado.');
+    expect(antecedentesService.getByPacienteId).not.toHaveBeenCalled();
+    expect(historiaClinicaService.getByPaciente).not.toHaveBeenCalled();
+
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
+    enviarDni('01234567');
+    expect(historiaClinicaService.buscarPacientesPorDni).toHaveBeenCalledTimes(2);
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+  });
+
+  it('debe detenerse ante varios pacientes exactos sin seleccionar el primero', () => {
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }]));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(component.messages.at(-1)?.text).toBe('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos.');
+    expect(antecedentesService.getByPacienteId).not.toHaveBeenCalled();
+    expect(historiaClinicaService.getByPaciente).not.toHaveBeenCalled();
+  });
+
+  it('debe consultar en paralelo antecedentes e historias para un paciente único', () => {
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(antecedentesService.getByPacienteId).toHaveBeenCalledOnceWith(8);
+    expect(historiaClinicaService.getByPaciente).toHaveBeenCalledOnceWith(8);
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+  });
+
+  it('debe representar antecedentes inexistentes con null sin inventar datos', () => {
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    const prefill = (component.clinicalHistoryFlow as any).prefill;
+    expect(prefill.enfermedadesPrevias).toBeNull();
+    expect(prefill.cirugiasPrevias).toBeNull();
+    expect(prefill.alergiaMedicamentos).toBeNull();
+  });
+
+  it('debe mostrar cero historias, el resumen limitado y los botones estructurados', () => {
+    antecedentesService.getByPacienteId.and.returnValue(of({ enfermedadesPrevias: 'Asma severa', cirugiasPrevias: 'Apendicectomía', alergiaMedicamentos: 'Penicilina' }));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+    fixture.detectChanges();
+    const resumen = component.messages.at(-1)?.text ?? '';
+
+    expect(resumen).toContain('Nombre: Andrea Lucía Quispe Ramírez');
+    expect(resumen).toContain('Fecha de nacimiento: 01/01/1992');
+    expect(resumen).toContain('Estado civil: Soltero(a)');
+    expect(resumen).toContain('Historias clínicas existentes: 0');
+    expect(resumen).not.toContain('Asma severa');
+    expect(resumen).not.toContain('Apendicectomía');
+    expect(resumen).not.toContain('Penicilina');
+    expect(fixture.nativeElement.querySelector('.continue-action')?.textContent).toContain('Continuar');
+    expect(fixture.nativeElement.querySelector('.cancel-action')?.textContent).toContain('Cancelar');
+  });
+
+  it('debe mostrar la cantidad de varias historias existentes', () => {
+    historiaClinicaService.getByPaciente.and.returnValue(of([{ idHistoriaClinica: 1 }, { idHistoriaClinica: 2 }, { idHistoriaClinica: 3 }]));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(component.messages.at(-1)?.text).toContain('Historias clínicas existentes: 3');
+  });
+
+  it('debe confirmar localmente sin navegar ni guardar', () => {
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    component.continueClinicalHistoryFlow();
+
+    expect(component.clinicalHistoryFlow.step).toBe('patientConfirmed');
+    expect(component.messages.at(-1)?.text).toBe('Paciente confirmado. La apertura del formulario se implementará en el siguiente paso.');
+    expect(historiaClinicaService.insert).not.toHaveBeenCalled();
+  });
+
+  it('debe cancelar y limpiar todos los datos temporales conservando el historial', () => {
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+    const mensajesAntes = component.messages.length;
 
     component.cancelClinicalHistoryFlow();
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
-    expect(component.messages.length).toBe(mensajesAntesDeCancelar + 2);
+    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('01234567');
+    expect(component.messages.length).toBe(mensajesAntes + 2);
     expect(component.messages.at(-1)?.text).toBe('La creación de la historia clínica fue cancelada.');
-    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('00123456');
-    expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
   it('debe limpiar el flujo al volver al Menú principal', () => {
     iniciarFlujoHistoriaClinica();
-    component.userMessage = '00123456';
-    component.sendMessage();
+    enviarDni('01234567');
 
     component.quickAsk('Menú principal');
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
+  });
+
+  it('debe recuperarse de un error al buscar el paciente', () => {
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(throwError(() => new Error('falló búsqueda')));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(component.messages.at(-1)?.text).toBe('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
+    expect(component.isLoading).toBeFalse();
+  });
+
+  it('debe recuperarse si falla la consulta de antecedentes o historias', () => {
+    antecedentesService.getByPacienteId.and.returnValue(throwError(() => new Error('falló antecedentes')));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(component.messages.at(-1)?.text).toContain('No se pudo consultar la información');
+    expect(component.messages.some(mensaje => mensaje.text?.includes('¿Deseas continuar'))).toBeFalse();
+  });
+
+  it('debe recuperarse si falla específicamente la consulta de historias', () => {
+    historiaClinicaService.getByPaciente.and.returnValue(throwError(() => new Error('falló historias')));
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(component.messages.at(-1)?.text).toBe('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
+    expect(component.messages.some(mensaje => mensaje.text?.includes('¿Deseas continuar'))).toBeFalse();
   });
 
   it('debe enviar las opciones request al backend y mostrar su respuesta', fakeAsync(() => {
@@ -171,15 +312,16 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.length).toBe(cantidadMensajes);
   });
 
-  it('debe conservar el estado del flujo al minimizar y reabrir', () => {
+  it('debe conservar awaitingConfirmation y sus datos al minimizar y reabrir', () => {
     component.openChat();
     iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
 
     component.minimizeChat();
     component.openChat();
 
-    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
-    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+    expect((component.clinicalHistoryFlow as any).prefill.idPaciente).toBe(8);
   });
 
   it('debe cerrar y reiniciar la conversación y limpiar el almacenamiento', () => {
@@ -196,23 +338,45 @@ describe('InterfazChatComponent', () => {
     expect(sessionStorage.removeItem).toHaveBeenCalledWith('asistenteChatState');
   });
 
-  it('debe limpiar el flujo especializado al cerrar el chat', () => {
+  it('debe cancelar la solicitud y limpiar el flujo especializado al cerrar el chat', () => {
+    const busquedaPendiente = new Subject<any[]>();
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+    expect(busquedaPendiente.observed).toBeTrue();
 
     component.closeChat();
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(busquedaPendiente.observed).toBeFalse();
   });
 
-  it('debe reiniciar la conversación al cerrar sesión', () => {
+  it('debe cancelar la solicitud y reiniciar la conversación al cerrar sesión', () => {
+    const busquedaPendiente = new Subject<any[]>();
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     component.openChat();
     iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
 
     logoutSubject.next();
 
     expect(component.isOpen).toBeFalse();
     expect(component.messages.length).toBe(2);
     expect(component.messages[0].text).toContain('Hola, soy el Asistente IA');
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(busquedaPendiente.observed).toBeFalse();
+  });
+
+  it('debe cancelar una solicitud activa desde el botón Cancelar', () => {
+    const busquedaPendiente = new Subject<any[]>();
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    component.cancelClinicalHistoryFlow();
+
+    expect(busquedaPendiente.observed).toBeFalse();
+    expect(component.isLoading).toBeFalse();
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
   });
 });

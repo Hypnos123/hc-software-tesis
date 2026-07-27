@@ -292,11 +292,12 @@
 .clinical-history-flow-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 6px 12px;
   background: #f8fafc;
 }
 
-.clinical-history-flow-actions button {
+.clinical-history-flow-actions .cancel-action {
   border: 1px solid #dc2626;
   border-radius: 8px;
   padding: 6px 12px;
@@ -305,13 +306,21 @@
   cursor: pointer;
 }
 
-.clinical-history-flow-actions button:hover:not(:disabled) {
+.clinical-history-flow-actions .cancel-action:hover {
   background: #fef2f2;
 }
 
-.clinical-history-flow-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
+.clinical-history-flow-actions .continue-action {
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.clinical-history-flow-actions .continue-action:hover {
+  background: #1d4ed8;
 }
 
 .bot-message,
