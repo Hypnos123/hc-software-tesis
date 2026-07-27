@@ -10,6 +10,9 @@ import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/co
 import { IPacienteBusqueda } from '@app/modules/historiaClinica/models/historiaClinica';
 import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
 import { IPaciente } from '@app/modules/paciente/models/paciente';
+import { Router } from '@angular/router';
+import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
+import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 
 interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow';
@@ -40,7 +43,7 @@ export type ClinicalHistoryChatFlow =
   | { step: 'awaitingDni' }
   | { step: 'searchingPatient'; dni: string }
   | { step: 'awaitingConfirmation'; dni: string; patient: PatientClinicalHistorySummary; prefill: ClinicalHistoryCandidateData }
-  | { step: 'patientConfirmed'; dni: string; patient: PatientClinicalHistorySummary; prefill: ClinicalHistoryCandidateData };
+  | { step: 'navigating'; dni: string; patient: PatientClinicalHistorySummary; prefill: ClinicalHistoryCandidateData; transferId: string };
 
 type PatientResolution =
   | { kind: 'none' }
@@ -123,7 +126,9 @@ export class InterfazChatComponent implements OnDestroy {
     private asistenteService: AsistenteService,
     private authService: AuthService,
     private historiaClinicaService: HistoriaClinicaService,
-    private antecedentesService: AntecedentesService
+    private antecedentesService: AntecedentesService,
+    private router: Router,
+    private clinicalHistoryTransferService: ClinicalHistoryTransferService
   ) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
   ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
@@ -175,10 +180,23 @@ export class InterfazChatComponent implements OnDestroy {
   continueClinicalHistoryFlow(): void {
     if (this.clinicalHistoryFlow.step !== 'awaitingConfirmation') return;
     const { dni, patient, prefill } = this.clinicalHistoryFlow;
-    this.clinicalHistoryFlow = { step: 'patientConfirmed', dni, patient, prefill };
+    const transferId = this.clinicalHistoryTransferService.createTransfer(this.toTransferCandidate(prefill));
+    this.clinicalHistoryFlow = { step: 'navigating', dni, patient, prefill, transferId };
+    this.isLoading = true;
     this.addUserMessage('Continuar');
-    this.addBotMessage('Paciente confirmado. La apertura del formulario se implementará en el siguiente paso.');
-    this.scrollToBottom();
+    void this.router.navigate(
+      ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
+      { state: { source: 'chatbot', transferId } }
+    ).then(navigated => {
+      if (!navigated) {
+        this.handleClinicalHistoryNavigationError(dni, patient, prefill, transferId);
+        return;
+      }
+      if (this.clinicalHistoryFlow.step === 'navigating' && this.clinicalHistoryFlow.transferId === transferId) {
+        this.resetClinicalHistoryFlow();
+      }
+    }).catch(() => this.handleClinicalHistoryNavigationError(dni, patient, prefill, transferId))
+      .finally(() => { this.isLoading = false; });
   }
   scrollToBottom(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
   private scrollToNewBlock(blockId: string): void {
@@ -314,6 +332,40 @@ export class InterfazChatComponent implements OnDestroy {
   private formatCivilStatus(value: string): string {
     const statuses: Record<string, string> = { SOLTERO: 'Soltero(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', VIUDO: 'Viudo(a)' };
     return statuses[value.trim().toUpperCase()] ?? (value || 'No registrado');
+  }
+  private toTransferCandidate(prefill: ClinicalHistoryCandidateData): ClinicalHistoryTransferCandidate {
+    return {
+      idPaciente: prefill.idPaciente,
+      dni: prefill.dni.trim(),
+      nombres: prefill.nombres.trim(),
+      apellidos: prefill.apellidos.trim(),
+      fechaIngreso: this.toDateOnly(prefill.fechaIngreso),
+      fechaNacimiento: this.toDateOnly(prefill.fechaNacimiento),
+      estadoCivil: prefill.estadoCivil.trim(),
+      enfermedadesPrevias: prefill.enfermedadesPrevias?.trim() || null,
+      cirugiasPrevias: prefill.cirugiasPrevias?.trim() || null,
+      alergiaMedicamentos: prefill.alergiaMedicamentos?.trim() || null
+    };
+  }
+  private toDateOnly(value: string | Date): string {
+    if (typeof value === 'string') {
+      const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      return match?.[1] ?? '';
+    }
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return '';
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+  private handleClinicalHistoryNavigationError(
+    dni: string,
+    patient: PatientClinicalHistorySummary,
+    prefill: ClinicalHistoryCandidateData,
+    transferId: string
+  ): void {
+    this.clinicalHistoryTransferService.revokeTransfer(transferId);
+    if (this.clinicalHistoryFlow.step !== 'navigating' || this.clinicalHistoryFlow.transferId !== transferId) return;
+    this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient, prefill };
+    this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
+    this.scrollToBottom();
   }
   private handleClinicalHistoryError(): void {
     this.removeClinicalHistoryLoadingMessage();

@@ -4,6 +4,8 @@ import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '@app/auth/services/auth.service';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
+import { Router } from '@angular/router';
+import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 
@@ -13,6 +15,8 @@ describe('InterfazChatComponent', () => {
   let asistenteService: jasmine.SpyObj<AsistenteService>;
   let historiaClinicaService: jasmine.SpyObj<HistoriaClinicaService>;
   let antecedentesService: jasmine.SpyObj<AntecedentesService>;
+  let router: jasmine.SpyObj<Router>;
+  let transferService: ClinicalHistoryTransferService;
   let logoutSubject: Subject<void>;
   const paciente = {
     idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
@@ -23,11 +27,13 @@ describe('InterfazChatComponent', () => {
     logoutSubject = new Subject<void>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
-    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert']);
+    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
     historiaClinicaService.getByPaciente.and.returnValue(of([]));
     antecedentesService = jasmine.createSpyObj<AntecedentesService>('AntecedentesService', ['getByPacienteId']);
     antecedentesService.getByPacienteId.and.returnValue(of(undefined));
+    router = jasmine.createSpyObj<Router>('Router', ['navigate']);
+    router.navigate.and.returnValue(Promise.resolve(true));
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -35,12 +41,15 @@ describe('InterfazChatComponent', () => {
         { provide: AsistenteService, useValue: asistenteService },
         { provide: HistoriaClinicaService, useValue: historiaClinicaService },
         { provide: AntecedentesService, useValue: antecedentesService },
+        { provide: Router, useValue: router },
         { provide: AuthService, useValue: { logout$: logoutSubject.asObservable() } }
       ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(InterfazChatComponent);
     component = fixture.componentInstance;
+    transferService = TestBed.inject(ClinicalHistoryTransferService);
+    transferService.clearAll();
     fixture.detectChanges();
   });
 
@@ -228,18 +237,66 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.text).toContain('Historias clínicas existentes: 3');
   });
 
-  it('debe confirmar localmente sin navegar ni guardar', () => {
+  it('debe ignorar Continuar fuera de awaitingConfirmation', () => {
+    spyOn(transferService, 'createTransfer').and.callThrough();
+
+    component.continueClinicalHistoryFlow();
+
+    expect(transferService.createTransfer).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('debe crear una transferencia y navegar con state mínimo al continuar', fakeAsync(() => {
+    const createTransferSpy = spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
 
     component.continueClinicalHistoryFlow();
+    const transferId = createTransferSpy.calls.mostRecent().returnValue;
+    component.continueClinicalHistoryFlow();
 
-    expect(component.clinicalHistoryFlow.step).toBe('patientConfirmed');
-    expect(component.messages.at(-1)?.text).toBe('Paciente confirmado. La apertura del formulario se implementará en el siguiente paso.');
+    expect(createTransferSpy).toHaveBeenCalledTimes(1);
+    const candidate = createTransferSpy.calls.mostRecent().args[0];
+    expect(candidate).toEqual(jasmine.objectContaining({
+      idPaciente: 8, dni: '01234567', nombres: 'Andrea Lucía', apellidos: 'Quispe Ramírez',
+      fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
+    }));
+    expect(candidate as any).not.toEqual(jasmine.objectContaining({ nombreCompleto: jasmine.anything(), existingClinicalHistoryCount: jasmine.anything() }));
+    expect(router.navigate).toHaveBeenCalledOnceWith(
+      ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
+      { state: { source: 'chatbot', transferId } }
+    );
+    const navigation = router.navigate.calls.mostRecent().args;
+    expect(JSON.stringify(navigation)).not.toContain('01234567');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(historiaClinicaService.insert).not.toHaveBeenCalled();
-  });
+    expect(historiaClinicaService.update).not.toHaveBeenCalled();
+
+    tick();
+
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(transferService.peekTransfer(transferId)).not.toBeNull();
+  }));
+
+  it('debe revocar la transferencia y conservar la confirmación si falla la navegación', fakeAsync(() => {
+    router.navigate.and.returnValue(Promise.resolve(false));
+    spyOn(transferService, 'revokeTransfer').and.callThrough();
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+
+    component.continueClinicalHistoryFlow();
+    const transferId = (component.clinicalHistoryFlow as any).transferId;
+    tick();
+
+    expect(transferService.revokeTransfer).toHaveBeenCalledOnceWith(transferId);
+    expect(transferService.peekTransfer(transferId)).toBeNull();
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
+    expect((component.clinicalHistoryFlow as any).dni).toBe('01234567');
+    expect(component.messages.at(-1)?.text).toBe('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
+  }));
 
   it('debe cancelar y limpiar todos los datos temporales conservando el historial', () => {
+    spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
     const mensajesAntes = component.messages.length;
@@ -250,9 +307,11 @@ describe('InterfazChatComponent', () => {
     expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('01234567');
     expect(component.messages.length).toBe(mensajesAntes + 2);
     expect(component.messages.at(-1)?.text).toBe('La creación de la historia clínica fue cancelada.');
+    expect(transferService.createTransfer).not.toHaveBeenCalled();
   });
 
   it('debe limpiar el flujo al volver al Menú principal', () => {
+    spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
 
@@ -260,6 +319,7 @@ describe('InterfazChatComponent', () => {
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
+    expect(transferService.createTransfer).not.toHaveBeenCalled();
   });
 
   it('debe recuperarse de un error al buscar el paciente', () => {
@@ -364,6 +424,7 @@ describe('InterfazChatComponent', () => {
   });
 
   it('debe cancelar la solicitud y limpiar el flujo especializado al cerrar el chat', () => {
+    spyOn(transferService, 'createTransfer').and.callThrough();
     const busquedaPendiente = new Subject<any[]>();
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     iniciarFlujoHistoriaClinica();
@@ -374,9 +435,11 @@ describe('InterfazChatComponent', () => {
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(busquedaPendiente.observed).toBeFalse();
+    expect(transferService.createTransfer).not.toHaveBeenCalled();
   });
 
   it('debe cancelar la solicitud y reiniciar la conversación al cerrar sesión', () => {
+    spyOn(transferService, 'createTransfer').and.callThrough();
     const busquedaPendiente = new Subject<any[]>();
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     component.openChat();
@@ -390,6 +453,7 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[0].text).toContain('Hola, soy el Asistente IA');
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(busquedaPendiente.observed).toBeFalse();
+    expect(transferService.createTransfer).not.toHaveBeenCalled();
   });
 
   it('debe cancelar una solicitud activa desde el botón Cancelar', () => {

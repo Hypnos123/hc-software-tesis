@@ -28,7 +28,7 @@
 
   <div *ngIf="clinicalHistoryFlow.step !== 'idle'" class="clinical-history-flow-actions" aria-label="Acciones de creación de historia clínica">
     <button *ngIf="clinicalHistoryFlow.step === 'awaitingConfirmation'" type="button" class="continue-action" (click)="continueClinicalHistoryFlow()" title="Continuar con el paciente seleccionado">Continuar</button>
-    <button type="button" class="cancel-action" (click)="cancelClinicalHistoryFlow()" title="Cancelar creación de historia clínica">Cancelar</button>
+    <button type="button" class="cancel-action" (click)="cancelClinicalHistoryFlow()" [disabled]="clinicalHistoryFlow.step === 'navigating'" title="Cancelar creación de historia clínica">Cancelar</button>
   </div>
 
   <div class="chatbot-footer">

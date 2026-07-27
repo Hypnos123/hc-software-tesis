@@ -310,6 +310,11 @@
   background: #fef2f2;
 }
 
+.clinical-history-flow-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .clinical-history-flow-actions .continue-action {
   border: 1px solid #2563eb;
   border-radius: 8px;
