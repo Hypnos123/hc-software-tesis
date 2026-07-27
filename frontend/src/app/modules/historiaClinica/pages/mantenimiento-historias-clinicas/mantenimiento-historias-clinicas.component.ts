@@ -44,6 +44,7 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
   historiaId: number | null = null;
   historiaCargada = false;
   fechaMaximaNacimiento = new Date();
+  readonly mensajeGuardadoManual = 'Revisa los datos ingresados. La historia clínica se guardará únicamente cuando pulses Guardar.';
 
   estadosCiviles = [
     { label: 'Soltero(a)', value: 'SOLTERO' },
