@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, map, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
-import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaCreateRequest, IHistoriaClinicaRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
+import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
 import { AuthService } from '@app/auth/services/auth.service';
 
 @Injectable({ providedIn: 'root' })
@@ -22,7 +22,7 @@ export class HistoriaClinicaService {
   insert(header: IHistoriaClinicaCreateRequest): Observable<IResponseModelSet> {
     return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}historiaClinica/insert`, header);
   }
-  update(id: number, header: IHistoriaClinicaRequest): Observable<IResponseModelSet> {
+  update(id: number, header: IHistoriaClinicaUpdateRequest): Observable<IResponseModelSet> {
     return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}historiaClinica/update/${id}`, header);
   }
   buscarPacientesPorNombre(nombre: string): Observable<IPacienteBusqueda[]> {

@@ -9,6 +9,7 @@ import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
 import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaRequest;
+import com.krivi.apihistorialmedico.model.api.HistoriaClinicaUpdateRequest;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,6 +40,84 @@ class HistoriaClinicaServiceImplTest {
   @Mock private PacienteRepository pacienteRepository;
   @Mock private AntecedentesRepository antecedentesRepository;
   @InjectMocks private HistoriaClinicaServiceImpl historiaClinicaService;
+
+  @Test
+  void actualizaPacienteYAntecedentesSinCambiarRelacionNiCrearHistoria() {
+    Paciente paciente = new Paciente();
+    paciente.setIdPaciente(10);
+    paciente.setNumDocumento("12345678");
+    HistoriaClinica historia = new HistoriaClinica();
+    historia.setIdHistoriaClinica(25);
+    historia.setPaciente(paciente);
+    Antecedentes antecedentes = new Antecedentes();
+    antecedentes.setIdAntecedentes(8);
+    antecedentes.setPaciente(paciente);
+    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of(antecedentes));
+    when(historiaClinicaRepository.save(historia)).thenReturn(historia);
+
+    ResponseModelSet response = historiaClinicaService.update(25, updateValido());
+
+    assertEquals(25, response.getIdGenerado());
+    assertSame(paciente, historia.getPaciente());
+    assertEquals(10, historia.getPaciente().getIdPaciente());
+    assertEquals("12345678", paciente.getNumDocumento());
+    assertEquals("Ana Actualizada", paciente.getNombres());
+    assertEquals(java.sql.Date.valueOf("1995-05-10"), paciente.getFechaNacimiento());
+    assertEquals("Asma controlada", antecedentes.getEnfermedadesPrevias());
+    verify(historiaClinicaRepository).save(historia);
+
+    HistoriaClinica segundaHistoria = new HistoriaClinica();
+    segundaHistoria.setIdHistoriaClinica(26);
+    segundaHistoria.setPaciente(paciente);
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+        .thenReturn(List.of(historia, segundaHistoria));
+    assertEquals(List.of("Ana Actualizada", "Ana Actualizada"), historiaClinicaService.findByPaciente(10)
+        .getData().stream().map(item -> item.getNombres()).toList());
+  }
+
+  @Test
+  void rechazaActualizacionDeHistoriaInexistenteODatosInvalidos() {
+    when(historiaClinicaRepository.findById(999)).thenReturn(java.util.Optional.empty());
+    CreacionHistoriaClinicaException inexistente = assertThrows(CreacionHistoriaClinicaException.class,
+        () -> historiaClinicaService.update(999, updateValido()));
+
+    Paciente paciente = new Paciente();
+    HistoriaClinica historia = new HistoriaClinica();
+    historia.setIdHistoriaClinica(25);
+    historia.setPaciente(paciente);
+    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    HistoriaClinicaUpdateRequest futura = updateValido();
+    futura.setFechaNacimiento(LocalDate.now(ZoneId.of("America/Lima")).plusDays(1));
+    CreacionHistoriaClinicaException fechaInvalida = assertThrows(CreacionHistoriaClinicaException.class,
+        () -> historiaClinicaService.update(25, futura));
+    HistoriaClinicaUpdateRequest sinNombre = updateValido();
+    sinNombre.setNombres("   ");
+    CreacionHistoriaClinicaException datosInvalidos = assertThrows(CreacionHistoriaClinicaException.class,
+        () -> historiaClinicaService.update(25, sinNombre));
+
+    assertEquals(404, inexistente.getStatus().value());
+    assertEquals(400, fechaInvalida.getStatus().value());
+    assertEquals(400, datosInvalidos.getStatus().value());
+  }
+
+  @Test
+  void actualizacionEsTransaccionalYNoGuardaHistoriaSiFallaAntecedente() throws Exception {
+    assertNotNull(HistoriaClinicaServiceImpl.class
+        .getMethod("update", int.class, HistoriaClinicaUpdateRequest.class)
+        .getAnnotation(Transactional.class));
+    Paciente paciente = new Paciente();
+    paciente.setIdPaciente(10);
+    HistoriaClinica historia = new HistoriaClinica();
+    historia.setIdHistoriaClinica(25);
+    historia.setPaciente(paciente);
+    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+    when(antecedentesRepository.save(any(Antecedentes.class))).thenThrow(new RuntimeException("fallo simulado"));
+
+    assertThrows(RuntimeException.class, () -> historiaClinicaService.update(25, updateValido()));
+    verify(historiaClinicaRepository, never()).save(any(HistoriaClinica.class));
+  }
 
   @Test
   void creaDosHistoriasParaElMismoPacienteYActualizaDatosYAntecedentes() {
@@ -257,6 +337,19 @@ class HistoriaClinicaServiceImplTest {
     request.setEstadoCivil("SOLTERO");
     request.setDni(dni);
     request.setEnfermedadesPrevias(" Asma ");
+    request.setCirugiasPrevias(" Ninguna ");
+    request.setAlergiaMedicamentos(" Penicilina ");
+    return request;
+  }
+
+  private HistoriaClinicaUpdateRequest updateValido() {
+    HistoriaClinicaUpdateRequest request = new HistoriaClinicaUpdateRequest();
+    request.setFechaIngreso(LocalDate.of(2026, 7, 27));
+    request.setFechaNacimiento(LocalDate.of(1995, 5, 10));
+    request.setApellidos(" Pérez Actualizado ");
+    request.setNombres(" Ana Actualizada ");
+    request.setEstadoCivil("CASADO");
+    request.setEnfermedadesPrevias(" Asma controlada ");
     request.setCirugiasPrevias(" Ninguna ");
     request.setAlergiaMedicamentos(" Penicilina ");
     return request;

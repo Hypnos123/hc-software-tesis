@@ -12,6 +12,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
   let modoRuta: 'nuevo' | 'ver' | 'editar';
   let idRuta: string | null;
   let historiaService: jasmine.SpyObj<HistoriaClinicaService>;
+  let mensajes: jasmine.SpyObj<MensajesSwalService>;
 
   const historiaExistente = {
     idHistoriaClinica: 25,
@@ -40,8 +41,9 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     ]);
     historiaService.getById.and.returnValue(of(historiaExistente));
     historiaService.insert.and.returnValue(of({ idGenerado: 101, mensaje: 'Registro guardado correctamente.' }));
+    historiaService.update.and.returnValue(of({ idGenerado: 25, mensaje: 'Registro actualizado correctamente.' }));
 
-    const mensajes = jasmine.createSpyObj<MensajesSwalService>('MensajesSwalService', [
+    mensajes = jasmine.createSpyObj<MensajesSwalService>('MensajesSwalService', [
       'mensajeAdvertencia', 'mensajePregunta', 'mensajeExito', 'mensajeError'
     ]);
     mensajes.mensajePregunta.and.returnValue(Promise.resolve({ isConfirmed: true } as any));
@@ -189,7 +191,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(component.calcularEdad(nacimientoPorCumplir)).toBe(19);
   });
 
-  it('debe cargar una historia existente en modo editar sin habilitar sus datos', () => {
+  it('debe habilitar solo los campos permitidos en modo editar', () => {
     fixture.destroy();
     modoRuta = 'editar';
     idRuta = '25';
@@ -199,9 +201,64 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(component.historiaCargada).toBeTrue();
     expect(component.frm.get('nombres')?.value).toBe('Ana María');
     expect(component.frm.get('fechaNacimiento')?.value).toEqual(new Date(1996, 0, 1));
-    expect(component.frm.get('nombres')?.disabled).toBeTrue();
+    const editables = [
+      'fechaIngreso', 'fechaNacimiento', 'apellidos', 'nombres', 'estadoCivil',
+      'enfPrevias', 'cirugiasPrevias', 'alergiasMedicamentos'
+    ];
+    editables.forEach(nombre => expect(component.frm.get(nombre)?.enabled).toBeTrue());
+    ['idHistoriaClinica', 'dni', 'edad'].forEach(nombre => expect(component.frm.get(nombre)?.disabled).toBeTrue());
     expect(component.frm.get('idHistoriaClinica')?.value).toBe(25);
+    expect((fixture.nativeElement.querySelector('.footer-actions button[title]') as HTMLButtonElement).disabled).toBeFalse();
   });
+
+  it('debe conservar el formulario y no actualizar cuando se cancela la confirmación', fakeAsync(() => {
+    fixture.destroy();
+    modoRuta = 'editar';
+    idRuta = '25';
+    mensajes.mensajePregunta.and.returnValue(Promise.resolve({ isConfirmed: false } as any));
+    crearComponente();
+    component.frm.get('nombres')?.setValue('Nombre editado');
+
+    component.guardar();
+    tick();
+
+    expect(historiaService.update).not.toHaveBeenCalled();
+    expect(component.frm.get('nombres')?.value).toBe('Nombre editado');
+  }));
+
+  it('debe confirmar y enviar el contrato de actualización sin identificadores, DNI ni edad', fakeAsync(() => {
+    fixture.destroy();
+    modoRuta = 'editar';
+    idRuta = '25';
+    crearComponente();
+    component.frm.patchValue({
+      fechaIngreso: new Date(2026, 6, 27),
+      fechaNacimiento: new Date(1995, 4, 10),
+      apellidos: ' Pérez Actualizado ',
+      nombres: ' Ana Actualizada ',
+      estadoCivil: 'CASADO',
+      enfPrevias: ' Asma controlada ',
+      cirugiasPrevias: '',
+      alergiasMedicamentos: ' Penicilina '
+    });
+
+    component.guardar();
+    tick();
+
+    expect(mensajes.mensajePregunta).toHaveBeenCalledWith('Los datos de la historia clínica se modificara. ¿Desea continuar?');
+    const [id, request] = historiaService.update.calls.mostRecent().args as [number, any];
+    expect(id).toBe(25);
+    expect(request).toEqual({
+      fechaIngreso: '2026-07-27', fechaNacimiento: '1995-05-10',
+      apellidos: 'Pérez Actualizado', nombres: 'Ana Actualizada', estadoCivil: 'CASADO',
+      enfermedadesPrevias: 'Asma controlada', cirugiasPrevias: undefined,
+      alergiaMedicamentos: 'Penicilina'
+    });
+    expect(request.idHistoriaClinica).toBeUndefined();
+    expect(request.idPaciente).toBeUndefined();
+    expect(request.dni).toBeUndefined();
+    expect(request.edad).toBeUndefined();
+  }));
 
   it('debe mantener deshabilitado todo el formulario en modo ver', () => {
     fixture.destroy();

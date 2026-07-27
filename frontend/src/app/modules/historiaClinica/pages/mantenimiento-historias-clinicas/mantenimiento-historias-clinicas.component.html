@@ -100,7 +100,7 @@
       icon="pi pi-check"
       (click)="guardar()"
       title="Guardar"
-      [disabled]="modo === 'nuevo' ? frm.invalid : !historiaCargada">
+      [disabled]="modo === 'nuevo' ? frm.invalid : !historiaCargada || frm.invalid">
     </button>
   </div>
 </div>

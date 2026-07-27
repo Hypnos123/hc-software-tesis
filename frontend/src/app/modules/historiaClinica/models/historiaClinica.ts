@@ -29,6 +29,17 @@ export interface IHistoriaClinicaCreateRequest {
   alergiaMedicamentos?: string;
 }
 
+export interface IHistoriaClinicaUpdateRequest {
+  fechaIngreso: string;
+  fechaNacimiento: string;
+  apellidos: string;
+  nombres: string;
+  estadoCivil: string;
+  enfermedadesPrevias?: string;
+  cirugiasPrevias?: string;
+  alergiaMedicamentos?: string;
+}
+
 export interface IPacienteBusqueda {
   idPaciente?: number;
   nombres?: string;

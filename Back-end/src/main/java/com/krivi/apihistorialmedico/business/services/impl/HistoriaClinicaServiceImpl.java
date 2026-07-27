@@ -86,17 +86,20 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     if (request.getFechaIngreso() == null) {
       throw errorCreacion("DATOS_INVALIDOS", "La fecha de ingreso es obligatoria.", HttpStatus.BAD_REQUEST);
     }
-    if (request.getFechaNacimiento() == null) {
+    validarFechaNacimiento(request.getFechaNacimiento());
+    validarTextoOpcional(request.getEnfermedadesPrevias(), "enfermedades previas", 120);
+    validarTextoOpcional(request.getCirugiasPrevias(), "cirugías previas", 120);
+    validarTextoOpcional(request.getAlergiaMedicamentos(), "alergias a medicamentos", 120);
+  }
+
+  private void validarFechaNacimiento(LocalDate nacimiento) {
+    if (nacimiento == null) {
       throw errorCreacion("FECHA_NACIMIENTO_INVALIDA", "La fecha de nacimiento es obligatoria.", HttpStatus.BAD_REQUEST);
     }
-    LocalDate nacimiento = request.getFechaNacimiento();
     LocalDate hoy = LocalDate.now(ZONA_HORARIA_LIMA);
     if (nacimiento.isAfter(hoy)) {
       throw errorCreacion("FECHA_NACIMIENTO_INVALIDA", "La fecha de nacimiento no puede ser futura.", HttpStatus.BAD_REQUEST);
     }
-    validarTextoOpcional(request.getEnfermedadesPrevias(), "enfermedades previas", 120);
-    validarTextoOpcional(request.getCirugiasPrevias(), "cirugías previas", 120);
-    validarTextoOpcional(request.getAlergiaMedicamentos(), "alergias a medicamentos", 120);
   }
 
   private void validarTextoRequerido(String valor, String campo, int longitudMaxima) {
@@ -144,14 +147,55 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     return new CreacionHistoriaClinicaException(codigo, mensaje, status);
   }
 
-  public ResponseModelSet update(HistoriaClinicaRequest request) {
+  @Transactional
+  public ResponseModelSet update(int idHistoriaClinica, HistoriaClinicaUpdateRequest request) {
+    HistoriaClinica historia = historiaClinicaRepository.findById(idHistoriaClinica)
+        .orElseThrow(() -> errorCreacion("HISTORIA_NO_ENCONTRADA", "La historia clínica no existe.", HttpStatus.NOT_FOUND));
+    validarRequestActualizacion(request);
+    Paciente paciente = historia.getPaciente();
+    actualizarPaciente(paciente, request);
+    pacienteRepository.save(paciente);
+    actualizarOCrearAntecedentes(paciente, request);
+    HistoriaClinica actualizada = historiaClinicaRepository.save(historia);
+
     ResponseModelSet r = new ResponseModelSet();
-    Optional<HistoriaClinica> historia = historiaClinicaRepository.findById(request.getIdHistoriaClinica());
-    if (historia.isEmpty()) { r.setMensaje("Historia clínica no encontrada."); return r; }
-    historiaClinicaRepository.save(historia.get());
     r.setMensaje(Constant.MENSAJE_EDITAR_OK);
-    r.setIdGenerado(historia.get().getIdHistoriaClinica());
+    r.setIdGenerado(actualizada.getIdHistoriaClinica());
     return r;
+  }
+
+  private void validarRequestActualizacion(HistoriaClinicaUpdateRequest request) {
+    if (request == null) {
+      throw errorCreacion("DATOS_INVALIDOS", "Los datos de actualización son obligatorios.", HttpStatus.BAD_REQUEST);
+    }
+    validarTextoRequerido(request.getNombres(), "nombres", 120);
+    validarTextoRequerido(request.getApellidos(), "apellidos", 120);
+    validarTextoRequerido(request.getEstadoCivil(), "estado civil", 45);
+    if (request.getFechaIngreso() == null) {
+      throw errorCreacion("DATOS_INVALIDOS", "La fecha de ingreso es obligatoria.", HttpStatus.BAD_REQUEST);
+    }
+    validarFechaNacimiento(request.getFechaNacimiento());
+    validarTextoOpcional(request.getEnfermedadesPrevias(), "enfermedades previas", 120);
+    validarTextoOpcional(request.getCirugiasPrevias(), "cirugías previas", 120);
+    validarTextoOpcional(request.getAlergiaMedicamentos(), "alergias a medicamentos", 120);
+  }
+
+  private void actualizarPaciente(Paciente paciente, HistoriaClinicaUpdateRequest request) {
+    paciente.setFechaIngreso(java.sql.Date.valueOf(request.getFechaIngreso()));
+    paciente.setFechaNacimiento(java.sql.Date.valueOf(request.getFechaNacimiento()));
+    paciente.setApellidos(request.getApellidos().trim());
+    paciente.setNombres(request.getNombres().trim());
+    paciente.setEstadoCivil(request.getEstadoCivil().trim());
+  }
+
+  private void actualizarOCrearAntecedentes(Paciente paciente, HistoriaClinicaUpdateRequest request) {
+    Antecedentes antecedentes = antecedentesRepository.findByPacienteIdPaciente(paciente.getIdPaciente())
+        .stream().findFirst().orElseGet(Antecedentes::new);
+    antecedentes.setPaciente(paciente);
+    antecedentes.setEnfermedadesPrevias(normalizarOpcional(request.getEnfermedadesPrevias()));
+    antecedentes.setCirugiasPrevias(normalizarOpcional(request.getCirugiasPrevias()));
+    antecedentes.setAlergiaMedicamentos(normalizarOpcional(request.getAlergiaMedicamentos()));
+    antecedentesRepository.save(antecedentes);
   }
 
   @Override

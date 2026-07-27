@@ -11,7 +11,7 @@ import { InputTextareaModule } from 'primeng/inputtextarea';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { HistoriaClinicaService } from '../../services/consultas.service';
-import { IHistoriaClinicaCreateRequest } from '../../models/historiaClinica';
+import { IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest } from '../../models/historiaClinica';
 
 function noSoloEspacios(control: AbstractControl): ValidationErrors | null {
   return typeof control.value === 'string' && control.value.trim().length === 0
@@ -128,7 +128,16 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
         cirugiasPrevias: historia.cirugiasPrevias,
         alergiasMedicamentos: historia.alergiaMedicamentos
       });
+      if (this.modo === 'editar') this.habilitarEdicion();
     });
+  }
+
+  private habilitarEdicion(): void {
+    const controlesEditables = [
+      'fechaIngreso', 'fechaNacimiento', 'apellidos', 'nombres', 'estadoCivil',
+      'enfPrevias', 'cirugiasPrevias', 'alergiasMedicamentos'
+    ];
+    controlesEditables.forEach(nombre => this.frm.get(nombre)?.enable({ emitEvent: false }));
   }
 
   guardar(): void {
@@ -143,9 +152,21 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
 
     if (!this.historiaId) return;
 
-    this.swal.mensajePregunta('¿Está seguro de guardar los cambios?').then(resultado => {
+    this.frm.markAllAsTouched();
+    if (this.frm.invalid) return;
+
+    this.swal.mensajePregunta('Los datos de la historia clínica se modificara. ¿Desea continuar?').then(resultado => {
       if (!resultado.isConfirmed) return;
-      this.service.update(this.historiaId!, {}).subscribe(respuesta => this.finalizar(respuesta.mensaje));
+      this.service.update(this.historiaId!, this.crearRequestActualizacion()).subscribe({
+        next: respuesta => {
+          if (!respuesta.idGenerado) {
+            this.swal.mensajeError('El servidor no confirmó la actualización de la historia clínica.');
+            return;
+          }
+          this.finalizar(respuesta.mensaje);
+        },
+        error: error => this.swal.mensajeError(this.obtenerMensajeError(error))
+      });
     });
   }
 
@@ -180,9 +201,23 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     };
   }
 
+  private crearRequestActualizacion(): IHistoriaClinicaUpdateRequest {
+    const datos = this.frm.getRawValue();
+    return {
+      fechaIngreso: this.formatearFechaSinZona(datos.fechaIngreso),
+      fechaNacimiento: this.formatearFechaSinZona(datos.fechaNacimiento),
+      apellidos: datos.apellidos.trim(),
+      nombres: datos.nombres.trim(),
+      estadoCivil: datos.estadoCivil,
+      enfermedadesPrevias: datos.enfPrevias?.trim() || undefined,
+      cirugiasPrevias: datos.cirugiasPrevias?.trim() || undefined,
+      alergiaMedicamentos: datos.alergiasMedicamentos?.trim() || undefined
+    };
+  }
+
   private obtenerMensajeError(error: any): string {
-    if (error?.status === 400) return error?.error?.mensaje || 'El DNI ingresado es inválido.';
-    if (error?.status === 404) return error?.error?.mensaje || 'No existe un paciente registrado con el DNI ingresado.';
+    if (error?.status === 400) return error?.error?.mensaje || 'Los datos ingresados no son válidos.';
+    if (error?.status === 404) return error?.error?.mensaje || 'No se encontró el registro solicitado.';
     if (error?.status === 409) return error?.error?.mensaje || 'El DNI está asociado a varios pacientes y no se puede resolver automáticamente.';
     return error?.error?.mensaje || error?.error?.error || 'No se pudo crear la historia clínica.';
   }
