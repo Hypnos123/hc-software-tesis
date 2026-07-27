@@ -14,7 +14,7 @@ import java.time.ZoneId;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "historiaclinica", uniqueConstraints = @UniqueConstraint(name = "uk_historiaclinica_paciente", columnNames = "idpaciente"))
+@Table(name = "historiaclinica")
 public class HistoriaClinica {
   private static final ZoneId ZONA_HORARIA_LIMA = ZoneId.of("America/Lima");
   @Id

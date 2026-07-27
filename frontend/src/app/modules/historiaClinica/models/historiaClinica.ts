@@ -17,6 +17,18 @@ export interface IHistoriaClinica {
 
 export interface IHistoriaClinicaRequest { idPaciente?: number; }
 
+export interface IHistoriaClinicaCreateRequest {
+  fechaIngreso: string;
+  fechaNacimiento: string;
+  apellidos: string;
+  nombres: string;
+  estadoCivil: string;
+  dni: string;
+  enfermedadesPrevias?: string;
+  cirugiasPrevias?: string;
+  alergiaMedicamentos?: string;
+}
+
 export interface IPacienteBusqueda {
   idPaciente?: number;
   nombres?: string;

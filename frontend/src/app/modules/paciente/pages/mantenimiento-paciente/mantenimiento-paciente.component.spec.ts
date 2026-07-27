@@ -20,4 +20,11 @@ describe('MantenimientoPacienteComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('should hide the DNI assistant by default', () => {
+    const assistant = fixture.nativeElement.querySelector('.asistente-dni');
+
+    expect(component.mostrarAsistenteDni).toBeFalse();
+    expect(assistant).toBeNull();
+  });
 });
