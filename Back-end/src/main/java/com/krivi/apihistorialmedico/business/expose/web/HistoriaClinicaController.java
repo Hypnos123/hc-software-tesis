@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.services.HistoriaClinicaService;
+import com.krivi.apihistorialmedico.business.exception.CreacionHistoriaClinicaException;
 import com.krivi.apihistorialmedico.model.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -26,4 +27,10 @@ public class HistoriaClinicaController {
 
   @PutMapping("/update/{id}")
   public ResponseEntity<ResponseModelSet> update(@RequestBody HistoriaClinicaRequest request, @PathVariable int id) { request.setIdHistoriaClinica(id); return ResponseEntity.ok(historiaClinicaService.update(request)); }
+
+  @ExceptionHandler(CreacionHistoriaClinicaException.class)
+  public ResponseEntity<ApiErrorResponse> handleCreacionHistoriaClinicaException(CreacionHistoriaClinicaException exception) {
+    return ResponseEntity.status(exception.getStatus())
+        .body(ApiErrorResponse.builder().codigo(exception.getCodigo()).mensaje(exception.getMessage()).build());
+  }
 }

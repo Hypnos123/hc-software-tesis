@@ -22,6 +22,14 @@
       </div>
 
       <div class="col col-3">
+        <label for="fechaNacimiento">Fecha de nacimiento</label>
+        <p-calendar formControlName="fechaNacimiento" [showIcon]="true" inputId="fechaNacimiento" dateFormat="dd/mm/yy" [maxDate]="fechaMaximaNacimiento"></p-calendar>
+        <small *ngIf="mostrarError('fechaNacimiento', 'required')" class="p-error">La fecha de nacimiento es obligatoria.</small>
+        <small *ngIf="mostrarError('fechaNacimiento', 'fechaFutura')" class="p-error">La fecha de nacimiento no puede ser futura.</small>
+        <small *ngIf="mostrarError('fechaNacimiento', 'fechaInvalida')" class="p-error">Ingresa una fecha de nacimiento válida.</small>
+      </div>
+
+      <div class="col col-3">
         <label for="nombres">Nombres</label>
         <input id="nombres" pInputText type="text" formControlName="nombres" maxlength="120">
         <small *ngIf="mostrarError('nombres', 'required') || mostrarError('nombres', 'soloEspacios')" class="p-error">Los nombres son obligatorios y no pueden contener solo espacios.</small>
@@ -36,9 +44,8 @@
 
       <div class="col col-3">
         <label for="edad">Edad</label>
-        <input id="edad" pInputText type="number" min="0" formControlName="edad">
-        <small *ngIf="mostrarError('edad', 'required')" class="p-error">La edad es obligatoria.</small>
-        <small *ngIf="mostrarError('edad', 'min')" class="p-error">La edad debe ser mayor o igual a cero.</small>
+        <input id="edad" pInputText type="number" min="0" formControlName="edad" readonly>
+        <small>Calculada automáticamente desde la fecha de nacimiento.</small>
       </div>
 
       <div class="col col-3">
@@ -92,8 +99,8 @@
       label="Guardar"
       icon="pi pi-check"
       (click)="guardar()"
-      [title]="modo === 'nuevo' ? mensajeGuardadoManual : 'Guardar cambios'"
-      [disabled]="modo === 'nuevo' ? !guardadoManualHabilitado : !historiaCargada">
+      title="Guardar"
+      [disabled]="modo === 'nuevo' ? frm.invalid : !historiaCargada">
     </button>
   </div>
 </div>
