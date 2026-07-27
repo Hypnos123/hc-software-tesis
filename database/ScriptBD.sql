@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`historiaclinica` (
   `ultimaactualizacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `idpaciente` INT NOT NULL,
   PRIMARY KEY (`idhistoriaclinica`),
-  UNIQUE INDEX `uk_historiaclinica_paciente` (`idpaciente` ASC) VISIBLE,
+  INDEX `idx_historiaclinica_paciente` (`idpaciente` ASC) VISIBLE,
   INDEX `idx_historiaclinica_fechacreacion` (`fechacreacion` ASC) VISIBLE,
   CONSTRAINT `fk_historiaclinica_paciente1`
     FOREIGN KEY (`idpaciente`)

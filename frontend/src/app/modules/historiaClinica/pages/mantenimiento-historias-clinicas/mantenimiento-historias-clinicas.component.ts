@@ -1,7 +1,7 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '@app/shared/components';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { FieldsetModule } from 'primeng/fieldset';
 import { InputTextModule } from 'primeng/inputtext';
 import { CalendarModule } from 'primeng/calendar';
@@ -10,32 +10,255 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
-import { Subject, debounceTime, distinctUntilChanged, filter, switchMap, takeUntil, tap } from 'rxjs';
 import { HistoriaClinicaService } from '../../services/consultas.service';
-import { IHistoriaClinica, IPacienteBusqueda } from '../../models/historiaClinica';
+import { IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest } from '../../models/historiaClinica';
 
-@Component({ selector: 'app-mantenimiento-historias-clinicas', standalone: true, imports: [CommonModule, ReactiveFormsModule, FieldsetModule, ButtonComponent, InputTextModule, CalendarModule, DropdownModule, ButtonModule, InputTextareaModule], templateUrl: './mantenimiento-historias-clinicas.component.html', styleUrl: './mantenimiento-historias-clinicas.component.scss' })
-export class MantenimientoHistoriasClinicasComponent implements OnInit, OnDestroy {
-  frm: FormGroup; modo: 'nuevo' | 'ver' | 'editar' = 'nuevo'; titulo = 'Nueva Historia Clinica'; historiaId: number | null = null; pacienteSeleccionado?: IPacienteBusqueda; pacienteCargado = false;
-  sugerenciasNombre: IPacienteBusqueda[] = []; sugerenciasDni: IPacienteBusqueda[] = []; activeNombre = 0; activeDni = 0;
-  private nombre$ = new Subject<string>(); private dni$ = new Subject<string>(); private destroy$ = new Subject<void>();
-  estadosCiviles = [{ label: 'Soltero(a)', value: 'SOLTERO' }, { label: 'Casado(a)', value: 'CASADO' }, { label: 'Divorciado(a)', value: 'DIVORCIADO' }, { label: 'Viudo(a)', value: 'VIUDO' }];
-  constructor(private fb: FormBuilder, private route: ActivatedRoute, private router: Router, private swal: MensajesSwalService, private service: HistoriaClinicaService) {
-    this.frm = this.fb.group({ idHistoriaClinica: [{ value: '', disabled: true }], nombrePacienteSel: [''], dniSel: [''], fechaIngreso: [{ value: null, disabled: true }], apellidos: [{ value: '', disabled: true }], nombres: [{ value: '', disabled: true }], estadoCivil: [{ value: null, disabled: true }], edad: [{ value: null, disabled: true }], dni: [{ value: '', disabled: true }], enfPrevias: [{ value: '', disabled: true }], cirugiasPrevias: [{ value: '', disabled: true }], alergiasMedicamentos: [{ value: '', disabled: true }] });
+function noSoloEspacios(control: AbstractControl): ValidationErrors | null {
+  return typeof control.value === 'string' && control.value.trim().length === 0
+    ? { soloEspacios: true }
+    : null;
+}
+
+function fechaNacimientoValida(control: AbstractControl): ValidationErrors | null {
+  if (!control.value) return null;
+  const fecha = control.value instanceof Date ? control.value : new Date(control.value);
+  if (Number.isNaN(fecha.getTime())) return { fechaInvalida: true };
+
+  const hoy = new Date();
+  const fechaSinHora = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return fechaSinHora > hoySinHora ? { fechaFutura: true } : null;
+}
+
+@Component({
+  selector: 'app-mantenimiento-historias-clinicas',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, FieldsetModule, ButtonComponent, InputTextModule, CalendarModule, DropdownModule, ButtonModule, InputTextareaModule],
+  templateUrl: './mantenimiento-historias-clinicas.component.html',
+  styleUrl: './mantenimiento-historias-clinicas.component.scss'
+})
+export class MantenimientoHistoriasClinicasComponent implements OnInit {
+  frm: FormGroup;
+  modo: 'nuevo' | 'ver' | 'editar' = 'nuevo';
+  titulo = 'Nueva Historia Clinica';
+  historiaId: number | null = null;
+  historiaCargada = false;
+  fechaMaximaNacimiento = new Date();
+
+  estadosCiviles = [
+    { label: 'Soltero(a)', value: 'SOLTERO' },
+    { label: 'Casado(a)', value: 'CASADO' },
+    { label: 'Divorciado(a)', value: 'DIVORCIADO' },
+    { label: 'Viudo(a)', value: 'VIUDO' }
+  ];
+
+  constructor(
+    private fb: FormBuilder,
+    private route: ActivatedRoute,
+    private router: Router,
+    private swal: MensajesSwalService,
+    private service: HistoriaClinicaService
+  ) {
+    this.frm = this.fb.group({
+      idHistoriaClinica: [{ value: '', disabled: true }],
+      fechaIngreso: [{ value: null, disabled: true }, Validators.required],
+      fechaNacimiento: [{ value: null, disabled: true }, [Validators.required, fechaNacimientoValida]],
+      apellidos: [{ value: '', disabled: true }, [Validators.required, noSoloEspacios, Validators.maxLength(120)]],
+      nombres: [{ value: '', disabled: true }, [Validators.required, noSoloEspacios, Validators.maxLength(120)]],
+      estadoCivil: [{ value: null, disabled: true }, Validators.required],
+      edad: [{ value: null, disabled: true }, [Validators.required, Validators.min(0)]],
+      dni: [{ value: '', disabled: true }, [Validators.required, noSoloEspacios, Validators.pattern(/^\d{8}$/), Validators.maxLength(8)]],
+      enfPrevias: [{ value: '', disabled: true }, Validators.maxLength(120)],
+      cirugiasPrevias: [{ value: '', disabled: true }, Validators.maxLength(120)],
+      alergiasMedicamentos: [{ value: '', disabled: true }, Validators.maxLength(120)]
+    });
   }
-  ngOnInit(): void { this.obtenerModo(); this.configurarBusquedas(); if (this.modo !== 'nuevo') { this.historiaId = Number(this.route.snapshot.paramMap.get('id')); if (this.historiaId) this.cargarHistoria(this.historiaId); } if (this.modo === 'ver') this.frm.disable(); }
-  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
-  obtenerModo(): void { const m = this.route.snapshot.paramMap.get('modo'); this.modo = m === 'ver' || m === 'editar' ? m : 'nuevo'; this.titulo = this.modo === 'ver' ? 'Visualizar Historia Clinica' : this.modo === 'editar' ? 'Editar Historia Clinica' : 'Nueva Historia Clinica'; }
-  configurarBusquedas(): void { this.nombre$.pipe(tap(() => this.limpiarSeleccion()), debounceTime(400), distinctUntilChanged(), filter(v => (v || '').trim().length >= 2), switchMap(v => this.service.buscarPacientesPorNombre(v.trim())), takeUntil(this.destroy$)).subscribe(r => { this.sugerenciasNombre = r; this.activeNombre = 0; }); this.dni$.pipe(tap(() => this.limpiarSeleccion()), debounceTime(400), distinctUntilChanged(), filter(v => (v || '').trim().length >= 2), switchMap(v => this.service.buscarPacientesPorDni(v.trim())), takeUntil(this.destroy$)).subscribe(r => { this.sugerenciasDni = r; this.activeDni = 0; }); }
-  onNombreInput(v: string): void { if (this.modo !== 'nuevo') return; this.sugerenciasDni = []; this.nombre$.next(v); }
-  onDniInput(v: string): void { if (this.modo !== 'nuevo') return; this.sugerenciasNombre = []; this.dni$.next(v); }
-  seleccionarPaciente(p: IPacienteBusqueda): void { this.pacienteSeleccionado = p; this.pacienteCargado = true; this.sugerenciasNombre = []; this.sugerenciasDni = []; this.frm.patchValue({ nombrePacienteSel: this.nombreCompleto(p), dniSel: p.numDocumento, fechaIngreso: this.toDate(p.fechaIngreso), apellidos: p.apellidos, nombres: p.nombres, estadoCivil: p.estadoCivil, edad: p.edad ?? this.calcularEdad(p.fechaNacimiento), dni: p.numDocumento }); this.service.getAntecedentesByPaciente(p.idPaciente!).subscribe(a => this.frm.patchValue({ enfPrevias: a?.enfermedadesPrevias ?? '', cirugiasPrevias: a?.cirugiasPrevias ?? '', alergiasMedicamentos: a?.alergiaMedicamentos ?? '' })); }
-  seleccionarActiva(lista: IPacienteBusqueda[], index: number): void { if (lista[index]) this.seleccionarPaciente(lista[index]); }
-  limpiarSeleccion(): void { if (this.pacienteSeleccionado && this.modo === 'nuevo') { this.pacienteSeleccionado = undefined; this.pacienteCargado = false; } }
-  cargarHistoria(id: number): void { this.service.getById(id).subscribe(h => { if (!h) return; this.pacienteCargado = true; this.frm.patchValue({ idHistoriaClinica: h.idHistoriaClinica, nombrePacienteSel: [h.apellidos, h.nombres].filter(Boolean).join(' '), dniSel: h.numDocumento, fechaIngreso: this.toDate(h.fechaIngreso), apellidos: h.apellidos, nombres: h.nombres, estadoCivil: h.estadoCivil, edad: h.edad ?? this.calcularEdad(h.fechaNacimiento), dni: h.numDocumento, enfPrevias: h.enfermedadesPrevias, cirugiasPrevias: h.cirugiasPrevias, alergiasMedicamentos: h.alergiaMedicamentos }); }); }
-  guardar(): void { if (this.modo === 'ver') return; if (this.modo === 'nuevo' && !this.pacienteSeleccionado?.idPaciente) { this.swal.mensajeAdvertencia('Debe seleccionar un paciente de la lista.'); return; } this.swal.mensajePregunta(this.modo === 'editar' ? '¿Está seguro de guardar los cambios?' : '¿Está seguro de guardar la nueva historia clínica?').then(r => { if (!r.isConfirmed) return; if (this.modo === 'nuevo') { const idPaciente = this.pacienteSeleccionado!.idPaciente!; this.service.getByPaciente(idPaciente).subscribe(existente => { if (existente) { this.swal.mensajeAdvertencia('El paciente seleccionado ya cuenta con una historia clínica.'); return; } this.service.insert({ idPaciente }).subscribe(res => this.finalizar(res.mensaje)); }); } else if (this.historiaId) { this.service.update(this.historiaId, {}).subscribe(res => this.finalizar(res.mensaje)); } }); }
-  finalizar(mensaje?: string): void { this.swal.mensajeExito(mensaje || 'Operación realizada correctamente.'); this.router.navigate(['/historiaClinica']); }
-  nombreCompleto(p: IPacienteBusqueda): string { return [p.apellidos, p.nombres].filter(Boolean).join(' '); }
-  toDate(f: any): Date | null { return f ? new Date(f) : null; }
-  calcularEdad(f: any): number | undefined { const d = this.toDate(f); if (!d) return undefined; const h = new Date(); let e = h.getFullYear() - d.getFullYear(); if (h.getMonth() < d.getMonth() || (h.getMonth() === d.getMonth() && h.getDate() < d.getDate())) e--; return e; }
+
+  ngOnInit(): void {
+    this.obtenerModo();
+    this.inicializarCalculoEdad();
+
+    if (this.modo === 'nuevo') {
+      this.habilitarCapturaManual();
+      return;
+    }
+
+    this.historiaId = Number(this.route.snapshot.paramMap.get('id'));
+    if (this.historiaId) this.cargarHistoria(this.historiaId);
+    if (this.modo === 'ver') this.frm.disable();
+  }
+
+  obtenerModo(): void {
+    const modoRuta = this.route.snapshot.paramMap.get('modo');
+    this.modo = modoRuta === 'ver' || modoRuta === 'editar' ? modoRuta : 'nuevo';
+    this.titulo = this.modo === 'ver'
+      ? 'Visualizar Historia Clinica'
+      : this.modo === 'editar'
+        ? 'Editar Historia Clinica'
+        : 'Nueva Historia Clinica';
+  }
+
+  private habilitarCapturaManual(): void {
+    Object.entries(this.frm.controls)
+      .filter(([nombreControl]) => nombreControl !== 'idHistoriaClinica' && nombreControl !== 'edad')
+      .forEach(([, control]) => control.enable({ emitEvent: false }));
+  }
+
+  private inicializarCalculoEdad(): void {
+    this.frm.get('fechaNacimiento')?.valueChanges.subscribe(fecha => {
+      this.frm.get('edad')?.setValue(this.calcularEdad(fecha), { emitEvent: false });
+    });
+  }
+
+  cargarHistoria(id: number): void {
+    this.service.getById(id).subscribe(historia => {
+      if (!historia) return;
+
+      this.historiaCargada = true;
+      this.frm.patchValue({
+        idHistoriaClinica: historia.idHistoriaClinica,
+        fechaIngreso: this.toDate(historia.fechaIngreso),
+        fechaNacimiento: this.toDate(historia.fechaNacimiento),
+        apellidos: historia.apellidos,
+        nombres: historia.nombres,
+        estadoCivil: historia.estadoCivil,
+        edad: this.calcularEdad(historia.fechaNacimiento),
+        dni: historia.numDocumento,
+        enfPrevias: historia.enfermedadesPrevias,
+        cirugiasPrevias: historia.cirugiasPrevias,
+        alergiasMedicamentos: historia.alergiaMedicamentos
+      });
+      if (this.modo === 'editar') this.habilitarEdicion();
+    });
+  }
+
+  private habilitarEdicion(): void {
+    const controlesEditables = [
+      'fechaIngreso', 'fechaNacimiento', 'apellidos', 'nombres', 'estadoCivil',
+      'enfPrevias', 'cirugiasPrevias', 'alergiasMedicamentos'
+    ];
+    controlesEditables.forEach(nombre => this.frm.get(nombre)?.enable({ emitEvent: false }));
+  }
+
+  guardar(): void {
+    if (this.modo === 'ver') return;
+
+    if (this.modo === 'nuevo') {
+      this.frm.markAllAsTouched();
+      if (this.frm.invalid) return;
+      this.confirmarCreacion();
+      return;
+    }
+
+    if (!this.historiaId) return;
+
+    this.frm.markAllAsTouched();
+    if (this.frm.invalid) return;
+
+    this.swal.mensajePregunta('Los datos de la historia clínica se modificara. ¿Desea continuar?').then(resultado => {
+      if (!resultado.isConfirmed) return;
+      this.service.update(this.historiaId!, this.crearRequestActualizacion()).subscribe({
+        next: respuesta => {
+          if (!respuesta.idGenerado) {
+            this.swal.mensajeError('El servidor no confirmó la actualización de la historia clínica.');
+            return;
+          }
+          this.finalizar(respuesta.mensaje);
+        },
+        error: error => this.swal.mensajeError(this.obtenerMensajeError(error))
+      });
+    });
+  }
+
+  private confirmarCreacion(): void {
+    this.swal.mensajePregunta('¿Está seguro de guardar la nueva historia clínica?').then(resultado => {
+      if (!resultado.isConfirmed) return;
+      this.service.insert(this.crearRequest()).subscribe({
+        next: respuesta => {
+          if (!respuesta.idGenerado) {
+            this.swal.mensajeError('El servidor no confirmó la creación de la historia clínica.');
+            return;
+          }
+          this.finalizar(respuesta.mensaje);
+        },
+        error: error => this.swal.mensajeError(this.obtenerMensajeError(error))
+      });
+    });
+  }
+
+  private crearRequest(): IHistoriaClinicaCreateRequest {
+    const datos = this.frm.getRawValue();
+    return {
+      fechaIngreso: this.formatearFechaSinZona(datos.fechaIngreso),
+      fechaNacimiento: this.formatearFechaSinZona(datos.fechaNacimiento),
+      apellidos: datos.apellidos.trim(),
+      nombres: datos.nombres.trim(),
+      estadoCivil: datos.estadoCivil,
+      dni: datos.dni.trim(),
+      enfermedadesPrevias: datos.enfPrevias?.trim() || undefined,
+      cirugiasPrevias: datos.cirugiasPrevias?.trim() || undefined,
+      alergiaMedicamentos: datos.alergiasMedicamentos?.trim() || undefined
+    };
+  }
+
+  private crearRequestActualizacion(): IHistoriaClinicaUpdateRequest {
+    const datos = this.frm.getRawValue();
+    return {
+      fechaIngreso: this.formatearFechaSinZona(datos.fechaIngreso),
+      fechaNacimiento: this.formatearFechaSinZona(datos.fechaNacimiento),
+      apellidos: datos.apellidos.trim(),
+      nombres: datos.nombres.trim(),
+      estadoCivil: datos.estadoCivil,
+      enfermedadesPrevias: datos.enfPrevias?.trim() || undefined,
+      cirugiasPrevias: datos.cirugiasPrevias?.trim() || undefined,
+      alergiaMedicamentos: datos.alergiasMedicamentos?.trim() || undefined
+    };
+  }
+
+  private obtenerMensajeError(error: any): string {
+    if (error?.status === 400) return error?.error?.mensaje || 'Los datos ingresados no son válidos.';
+    if (error?.status === 404) return error?.error?.mensaje || 'No se encontró el registro solicitado.';
+    if (error?.status === 409) return error?.error?.mensaje || 'El DNI está asociado a varios pacientes y no se puede resolver automáticamente.';
+    return error?.error?.mensaje || error?.error?.error || 'No se pudo crear la historia clínica.';
+  }
+
+  mostrarError(nombreControl: string, error?: string): boolean {
+    const control = this.frm.get(nombreControl);
+    if (!control || !(control.touched || control.dirty) || !control.errors) return false;
+    return error ? control.hasError(error) : true;
+  }
+
+  finalizar(mensaje?: string): void {
+    this.swal.mensajeExito(mensaje || 'Operación realizada correctamente.');
+    this.router.navigate(['/historiaClinica']);
+  }
+
+  toDate(fecha: unknown): Date | null {
+    if (!fecha) return null;
+    if (fecha instanceof Date) return fecha;
+    if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      const [anio, mes, dia] = fecha.split('-').map(Number);
+      return new Date(anio, mes - 1, dia);
+    }
+    return new Date(fecha as string | number);
+  }
+
+  private formatearFechaSinZona(valor: unknown): string {
+    const fecha = this.toDate(valor);
+    if (!fecha || Number.isNaN(fecha.getTime())) return '';
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
+  calcularEdad(fecha: unknown): number | undefined {
+    const nacimiento = this.toDate(fecha);
+    if (!nacimiento || Number.isNaN(nacimiento.getTime())) return undefined;
+    const hoy = new Date();
+    if (nacimiento > hoy) return undefined;
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    if (hoy.getMonth() < nacimiento.getMonth() || (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate())) edad--;
+    return edad;
+  }
 }

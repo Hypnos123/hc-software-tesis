@@ -35,4 +35,7 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
   List<String> findDnisDuplicados();
 
   List<Paciente> findByNumDocumentoOrderByIdPacienteAsc(String numDocumento);
+
+  @Query("select p from Paciente p where trim(p.numDocumento) = :dni order by p.idPaciente")
+  List<Paciente> findByDniNormalizado(@Param("dni") String dni);
 }

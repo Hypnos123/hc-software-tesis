@@ -1,89 +1,80 @@
 <h2 class="Subtitulo">{{ titulo }}</h2>
 
 <div [formGroup]="frm">
-  <p-fieldset legend="Seleccionar Paciente">
+  <p-fieldset legend="Datos de la historia clínica">
     <div class="form-grid">
-      <div class="col col-3">
-        <label>ID Historia Clinica</label>
-        <input pInputText type="text" [formControl]="frm.controls['idHistoriaClinica']">
-      </div>
-
-      <div class="col col-5">
-        <label>Nombre Paciente</label>
-          <input pInputText type="text" formControlName="nombrePacienteSel"
-          (input)="onNombreInput($any($event.target).value)"
-          (keydown.arrowDown)="activeNombre = activeNombre < sugerenciasNombre.length - 1 ? activeNombre + 1 : activeNombre"
-          (keydown.arrowUp)="activeNombre = activeNombre > 0 ? activeNombre - 1 : 0"
-          (keyup.enter)="seleccionarActiva(sugerenciasNombre, activeNombre)">
-        <ul *ngIf="sugerenciasNombre.length" class="autocomplete-list">
-          <li *ngFor="let p of sugerenciasNombre; let i = index" [class.active]="i === activeNombre" (click)="seleccionarPaciente(p)">{{ nombreCompleto(p) }}</li>
-        </ul>
-      </div>
-
-    <div class="col col-4">
-      <label>DNI</label>
-        <input pInputText type="text" formControlName="dniSel"
-        (input)="onDniInput($any($event.target).value)"
-        (keydown.arrowDown)="activeDni = activeDni < sugerenciasDni.length - 1 ? activeDni + 1 : activeDni"
-        (keydown.arrowUp)="activeDni = activeDni > 0 ? activeDni - 1 : 0"
-        (keyup.enter)="seleccionarActiva(sugerenciasDni, activeDni)">
-      <ul *ngIf="sugerenciasDni.length" class="autocomplete-list">
-        <li *ngFor="let p of sugerenciasDni; let i = index" [class.active]="i === activeDni" (click)="seleccionarPaciente(p)">{{ p.numDocumento }}</li>
-      </ul>
-    </div>
-
-    </div>
-  </p-fieldset>
-
-  <p-fieldset legend="Datos de la busqueda">
-    <div class="form-grid">
-      <div class="col col-3">
-        <label>Fecha Ingreso</label>
-        <p-calendar formControlName="fechaIngreso" [showIcon]="true" inputId="fecIng" dateFormat="dd/mm/yy"></p-calendar>
+      <div *ngIf="modo !== 'nuevo'" class="col col-3">
+        <label for="idHistoriaClinica">ID Historia Clínica</label>
+        <input id="idHistoriaClinica" pInputText type="text" formControlName="idHistoriaClinica">
       </div>
 
       <div class="col col-3">
-        <label>Apellidos</label>
-        <input pInputText type="text" formControlName="apellidos">
+        <label for="fechaIngreso">Fecha de ingreso</label>
+        <p-calendar formControlName="fechaIngreso" [showIcon]="true" inputId="fechaIngreso" dateFormat="dd/mm/yy"></p-calendar>
+        <small *ngIf="mostrarError('fechaIngreso', 'required')" class="p-error">La fecha de ingreso es obligatoria.</small>
       </div>
 
       <div class="col col-3">
-        <label>Nombres</label>
-        <input pInputText type="text" formControlName="nombres">
+        <label for="apellidos">Apellidos</label>
+        <input id="apellidos" pInputText type="text" formControlName="apellidos" maxlength="120">
+        <small *ngIf="mostrarError('apellidos', 'required') || mostrarError('apellidos', 'soloEspacios')" class="p-error">Los apellidos son obligatorios y no pueden contener solo espacios.</small>
+        <small *ngIf="mostrarError('apellidos', 'maxlength')" class="p-error">Los apellidos admiten hasta 120 caracteres.</small>
       </div>
 
       <div class="col col-3">
-        <label>Estado Civil</label>
-        <p-dropdown formControlName="estadoCivil" [options]="estadosCiviles" optionLabel="label" optionValue="value" placeholder=""></p-dropdown>
+        <label for="fechaNacimiento">Fecha de nacimiento</label>
+        <p-calendar formControlName="fechaNacimiento" [showIcon]="true" inputId="fechaNacimiento" dateFormat="dd/mm/yy" [maxDate]="fechaMaximaNacimiento"></p-calendar>
+        <small *ngIf="mostrarError('fechaNacimiento', 'required')" class="p-error">La fecha de nacimiento es obligatoria.</small>
+        <small *ngIf="mostrarError('fechaNacimiento', 'fechaFutura')" class="p-error">La fecha de nacimiento no puede ser futura.</small>
+        <small *ngIf="mostrarError('fechaNacimiento', 'fechaInvalida')" class="p-error">Ingresa una fecha de nacimiento válida.</small>
       </div>
 
       <div class="col col-3">
-        <label>Edad</label>
-        <input pInputText type="number" formControlName="edad">
+        <label for="nombres">Nombres</label>
+        <input id="nombres" pInputText type="text" formControlName="nombres" maxlength="120">
+        <small *ngIf="mostrarError('nombres', 'required') || mostrarError('nombres', 'soloEspacios')" class="p-error">Los nombres son obligatorios y no pueden contener solo espacios.</small>
+        <small *ngIf="mostrarError('nombres', 'maxlength')" class="p-error">Los nombres admiten hasta 120 caracteres.</small>
       </div>
 
       <div class="col col-3">
-        <label>DNI</label>
-        <input pInputText type="text" formControlName="dni">
+        <label for="estadoCivil">Estado civil</label>
+        <p-dropdown inputId="estadoCivil" formControlName="estadoCivil" [options]="estadosCiviles" optionLabel="label" optionValue="value" placeholder="Seleccionar"></p-dropdown>
+        <small *ngIf="mostrarError('estadoCivil', 'required')" class="p-error">El estado civil es obligatorio.</small>
+      </div>
+
+      <div class="col col-3">
+        <label for="edad">Edad</label>
+        <input id="edad" pInputText type="number" min="0" formControlName="edad" readonly>
+        <small>Calculada automáticamente desde la fecha de nacimiento.</small>
+      </div>
+
+      <div class="col col-3">
+        <label for="dni">DNI</label>
+        <input id="dni" pInputText type="text" inputmode="numeric" maxlength="8" formControlName="dni">
+        <small *ngIf="mostrarError('dni', 'required') || mostrarError('dni', 'soloEspacios')" class="p-error">El DNI es obligatorio y no puede contener solo espacios.</small>
+        <small *ngIf="mostrarError('dni', 'pattern')" class="p-error">El DNI debe contener exactamente ocho dígitos.</small>
       </div>
     </div>
   </p-fieldset>
 
-  <p-fieldset legend="Antecedentes patologicos">
+  <p-fieldset legend="Antecedentes patológicos">
     <div class="form-grid">
       <div class="col col-4">
-        <label>Enfermedades previas</label>
-        <input pInputText type="text" formControlName="enfPrevias">
+        <label for="enfPrevias">Enfermedades previas</label>
+        <input id="enfPrevias" pInputText type="text" formControlName="enfPrevias" maxlength="120">
+        <small *ngIf="mostrarError('enfPrevias', 'maxlength')" class="p-error">Este campo admite hasta 120 caracteres.</small>
       </div>
 
       <div class="col col-4">
-        <label>Cirugias previas</label>
-        <input pInputText type="text" formControlName="cirugiasPrevias">
+        <label for="cirugiasPrevias">Cirugías previas</label>
+        <input id="cirugiasPrevias" pInputText type="text" formControlName="cirugiasPrevias" maxlength="120">
+        <small *ngIf="mostrarError('cirugiasPrevias', 'maxlength')" class="p-error">Este campo admite hasta 120 caracteres.</small>
       </div>
 
       <div class="col col-4">
-        <label>Alergia Medicamentos</label>
-        <input pInputText type="text" formControlName="alergiasMedicamentos">
+        <label for="alergiasMedicamentos">Alergia a medicamentos</label>
+        <input id="alergiasMedicamentos" pInputText type="text" formControlName="alergiasMedicamentos" maxlength="120">
+        <small *ngIf="mostrarError('alergiasMedicamentos', 'maxlength')" class="p-error">Este campo admite hasta 120 caracteres.</small>
       </div>
     </div>
   </p-fieldset>
@@ -103,7 +94,8 @@
       label="Guardar"
       icon="pi pi-check"
       (click)="guardar()"
-      [disabled]="!pacienteCargado">
+      title="Guardar"
+      [disabled]="modo === 'nuevo' ? frm.invalid : !historiaCargada || frm.invalid">
     </button>
   </div>
 </div>

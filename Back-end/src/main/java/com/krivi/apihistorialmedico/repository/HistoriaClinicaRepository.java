@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinica, Integer> {
-  Optional<HistoriaClinica> findByPacienteIdPaciente(Integer idPaciente);
+  @Query(value = "select * from historiaclinica where idpaciente = :idPaciente order by idhistoriaclinica desc limit 1", nativeQuery = true)
+  Optional<HistoriaClinica> findByPacienteIdPaciente(@Param("idPaciente") Integer idPaciente);
+  List<HistoriaClinica> findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(Integer idPaciente);
   boolean existsByPacienteIdPaciente(Integer idPaciente);
   long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
 

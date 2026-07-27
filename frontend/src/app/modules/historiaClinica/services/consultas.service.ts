@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, map, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
-import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
+import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
 import { AuthService } from '@app/auth/services/auth.service';
 
 @Injectable({ providedIn: 'root' })
@@ -16,13 +16,13 @@ export class HistoriaClinicaService {
   getById(id: number): Observable<IHistoriaClinica | undefined> {
     return this.httpClient.get<IResponseModelGet<IHistoriaClinica>>(`${this.URLServicio}historiaClinica/findById/${id}`).pipe(map(r => (r.data ?? [])[0]));
   }
-  getByPaciente(idPaciente: number): Observable<IHistoriaClinica | undefined> {
-    return this.httpClient.get<IResponseModelGet<IHistoriaClinica>>(`${this.URLServicio}historiaClinica/findByPaciente/${idPaciente}`).pipe(map(r => (r.data ?? [])[0]));
+  getByPaciente(idPaciente: number): Observable<IHistoriaClinica[]> {
+    return this.httpClient.get<IResponseModelGet<IHistoriaClinica>>(`${this.URLServicio}historiaClinica/findByPaciente/${idPaciente}`).pipe(map(r => r.data ?? []));
   }
-  insert(header: IHistoriaClinicaRequest): Observable<IResponseModelSet> {
+  insert(header: IHistoriaClinicaCreateRequest): Observable<IResponseModelSet> {
     return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}historiaClinica/insert`, header);
   }
-  update(id: number, header: IHistoriaClinicaRequest): Observable<IResponseModelSet> {
+  update(id: number, header: IHistoriaClinicaUpdateRequest): Observable<IResponseModelSet> {
     return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}historiaClinica/update/${id}`, header);
   }
   buscarPacientesPorNombre(nombre: string): Observable<IPacienteBusqueda[]> {
