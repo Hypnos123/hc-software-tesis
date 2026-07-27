@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { ButtonComponent } from '@app/shared/components';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { FieldsetModule } from 'primeng/fieldset';
@@ -12,6 +12,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest } from '../../models/historiaClinica';
+import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
+import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
+
+interface ClinicalHistoryNavigationState {
+  source?: unknown;
+  transferId?: unknown;
+}
 
 function noSoloEspacios(control: AbstractControl): ValidationErrors | null {
   return typeof control.value === 'string' && control.value.trim().length === 0
@@ -45,6 +52,8 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
   historiaCargada = false;
   fechaMaximaNacimiento = new Date();
   readonly mensajeGuardadoManual = 'Revisa los datos ingresados. La historia clínica se guardará únicamente cuando pulses Guardar.';
+  mensajePrecargaChatbot: string | null = null;
+  mensajeErrorPrecargaChatbot: string | null = null;
 
   estadosCiviles = [
     { label: 'Soltero(a)', value: 'SOLTERO' },
@@ -58,7 +67,9 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private swal: MensajesSwalService,
-    private service: HistoriaClinicaService
+    private service: HistoriaClinicaService,
+    private transferService: ClinicalHistoryTransferService,
+    private location: Location
   ) {
     this.frm = this.fb.group({
       idHistoriaClinica: [{ value: '', disabled: true }],
@@ -81,6 +92,7 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
 
     if (this.modo === 'nuevo') {
       this.habilitarCapturaManual();
+      this.intentarPrecargaDesdeChatbot();
       return;
     }
 
@@ -109,6 +121,69 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     this.frm.get('fechaNacimiento')?.valueChanges.subscribe(fecha => {
       this.frm.get('edad')?.setValue(this.calcularEdad(fecha), { emitEvent: false });
     });
+  }
+
+  private intentarPrecargaDesdeChatbot(): void {
+    const navigationState = (this.router.getCurrentNavigation()?.extras.state ?? window.history.state) as ClinicalHistoryNavigationState | null;
+    if (navigationState?.source !== 'chatbot') return;
+
+    const transferId = typeof navigationState.transferId === 'string' ? navigationState.transferId.trim() : '';
+    if (!transferId) {
+      this.mostrarErrorRecuperacionChatbot();
+      this.limpiarEstadoNavegacionChatbot();
+      return;
+    }
+
+    const transfer = this.transferService.consumeTransfer(transferId);
+    this.limpiarEstadoNavegacionChatbot();
+    if (!transfer || transfer.source !== 'chatbot' || !this.esCandidatoValido(transfer.candidate)) {
+      this.mostrarErrorRecuperacionChatbot();
+      return;
+    }
+
+    this.aplicarPrecargaChatbot(transfer.candidate);
+  }
+
+  private aplicarPrecargaChatbot(candidate: ClinicalHistoryTransferCandidate): void {
+    this.frm.patchValue({
+      fechaIngreso: this.toDate(candidate.fechaIngreso),
+      fechaNacimiento: this.toDate(candidate.fechaNacimiento),
+      apellidos: candidate.apellidos,
+      nombres: candidate.nombres,
+      estadoCivil: this.normalizarEstadoCivil(candidate.estadoCivil),
+      dni: candidate.dni,
+      enfPrevias: candidate.enfermedadesPrevias ?? '',
+      cirugiasPrevias: candidate.cirugiasPrevias ?? '',
+      alergiasMedicamentos: candidate.alergiaMedicamentos ?? ''
+    });
+    this.frm.get('dni')?.disable({ emitEvent: false });
+    this.mensajePrecargaChatbot = 'Los datos del paciente fueron cargados desde el chatbot. Revísalos antes de guardar.';
+    this.mensajeErrorPrecargaChatbot = null;
+  }
+
+  private esCandidatoValido(candidate: ClinicalHistoryTransferCandidate | null | undefined): candidate is ClinicalHistoryTransferCandidate {
+    if (!candidate || !candidate.idPaciente || !/^\d{8}$/.test(candidate.dni)) return false;
+    if (!candidate.nombres?.trim() || !candidate.apellidos?.trim()) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.fechaIngreso) || !/^\d{4}-\d{2}-\d{2}$/.test(candidate.fechaNacimiento)) return false;
+    return this.normalizarEstadoCivil(candidate.estadoCivil) !== null;
+  }
+
+  private normalizarEstadoCivil(estadoCivil: string): string | null {
+    const normalizado = (estadoCivil ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+    const value = normalizado.replace(/\(A\)$/, '');
+    return this.estadosCiviles.some(estado => estado.value === value) ? value : null;
+  }
+
+  private mostrarErrorRecuperacionChatbot(): void {
+    this.mensajePrecargaChatbot = null;
+    this.mensajeErrorPrecargaChatbot = 'No fue posible recuperar los datos enviados por el chatbot. Puedes completar el formulario manualmente.';
+  }
+
+  private limpiarEstadoNavegacionChatbot(): void {
+    const estadoActual = { ...(window.history.state ?? {}) };
+    delete estadoActual.source;
+    delete estadoActual.transferId;
+    this.location.replaceState(this.router.url, '', estadoActual);
   }
 
   cargarHistoria(id: number): void {

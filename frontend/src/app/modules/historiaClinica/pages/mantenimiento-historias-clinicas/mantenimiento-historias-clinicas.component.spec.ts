@@ -1,10 +1,13 @@
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { Location } from '@angular/common';
 import { of } from 'rxjs';
 
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { MantenimientoHistoriasClinicasComponent } from './mantenimiento-historias-clinicas.component';
+import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
+import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 
 describe('MantenimientoHistoriasClinicasComponent', () => {
   let component: MantenimientoHistoriasClinicasComponent;
@@ -13,6 +16,11 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
   let idRuta: string | null;
   let historiaService: jasmine.SpyObj<HistoriaClinicaService>;
   let mensajes: jasmine.SpyObj<MensajesSwalService>;
+  let router: jasmine.SpyObj<Router>;
+  let location: jasmine.SpyObj<Location>;
+  let transferService: ClinicalHistoryTransferService;
+  let consumeTransferSpy: jasmine.Spy;
+  let navigationState: Record<string, unknown> | null;
 
   const historiaExistente = {
     idHistoriaClinica: 25,
@@ -28,9 +36,24 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     alergiaMedicamentos: 'Penicilina'
   };
 
+  const candidatoChatbot: ClinicalHistoryTransferCandidate = {
+    idPaciente: 8,
+    dni: '01234567',
+    nombres: 'Andrea Lucía',
+    apellidos: 'Quispe Ramírez',
+    fechaIngreso: '2020-03-10',
+    fechaNacimiento: '1992-02-17',
+    estadoCivil: 'SOLTERO',
+    enfermedadesPrevias: null,
+    cirugiasPrevias: 'Apendicectomía',
+    alergiaMedicamentos: null
+  };
+
   beforeEach(async () => {
     modoRuta = 'nuevo';
     idRuta = null;
+    navigationState = null;
+    window.history.replaceState({ navigationId: 17 }, '', window.location.href);
     historiaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', [
       'getById',
       'insert',
@@ -47,6 +70,9 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
       'mensajeAdvertencia', 'mensajePregunta', 'mensajeExito', 'mensajeError'
     ]);
     mensajes.mensajePregunta.and.returnValue(Promise.resolve({ isConfirmed: true } as any));
+    router = jasmine.createSpyObj<Router>('Router', ['navigate', 'getCurrentNavigation'], { url: '/historiaClinica/mantenimiento-historias-clinicas/nuevo' });
+    router.getCurrentNavigation.and.callFake(() => navigationState ? ({ extras: { state: navigationState } } as any) : null);
+    location = jasmine.createSpyObj<Location>('Location', ['replaceState']);
 
     await TestBed.configureTestingModule({
       imports: [MantenimientoHistoriasClinicasComponent],
@@ -62,7 +88,8 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
             }
           }
         },
-        { provide: Router, useValue: jasmine.createSpyObj<Router>('Router', ['navigate']) },
+        { provide: Router, useValue: router },
+        { provide: Location, useValue: location },
         {
           provide: MensajesSwalService,
           useValue: mensajes
@@ -70,6 +97,9 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
       ]
     }).compileComponents();
 
+    transferService = TestBed.inject(ClinicalHistoryTransferService);
+    transferService.clearAll();
+    consumeTransferSpy = spyOn(transferService, 'consumeTransfer').and.callThrough();
     crearComponente();
   });
 
@@ -77,6 +107,17 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     fixture = TestBed.createComponent(MantenimientoHistoriasClinicasComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  }
+
+  function recrearComponente(): void {
+    fixture.destroy();
+    crearComponente();
+  }
+
+  function prepararNavegacionChatbot(candidate: ClinicalHistoryTransferCandidate = candidatoChatbot): string {
+    const transferId = transferService.createTransfer(candidate);
+    navigationState = { source: 'chatbot', transferId };
+    return transferId;
   }
 
   it('debe mostrar una captura manual sin buscadores ni sugerencias en modo nuevo', () => {
@@ -90,6 +131,9 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(historiaService.buscarPacientesPorNombre).not.toHaveBeenCalled();
     expect(historiaService.buscarPacientesPorDni).not.toHaveBeenCalled();
     expect(historiaService.getAntecedentesByPaciente).not.toHaveBeenCalled();
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+    expect(component.mensajePrecargaChatbot).toBeNull();
+    expect(component.mensajeErrorPrecargaChatbot).toBeNull();
   });
 
   it('debe habilitar los campos manuales y mantener deshabilitado el ID', () => {
@@ -103,6 +147,153 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(component.frm.get('edad')?.disabled).toBeTrue();
     expect(fixture.nativeElement.querySelector('[formControlName="idHistoriaClinica"]')).toBeNull();
   });
+
+  it('debe consumir una transferencia válida una sola vez y autocompletar los campos', () => {
+    const transferId = prepararNavegacionChatbot();
+    recrearComponente();
+
+    expect(consumeTransferSpy).toHaveBeenCalledOnceWith(transferId);
+    expect(component.frm.getRawValue()).toEqual(jasmine.objectContaining({
+      idHistoriaClinica: '',
+      fechaIngreso: new Date(2020, 2, 10),
+      fechaNacimiento: new Date(1992, 1, 17),
+      apellidos: 'Quispe Ramírez',
+      nombres: 'Andrea Lucía',
+      estadoCivil: 'SOLTERO',
+      dni: '01234567',
+      enfPrevias: '',
+      cirugiasPrevias: 'Apendicectomía',
+      alergiasMedicamentos: ''
+    }));
+    expect(component.frm.contains('idPaciente')).toBeFalse();
+    expect(component.frm.get('edad')?.value).toBe(component.calcularEdad(new Date(1992, 1, 17)));
+    expect(component.frm.get('edad')?.disabled).toBeTrue();
+    expect(component.frm.get('dni')?.disabled).toBeTrue();
+    expect(transferService.consumeTransfer(transferId)).toBeNull();
+    expect(historiaService.insert).not.toHaveBeenCalled();
+    expect(historiaService.update).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar los mensajes de precarga y de guardado manual', () => {
+    prepararNavegacionChatbot();
+    recrearComponente();
+
+    expect(fixture.nativeElement.textContent).toContain('Los datos del paciente fueron cargados desde el chatbot. Revísalos antes de guardar.');
+    expect(fixture.nativeElement.textContent).toContain('La historia clínica se guardará únicamente cuando pulses Guardar.');
+    expect(component.mensajeErrorPrecargaChatbot).toBeNull();
+  });
+
+  it('debe limpiar source y transferId del estado sin modificar la URL', () => {
+    prepararNavegacionChatbot();
+    recrearComponente();
+
+    expect(location.replaceState).toHaveBeenCalledOnceWith(
+      '/historiaClinica/mantenimiento-historias-clinicas/nuevo',
+      '',
+      { navigationId: 17 }
+    );
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('debe mantener el DNI editable en el acceso manual', () => {
+    expect(component.frm.get('dni')?.enabled).toBeTrue();
+    expect((fixture.nativeElement.querySelector('[formControlName="dni"]') as HTMLInputElement).disabled).toBeFalse();
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+  });
+
+  it('debe ignorar transferencias en modo editar y visualizar', () => {
+    const transferId = prepararNavegacionChatbot();
+    modoRuta = 'editar';
+    idRuta = '25';
+    recrearComponente();
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+    expect(transferService.peekTransfer(transferId)).not.toBeNull();
+
+    modoRuta = 'ver';
+    recrearComponente();
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+    expect(transferService.peekTransfer(transferId)).not.toBeNull();
+  });
+
+  it('debe ignorar un transferId cuando source no es chatbot', () => {
+    const transferId = transferService.createTransfer(candidatoChatbot);
+    navigationState = { source: 'otro-origen', transferId };
+    recrearComponente();
+
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+    expect(component.frm.get('dni')?.value).toBe('');
+    expect(component.mensajeErrorPrecargaChatbot).toBeNull();
+    expect(location.replaceState).not.toHaveBeenCalled();
+  });
+
+  it('debe permitir captura manual si falta el transferId', () => {
+    navigationState = { source: 'chatbot' };
+    recrearComponente();
+
+    expect(consumeTransferSpy).not.toHaveBeenCalled();
+    expect(component.mensajeErrorPrecargaChatbot).toBe('No fue posible recuperar los datos enviados por el chatbot. Puedes completar el formulario manualmente.');
+    expect(component.frm.get('dni')?.enabled).toBeTrue();
+    expect(component.frm.get('dni')?.value).toBe('');
+    expect(location.replaceState).toHaveBeenCalled();
+  });
+
+  it('debe manejar una transferencia inexistente sin completar datos parciales', () => {
+    navigationState = { source: 'chatbot', transferId: 'transfer-inexistente' };
+    recrearComponente();
+
+    expect(consumeTransferSpy).toHaveBeenCalledOnceWith('transfer-inexistente');
+    expect(component.frm.getRawValue()).toEqual(jasmine.objectContaining({ nombres: '', apellidos: '', dni: '', fechaNacimiento: null }));
+    expect(component.mensajeErrorPrecargaChatbot).toContain('No fue posible recuperar');
+    expect(component.frm.get('dni')?.enabled).toBeTrue();
+    expect(historiaService.insert).not.toHaveBeenCalled();
+  });
+
+  it('debe manejar una transferencia vencida usando history.state como respaldo', () => {
+    const now = Date.now();
+    const transferId = transferService.createTransfer(candidatoChatbot);
+    navigationState = null;
+    window.history.replaceState({ navigationId: 18, source: 'chatbot', transferId }, '', window.location.href);
+    spyOn(Date, 'now').and.returnValue(now + ClinicalHistoryTransferService.TTL_MS + 1);
+    recrearComponente();
+
+    expect(consumeTransferSpy).toHaveBeenCalledOnceWith(transferId);
+    expect(component.mensajeErrorPrecargaChatbot).toContain('No fue posible recuperar');
+    expect(component.frm.get('dni')?.enabled).toBeTrue();
+    expect(transferService.peekTransfer(transferId)).toBeNull();
+  });
+
+  it('debe impedir que una transferencia consumida vuelva a aplicarse', () => {
+    const transferId = prepararNavegacionChatbot();
+    recrearComponente();
+    expect(component.frm.get('dni')?.value).toBe('01234567');
+
+    recrearComponente();
+
+    expect(consumeTransferSpy).toHaveBeenCalledTimes(2);
+    expect(consumeTransferSpy.calls.mostRecent().args[0]).toBe(transferId);
+    expect(component.frm.get('dni')?.value).toBe('');
+    expect(component.mensajeErrorPrecargaChatbot).toContain('No fue posible recuperar');
+  });
+
+  it('debe guardar manualmente el prefill sin IDs ni edad', fakeAsync(() => {
+    prepararNavegacionChatbot();
+    recrearComponente();
+    expect(historiaService.insert).not.toHaveBeenCalled();
+
+    component.guardar();
+    tick();
+
+    expect(historiaService.insert).toHaveBeenCalledTimes(1);
+    const request = historiaService.insert.calls.mostRecent().args[0] as any;
+    expect(request).toEqual({
+      fechaIngreso: '2020-03-10', fechaNacimiento: '1992-02-17',
+      apellidos: 'Quispe Ramírez', nombres: 'Andrea Lucía', estadoCivil: 'SOLTERO', dni: '01234567',
+      enfermedadesPrevias: undefined, cirugiasPrevias: 'Apendicectomía', alergiaMedicamentos: undefined
+    });
+    expect(request.idPaciente).toBeUndefined();
+    expect(request.idHistoriaClinica).toBeUndefined();
+    expect(request.edad).toBeUndefined();
+  }));
 
   it('debe validar DNI, nombres y apellidos requeridos sin aceptar espacios', () => {
     component.frm.patchValue({ dni: '12A', nombres: '   ', apellidos: '' });
