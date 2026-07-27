@@ -1,16 +1,54 @@
 import { Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { forkJoin, map, Observable, of, Subscription, switchMap, throwError } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
 import { IAsistenteResponse } from '../../models/asistente';
+import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
+import { IPacienteBusqueda } from '@app/modules/historiaClinica/models/historiaClinica';
+import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
+import { IPaciente } from '@app/modules/paciente/models/paciente';
+import { Router } from '@angular/router';
+import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
+import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 
 interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
-type MenuAction = 'menu' | 'prompt' | 'request';
+type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
+export interface PatientClinicalHistorySummary {
+  idPaciente: number;
+  nombreCompleto: string;
+  dni: string;
+  fechaNacimiento: string | Date;
+  estadoCivil: string;
+  existingClinicalHistoryCount: number;
+}
+export interface ClinicalHistoryCandidateData {
+  idPaciente: number;
+  dni: string;
+  nombres: string;
+  apellidos: string;
+  fechaIngreso: string | Date;
+  fechaNacimiento: string | Date;
+  estadoCivil: string;
+  enfermedadesPrevias: string | null;
+  cirugiasPrevias: string | null;
+  alergiaMedicamentos: string | null;
+}
+export type ClinicalHistoryChatFlow =
+  | { step: 'idle' }
+  | { step: 'awaitingDni' }
+  | { step: 'searchingPatient'; dni: string }
+  | { step: 'awaitingConfirmation'; dni: string; patient: PatientClinicalHistorySummary; prefill: ClinicalHistoryCandidateData }
+  | { step: 'navigating'; dni: string; patient: PatientClinicalHistorySummary; prefill: ClinicalHistoryCandidateData; transferId: string };
+
+type PatientResolution =
+  | { kind: 'none' }
+  | { kind: 'multiple' }
+  | { kind: 'unique'; patient: IPacienteBusqueda; antecedentes: IPaciente | undefined; existingClinicalHistoryCount: number };
 
 @Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
 export class InterfazChatComponent implements OnDestroy {
@@ -41,6 +79,7 @@ export class InterfazChatComponent implements OnDestroy {
       { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' }
     ] },
     historias: { question: 'Puedes realizar estas consultas sobre historias clínicas:', options: [
+      { label: 'Crear historia clínica', description: 'Completa una nueva historia usando los datos de un paciente existente.', action: 'clinical-history-flow' },
       { label: '¿Cuántas historias clínicas hay registradas?', action: 'request' },
       { label: '¿El paciente con DNI 72845292 tiene historia clínica?', action: 'request' },
       { label: 'Consulta si el paciente ID 4 tiene historia clínica', action: 'request' },
@@ -74,25 +113,42 @@ export class InterfazChatComponent implements OnDestroy {
   };
 
   private activeRequest?: Subscription;
+  private clinicalHistoryRequest?: Subscription;
   private logoutSubscription: Subscription;
   private messageSequence = 0;
   private scrollPosition = 0;
   isOpen = false; userMessage = ''; isLoading = false;
   messages: ChatMessage[] = this.getInitialMessages();
+  clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
 
-  constructor(private asistenteService: AsistenteService, private authService: AuthService) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
-  getVisibleMenuOptions(): MenuOption[] { return this.menus[this.currentMenu].options.filter(option => option.action === 'menu' || !this.selectedMenuOptions.has(this.menuOptionKey(option))); }
-  get allOptionsReviewed(): boolean {
-    const options = this.menus[this.currentMenu].options.filter(option => option.action !== 'menu');
-    return options.length > 0 && options.every(option => this.selectedMenuOptions.has(this.menuOptionKey(option)));
-  }
-  ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
+  constructor(
+    private asistenteService: AsistenteService,
+    private authService: AuthService,
+    private historiaClinicaService: HistoriaClinicaService,
+    private antecedentesService: AntecedentesService,
+    private router: Router,
+    private clinicalHistoryTransferService: ClinicalHistoryTransferService
+  ) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
+  ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.saveScrollPosition(); this.isOpen = false; }
   closeChat(): void { this.resetChat(true); }
-  sendMessage(): void { const pregunta = this.userMessage.trim(); if (!pregunta || this.isLoading) return; this.addUserMessage(pregunta); this.userMessage = ''; this.askBackend(pregunta, true); }
+  sendMessage(): void {
+    const pregunta = this.userMessage.trim();
+    if (this.isLoading) return;
+    if (this.clinicalHistoryFlow.step === 'awaitingDni') {
+      if (pregunta) this.addUserMessage(pregunta);
+      this.userMessage = '';
+      this.captureAndSearchDni(pregunta);
+      return;
+    }
+    if (this.clinicalHistoryFlow.step !== 'idle' || !pregunta) return;
+    this.addUserMessage(pregunta);
+    this.userMessage = '';
+    this.askBackend(pregunta, true);
+  }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
     if (this.isLoading) return;
@@ -102,7 +158,7 @@ export class InterfazChatComponent implements OnDestroy {
   }
   quickAsk(text: string): void {
     if (this.isLoading) return;
-    if (text === 'Menú principal') { const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
+    if (text === 'Menú principal') { this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
       : text === 'Verificar historia clínica'
@@ -112,6 +168,35 @@ export class InterfazChatComponent implements OnDestroy {
           : { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
     this.executeMenuOption(quickOption, selection.id);
+  }
+  cancelClinicalHistoryFlow(): void {
+    if (this.clinicalHistoryFlow.step === 'idle') return;
+    this.stopClinicalHistoryRequest();
+    this.resetClinicalHistoryFlow();
+    this.addUserMessage('Cancelar');
+    this.addBotMessage('La creación de la historia clínica fue cancelada.');
+    this.scrollToBottom();
+  }
+  continueClinicalHistoryFlow(): void {
+    if (this.clinicalHistoryFlow.step !== 'awaitingConfirmation') return;
+    const { dni, patient, prefill } = this.clinicalHistoryFlow;
+    const transferId = this.clinicalHistoryTransferService.createTransfer(this.toTransferCandidate(prefill));
+    this.clinicalHistoryFlow = { step: 'navigating', dni, patient, prefill, transferId };
+    this.isLoading = true;
+    this.addUserMessage('Continuar');
+    void this.router.navigate(
+      ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
+      { state: { source: 'chatbot', transferId } }
+    ).then(navigated => {
+      if (!navigated) {
+        this.handleClinicalHistoryNavigationError(dni, patient, prefill, transferId);
+        return;
+      }
+      if (this.clinicalHistoryFlow.step === 'navigating' && this.clinicalHistoryFlow.transferId === transferId) {
+        this.resetClinicalHistoryFlow();
+      }
+    }).catch(() => this.handleClinicalHistoryNavigationError(dni, patient, prefill, transferId))
+      .finally(() => { this.isLoading = false; });
   }
   scrollToBottom(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
   private scrollToNewBlock(blockId: string): void {
@@ -135,7 +220,7 @@ export class InterfazChatComponent implements OnDestroy {
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
-  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
   private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
@@ -144,8 +229,151 @@ export class InterfazChatComponent implements OnDestroy {
   private executeMenuOption(option: MenuOption, selectionId: string): void {
     if (option.action === 'request') { this.askBackend(option.label, false); this.scrollToNewBlock(selectionId); return; }
     if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selectionId); return; }
+    if (option.action === 'clinical-history-flow') {
+      this.clinicalHistoryFlow = { step: 'awaitingDni' };
+      this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente existente.');
+      this.scrollToNewBlock(selectionId);
+      return;
+    }
     this.addMenuBlock(option.target || 'principal');
     this.scrollToNewBlock(selectionId);
   }
+  private resetClinicalHistoryFlow(): void { this.clinicalHistoryFlow = { step: 'idle' }; }
+  private captureAndSearchDni(dni: string): void {
+    if (!/^\d{8}$/.test(dni)) {
+      this.addBotMessage('El DNI debe contener exactamente ocho dígitos. Inténtalo nuevamente o cancela la operación.');
+      this.scrollToBottom();
+      return;
+    }
+
+    this.clinicalHistoryFlow = { step: 'searchingPatient', dni };
+    this.isLoading = true;
+    this.addBotMessage('Consultando paciente...');
+    this.clinicalHistoryRequest = this.resolvePatient(dni).pipe(finalize(() => {
+      this.isLoading = false;
+      this.clinicalHistoryRequest = undefined;
+    })).subscribe({
+      next: resolution => this.handlePatientResolution(dni, resolution),
+      error: () => this.handleClinicalHistoryError()
+    });
+  }
+  private resolvePatient(dni: string): Observable<PatientResolution> {
+    return this.historiaClinicaService.buscarPacientesPorDni(dni).pipe(
+      map(pacientes => pacientes.filter(paciente => (paciente.numDocumento ?? paciente.dni)?.trim() === dni)),
+      switchMap(coincidencias => {
+        if (coincidencias.length === 0) return of({ kind: 'none' } as PatientResolution);
+        if (coincidencias.length > 1) return of({ kind: 'multiple' } as PatientResolution);
+        const patient = coincidencias[0];
+        if (!patient.idPaciente) return throwError(() => new Error('El paciente no tiene identificador.'));
+        return forkJoin({
+          antecedentes: this.antecedentesService.getByPacienteId(patient.idPaciente),
+          historias: this.historiaClinicaService.getByPaciente(patient.idPaciente)
+        }).pipe(map(({ antecedentes, historias }) => ({
+          kind: 'unique' as const,
+          patient,
+          antecedentes,
+          existingClinicalHistoryCount: historias.length
+        })));
+      })
+    );
+  }
+  private handlePatientResolution(dni: string, resolution: PatientResolution): void {
+    this.removeClinicalHistoryLoadingMessage();
+    if (resolution.kind === 'none') {
+      this.clinicalHistoryFlow = { step: 'awaitingDni' };
+      this.addBotMessage('No existe un paciente registrado con el DNI indicado.');
+      this.scrollToBottom();
+      return;
+    }
+    if (resolution.kind === 'multiple') {
+      this.clinicalHistoryFlow = { step: 'awaitingDni' };
+      this.addBotMessage('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos. Ingresa otro DNI o cancela la operación.');
+      this.scrollToBottom();
+      return;
+    }
+    const { patient, antecedentes, existingClinicalHistoryCount } = resolution;
+    const prefill = this.createCandidateData(dni, patient, antecedentes);
+    const summary: PatientClinicalHistorySummary = {
+      idPaciente: prefill.idPaciente,
+      nombreCompleto: [prefill.nombres, prefill.apellidos].filter(Boolean).join(' ').trim(),
+      dni,
+      fechaNacimiento: prefill.fechaNacimiento,
+      estadoCivil: prefill.estadoCivil,
+      existingClinicalHistoryCount
+    };
+    this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient: summary, prefill };
+    this.addBotMessage(this.formatPatientSummary(summary));
+    this.scrollToBottom();
+  }
+  private createCandidateData(dni: string, patient: IPacienteBusqueda, antecedentes?: IPaciente): ClinicalHistoryCandidateData {
+    return {
+      idPaciente: patient.idPaciente!, dni,
+      nombres: patient.nombres?.trim() ?? '', apellidos: patient.apellidos?.trim() ?? '',
+      fechaIngreso: patient.fechaIngreso ?? '', fechaNacimiento: patient.fechaNacimiento ?? '',
+      estadoCivil: patient.estadoCivil?.trim() ?? '',
+      enfermedadesPrevias: antecedentes?.enfermedadesPrevias?.trim() || null,
+      cirugiasPrevias: antecedentes?.cirugiasPrevias?.trim() || null,
+      alergiaMedicamentos: antecedentes?.alergiaMedicamentos?.trim() || null
+    };
+  }
+  private formatPatientSummary(patient: PatientClinicalHistorySummary): string {
+    return `Paciente encontrado:\n\nNombre: ${patient.nombreCompleto}\nDNI: ${patient.dni}\nFecha de nacimiento: ${this.formatDate(patient.fechaNacimiento)}\nEstado civil: ${this.formatCivilStatus(patient.estadoCivil)}\nHistorias clínicas existentes: ${patient.existingClinicalHistoryCount}\n\n¿Deseas continuar a la creación de una nueva historia clínica?`;
+  }
+  private formatDate(value: string | Date): string {
+    if (!value) return 'No registrada';
+    if (typeof value === 'string') {
+      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return 'No registrada';
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  }
+  private formatCivilStatus(value: string): string {
+    const statuses: Record<string, string> = { SOLTERO: 'Soltero(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', VIUDO: 'Viudo(a)' };
+    return statuses[value.trim().toUpperCase()] ?? (value || 'No registrado');
+  }
+  private toTransferCandidate(prefill: ClinicalHistoryCandidateData): ClinicalHistoryTransferCandidate {
+    return {
+      idPaciente: prefill.idPaciente,
+      dni: prefill.dni.trim(),
+      nombres: prefill.nombres.trim(),
+      apellidos: prefill.apellidos.trim(),
+      fechaIngreso: this.toDateOnly(prefill.fechaIngreso),
+      fechaNacimiento: this.toDateOnly(prefill.fechaNacimiento),
+      estadoCivil: prefill.estadoCivil.trim(),
+      enfermedadesPrevias: prefill.enfermedadesPrevias?.trim() || null,
+      cirugiasPrevias: prefill.cirugiasPrevias?.trim() || null,
+      alergiaMedicamentos: prefill.alergiaMedicamentos?.trim() || null
+    };
+  }
+  private toDateOnly(value: string | Date): string {
+    if (typeof value === 'string') {
+      const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      return match?.[1] ?? '';
+    }
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return '';
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+  private handleClinicalHistoryNavigationError(
+    dni: string,
+    patient: PatientClinicalHistorySummary,
+    prefill: ClinicalHistoryCandidateData,
+    transferId: string
+  ): void {
+    this.clinicalHistoryTransferService.revokeTransfer(transferId);
+    if (this.clinicalHistoryFlow.step !== 'navigating' || this.clinicalHistoryFlow.transferId !== transferId) return;
+    this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient, prefill };
+    this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
+    this.scrollToBottom();
+  }
+  private handleClinicalHistoryError(): void {
+    this.removeClinicalHistoryLoadingMessage();
+    this.clinicalHistoryFlow = { step: 'awaitingDni' };
+    this.addBotMessage('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
+    this.scrollToBottom();
+  }
+  private removeClinicalHistoryLoadingMessage(): void { if (this.messages.at(-1)?.text === 'Consultando paciente...') this.messages.pop(); }
+  private stopClinicalHistoryRequest(): void { this.clinicalHistoryRequest?.unsubscribe(); this.clinicalHistoryRequest = undefined; this.isLoading = false; this.removeClinicalHistoryLoadingMessage(); }
   private formatResponse(response: IAsistenteResponse): string { return response.respuesta || 'No pude identificar la consulta.'; }
 }
