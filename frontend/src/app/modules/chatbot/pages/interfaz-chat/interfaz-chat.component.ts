@@ -13,6 +13,8 @@ import { IPaciente } from '@app/modules/paciente/models/paciente';
 import { Router } from '@angular/router';
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
+import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
+import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 
 interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow';
@@ -115,6 +117,8 @@ export class InterfazChatComponent implements OnDestroy {
   private activeRequest?: Subscription;
   private clinicalHistoryRequest?: Subscription;
   private logoutSubscription: Subscription;
+  private feedbackSubscription: Subscription;
+  private readonly processedFeedbackIds = new Set<string>();
   private messageSequence = 0;
   private scrollPosition = 0;
   isOpen = false; userMessage = ''; isLoading = false;
@@ -128,9 +132,13 @@ export class InterfazChatComponent implements OnDestroy {
     private historiaClinicaService: HistoriaClinicaService,
     private antecedentesService: AntecedentesService,
     private router: Router,
-    private clinicalHistoryTransferService: ClinicalHistoryTransferService
-  ) { this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true)); }
-  ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); }
+    private clinicalHistoryTransferService: ClinicalHistoryTransferService,
+    private feedbackService: ClinicalHistoryFlowFeedbackService
+  ) {
+    this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true));
+    this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
+  }
+  ngOnDestroy(): void { this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.saveScrollPosition(); this.isOpen = false; }
@@ -366,6 +374,19 @@ export class InterfazChatComponent implements OnDestroy {
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient, prefill };
     this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
     this.scrollToBottom();
+  }
+  private handleClinicalHistoryFeedback(feedback: ClinicalHistoryFlowFeedback): void {
+    if (this.processedFeedbackIds.has(feedback.id)) return;
+    this.processedFeedbackIds.add(feedback.id);
+    this.stopClinicalHistoryRequest();
+    this.resetClinicalHistoryFlow();
+    this.addBotMessage(feedback.type === 'prefill-success'
+      ? 'Los datos del paciente se autocompletaron correctamente en Nueva Historia Clínica. Revísalos y pulsa Guardar para registrar la historia.'
+      : 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.');
+    this.addBotMessage('¿Necesitas ayuda con algo más?');
+    this.addMenuBlock('principal');
+    const menuBlock = this.messages.at(-1);
+    if (menuBlock) this.scrollToNewBlock(menuBlock.id);
   }
   private handleClinicalHistoryError(): void {
     this.removeClinicalHistoryLoadingMessage();

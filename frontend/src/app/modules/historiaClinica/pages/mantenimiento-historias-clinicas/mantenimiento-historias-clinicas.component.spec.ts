@@ -8,6 +8,7 @@ import { HistoriaClinicaService } from '../../services/consultas.service';
 import { MantenimientoHistoriasClinicasComponent } from './mantenimiento-historias-clinicas.component';
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
+import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
 
 describe('MantenimientoHistoriasClinicasComponent', () => {
   let component: MantenimientoHistoriasClinicasComponent;
@@ -21,6 +22,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
   let transferService: ClinicalHistoryTransferService;
   let consumeTransferSpy: jasmine.Spy;
   let navigationState: Record<string, unknown> | null;
+  let feedbackService: jasmine.SpyObj<ClinicalHistoryFlowFeedbackService>;
 
   const historiaExistente = {
     idHistoriaClinica: 25,
@@ -73,6 +75,8 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate', 'getCurrentNavigation'], { url: '/historiaClinica/mantenimiento-historias-clinicas/nuevo' });
     router.getCurrentNavigation.and.callFake(() => navigationState ? ({ extras: { state: navigationState } } as any) : null);
     location = jasmine.createSpyObj<Location>('Location', ['replaceState']);
+    feedbackService = jasmine.createSpyObj<ClinicalHistoryFlowFeedbackService>('ClinicalHistoryFlowFeedbackService', ['emit']);
+    feedbackService.emit.and.callFake(type => ({ id: `feedback-${type}`, type, createdAt: Date.now() }));
 
     await TestBed.configureTestingModule({
       imports: [MantenimientoHistoriasClinicasComponent],
@@ -90,6 +94,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
         },
         { provide: Router, useValue: router },
         { provide: Location, useValue: location },
+        { provide: ClinicalHistoryFlowFeedbackService, useValue: feedbackService },
         {
           provide: MensajesSwalService,
           useValue: mensajes
@@ -134,6 +139,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(consumeTransferSpy).not.toHaveBeenCalled();
     expect(component.mensajePrecargaChatbot).toBeNull();
     expect(component.mensajeErrorPrecargaChatbot).toBeNull();
+    expect(feedbackService.emit).not.toHaveBeenCalled();
   });
 
   it('debe habilitar los campos manuales y mantener deshabilitado el ID', () => {
@@ -172,6 +178,12 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(transferService.consumeTransfer(transferId)).toBeNull();
     expect(historiaService.insert).not.toHaveBeenCalled();
     expect(historiaService.update).not.toHaveBeenCalled();
+    expect(feedbackService.emit).toHaveBeenCalledOnceWith('prefill-success');
+    const feedback = feedbackService.emit.calls.mostRecent().returnValue;
+    expect(Object.keys(feedback).sort()).toEqual(['createdAt', 'id', 'type']);
+    expect(JSON.stringify(feedback)).not.toContain(candidatoChatbot.dni);
+    expect(JSON.stringify(feedback)).not.toContain(candidatoChatbot.nombres);
+    expect(JSON.stringify(feedback)).not.toContain(String(candidatoChatbot.idPaciente));
   });
 
   it('debe mostrar los mensajes de precarga y de guardado manual', () => {
@@ -208,11 +220,13 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     recrearComponente();
     expect(consumeTransferSpy).not.toHaveBeenCalled();
     expect(transferService.peekTransfer(transferId)).not.toBeNull();
+    expect(feedbackService.emit).not.toHaveBeenCalled();
 
     modoRuta = 'ver';
     recrearComponente();
     expect(consumeTransferSpy).not.toHaveBeenCalled();
     expect(transferService.peekTransfer(transferId)).not.toBeNull();
+    expect(feedbackService.emit).not.toHaveBeenCalled();
   });
 
   it('debe ignorar un transferId cuando source no es chatbot', () => {
@@ -235,6 +249,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(component.frm.get('dni')?.enabled).toBeTrue();
     expect(component.frm.get('dni')?.value).toBe('');
     expect(location.replaceState).toHaveBeenCalled();
+    expect(feedbackService.emit).toHaveBeenCalledOnceWith('prefill-failure');
   });
 
   it('debe manejar una transferencia inexistente sin completar datos parciales', () => {
@@ -246,6 +261,8 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(component.mensajeErrorPrecargaChatbot).toContain('No fue posible recuperar');
     expect(component.frm.get('dni')?.enabled).toBeTrue();
     expect(historiaService.insert).not.toHaveBeenCalled();
+    expect(historiaService.update).not.toHaveBeenCalled();
+    expect(feedbackService.emit).toHaveBeenCalledOnceWith('prefill-failure');
   });
 
   it('debe manejar una transferencia vencida usando history.state como respaldo', () => {

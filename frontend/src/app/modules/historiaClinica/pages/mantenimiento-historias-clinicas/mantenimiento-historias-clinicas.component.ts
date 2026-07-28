@@ -14,6 +14,7 @@ import { HistoriaClinicaService } from '../../services/consultas.service';
 import { IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest } from '../../models/historiaClinica';
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
+import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
 
 interface ClinicalHistoryNavigationState {
   source?: unknown;
@@ -69,7 +70,8 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     private swal: MensajesSwalService,
     private service: HistoriaClinicaService,
     private transferService: ClinicalHistoryTransferService,
-    private location: Location
+    private location: Location,
+    private feedbackService: ClinicalHistoryFlowFeedbackService
   ) {
     this.frm = this.fb.group({
       idHistoriaClinica: [{ value: '', disabled: true }],
@@ -159,6 +161,7 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     this.frm.get('dni')?.disable({ emitEvent: false });
     this.mensajePrecargaChatbot = 'Los datos del paciente fueron cargados desde el chatbot. Revísalos antes de guardar.';
     this.mensajeErrorPrecargaChatbot = null;
+    this.feedbackService.emit('prefill-success');
   }
 
   private esCandidatoValido(candidate: ClinicalHistoryTransferCandidate | null | undefined): candidate is ClinicalHistoryTransferCandidate {
@@ -177,6 +180,7 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
   private mostrarErrorRecuperacionChatbot(): void {
     this.mensajePrecargaChatbot = null;
     this.mensajeErrorPrecargaChatbot = 'No fue posible recuperar los datos enviados por el chatbot. Puedes completar el formulario manualmente.';
+    this.feedbackService.emit('prefill-failure');
   }
 
   private limpiarEstadoNavegacionChatbot(): void {

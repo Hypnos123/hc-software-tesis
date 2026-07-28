@@ -6,6 +6,8 @@ import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/co
 import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
 import { Router } from '@angular/router';
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
+import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
+import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 
@@ -17,6 +19,7 @@ describe('InterfazChatComponent', () => {
   let antecedentesService: jasmine.SpyObj<AntecedentesService>;
   let router: jasmine.SpyObj<Router>;
   let transferService: ClinicalHistoryTransferService;
+  let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
   const paciente = {
     idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
@@ -49,6 +52,7 @@ describe('InterfazChatComponent', () => {
     fixture = TestBed.createComponent(InterfazChatComponent);
     component = fixture.componentInstance;
     transferService = TestBed.inject(ClinicalHistoryTransferService);
+    feedbackService = TestBed.inject(ClinicalHistoryFlowFeedbackService);
     transferService.clearAll();
     fixture.detectChanges();
   });
@@ -80,6 +84,55 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[0].text).toContain('Hola, soy el Asistente IA');
     expect(component.messages[1]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'menu', menuId: 'principal' }));
     expect(component.messages[1].options?.length).toBe(4);
+  });
+
+  it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
+    iniciarFlujoHistoriaClinica();
+    enviarDni('01234567');
+    const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-success-1', type: 'prefill-success', createdAt: Date.now() };
+
+    feedbackService.publish(feedback);
+    feedbackService.publish(feedback);
+    fixture.detectChanges();
+
+    const successMessage = 'Los datos del paciente se autocompletaron correctamente en Nueva Historia Clínica. Revísalos y pulsa Guardar para registrar la historia.';
+    expect(component.messages.filter(message => message.text === successMessage).length).toBe(1);
+    expect(component.messages.filter(message => message.text === '¿Necesitas ayuda con algo más?').length).toBe(1);
+    expect(component.messages.some(message => message.text === 'Historia clínica guardada correctamente')).toBeFalse();
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    const principal = component.messages.at(-1)!;
+    expect(principal.menuId).toBe('principal');
+    expect(principal.options?.map(option => option.label)).toEqual([
+      'Manejo del sistema', 'Consultar información', 'Verificar datos', 'Soporte y ayuda'
+    ]);
+    expect(fixture.nativeElement.querySelector('.continue-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.cancel-action')).toBeNull();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(historiaClinicaService.insert).not.toHaveBeenCalled();
+    expect(historiaClinicaService.update).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar ayuda manual y el menú principal ante un fallo de precarga', () => {
+    const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-failure-1', type: 'prefill-failure', createdAt: Date.now() };
+
+    feedbackService.publish(feedback);
+    fixture.detectChanges();
+
+    expect(component.messages.some(message => message.text === 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.')).toBeTrue();
+    expect(component.messages.some(message => message.text === '¿Necesitas ayuda con algo más?')).toBeTrue();
+    expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
+    expect(component.messages.at(-1)?.options?.length).toBe(4);
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe cancelar la suscripción de feedback en ngOnDestroy', () => {
+    const messageCount = component.messages.length;
+    fixture.destroy();
+
+    feedbackService.publish({ id: 'feedback-after-destroy', type: 'prefill-success', createdAt: Date.now() });
+
+    expect(component.messages.length).toBe(messageCount);
   });
 
   it('debe abrir un submenú y conservar la selección en el historial', () => {
