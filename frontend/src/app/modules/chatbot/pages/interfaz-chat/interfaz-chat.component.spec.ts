@@ -89,6 +89,8 @@ describe('InterfazChatComponent', () => {
   it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-success-1', type: 'prefill-success', createdAt: Date.now() };
 
     feedbackService.publish(feedback);
@@ -110,9 +112,13 @@ describe('InterfazChatComponent', () => {
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(historiaClinicaService.insert).not.toHaveBeenCalled();
     expect(historiaClinicaService.update).not.toHaveBeenCalled();
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
+    expect(scrollNewBlockSpy).not.toHaveBeenCalled();
   });
 
   it('debe mostrar ayuda manual y el menú principal ante un fallo de precarga', () => {
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-failure-1', type: 'prefill-failure', createdAt: Date.now() };
 
     feedbackService.publish(feedback);
@@ -124,6 +130,8 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.options?.length).toBe(4);
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
+    expect(scrollNewBlockSpy).not.toHaveBeenCalled();
   });
 
   it('debe cancelar la suscripción de feedback en ngOnDestroy', () => {
@@ -138,6 +146,7 @@ describe('InterfazChatComponent', () => {
   it('debe abrir un submenú y conservar la selección en el historial', () => {
     const menuPrincipal = component.messages[1];
     const opcionManejo = menuPrincipal.options![0];
+    const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
 
     component.selectHistoricalMenuOption(menuPrincipal, opcionManejo);
 
@@ -145,6 +154,7 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.type === 'menu' && mensaje.menuId === 'manejo')).toBeTrue();
     expect(menuPrincipal.options?.some(opcion => opcion.label === 'Manejo del sistema')).toBeFalse();
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(scrollNewBlockSpy).toHaveBeenCalledWith(jasmine.any(String));
   });
 
   it('debe mostrar localmente las instrucciones de una opción prompt', () => {
@@ -168,6 +178,39 @@ describe('InterfazChatComponent', () => {
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.clinical-history-flow-actions button')?.textContent).toContain('Cancelar');
+  });
+
+  it('debe anclar el scroll en el mensaje DNI sin bajar hasta el paciente encontrado', () => {
+    iniciarFlujoHistoriaClinica();
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    enviarDni('01234567');
+
+    const dniMessage = component.messages.find(message => message.sender === 'user' && message.text === '01234567')!;
+    expect(scrollNewBlockSpy).toHaveBeenCalledOnceWith(dniMessage.id);
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
+    expect(component.messages.at(-1)?.text).toContain('Paciente encontrado:');
+  });
+
+  [
+    { name: 'inválido', configure: () => undefined, dni: '12A45678' },
+    { name: 'inexistente', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([])), dni: '01234567' },
+    { name: 'duplicado', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }])), dni: '01234567' },
+    { name: 'con error HTTP', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(throwError(() => new Error('error HTTP'))), dni: '01234567' }
+  ].forEach(testCase => {
+    it(`no debe forzar el scroll final para un DNI ${testCase.name}`, () => {
+      iniciarFlujoHistoriaClinica();
+      testCase.configure();
+      const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+      const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+      enviarDni(testCase.dni);
+
+      const dniMessage = component.messages.find(message => message.sender === 'user' && message.text === testCase.dni)!;
+      expect(scrollNewBlockSpy).toHaveBeenCalledOnceWith(dniMessage.id);
+      expect(scrollBottomSpy).not.toHaveBeenCalled();
+    });
   });
 
   ['', '12A45678', '1234567', '123456789'].forEach(dni => {
@@ -303,6 +346,8 @@ describe('InterfazChatComponent', () => {
     const createTransferSpy = spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni('01234567');
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
 
     component.continueClinicalHistoryFlow();
     const transferId = createTransferSpy.calls.mostRecent().returnValue;
@@ -324,6 +369,9 @@ describe('InterfazChatComponent', () => {
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(historiaClinicaService.insert).not.toHaveBeenCalled();
     expect(historiaClinicaService.update).not.toHaveBeenCalled();
+    const continueMessage = component.messages.find(message => message.sender === 'user' && message.text === 'Continuar')!;
+    expect(scrollNewBlockSpy).toHaveBeenCalledOnceWith(continueMessage.id);
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
 
     tick();
 
@@ -449,6 +497,22 @@ describe('InterfazChatComponent', () => {
     expect(component.isOpen).toBeTrue();
     expect(component.messages.length).toBe(cantidadMensajes);
   });
+
+  it('debe restaurar la posición de scroll guardada después de minimizar', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const firstBody: HTMLElement = fixture.nativeElement.querySelector('.chatbot-body');
+    firstBody.scrollTop = 73;
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+    const restoredBody: HTMLElement = fixture.nativeElement.querySelector('.chatbot-body');
+    tick(20);
+
+    expect(restoredBody.scrollTop).toBe(73);
+  }));
 
   it('debe conservar awaitingConfirmation y sus datos al minimizar y reabrir', () => {
     component.openChat();

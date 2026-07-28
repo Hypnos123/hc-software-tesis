@@ -147,9 +147,9 @@ export class InterfazChatComponent implements OnDestroy {
     const pregunta = this.userMessage.trim();
     if (this.isLoading) return;
     if (this.clinicalHistoryFlow.step === 'awaitingDni') {
-      if (pregunta) this.addUserMessage(pregunta);
+      const dniMessage = pregunta ? this.addUserMessage(pregunta) : undefined;
       this.userMessage = '';
-      this.captureAndSearchDni(pregunta);
+      this.captureAndSearchDni(pregunta, dniMessage?.id);
       return;
     }
     if (this.clinicalHistoryFlow.step !== 'idle' || !pregunta) return;
@@ -191,7 +191,8 @@ export class InterfazChatComponent implements OnDestroy {
     const transferId = this.clinicalHistoryTransferService.createTransfer(this.toTransferCandidate(prefill));
     this.clinicalHistoryFlow = { step: 'navigating', dni, patient, prefill, transferId };
     this.isLoading = true;
-    this.addUserMessage('Continuar');
+    const selection = this.addUserMessage('Continuar');
+    this.scrollToNewBlock(selection.id);
     void this.router.navigate(
       ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
       { state: { source: 'chatbot', transferId } }
@@ -247,10 +248,10 @@ export class InterfazChatComponent implements OnDestroy {
     this.scrollToNewBlock(selectionId);
   }
   private resetClinicalHistoryFlow(): void { this.clinicalHistoryFlow = { step: 'idle' }; }
-  private captureAndSearchDni(dni: string): void {
+  private captureAndSearchDni(dni: string, messageId?: string): void {
+    if (messageId) this.scrollToNewBlock(messageId);
     if (!/^\d{8}$/.test(dni)) {
       this.addBotMessage('El DNI debe contener exactamente ocho dígitos. Inténtalo nuevamente o cancela la operación.');
-      this.scrollToBottom();
       return;
     }
 
@@ -290,13 +291,11 @@ export class InterfazChatComponent implements OnDestroy {
     if (resolution.kind === 'none') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
       this.addBotMessage('No existe un paciente registrado con el DNI indicado.');
-      this.scrollToBottom();
       return;
     }
     if (resolution.kind === 'multiple') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
       this.addBotMessage('Se encontraron varios pacientes con el mismo DNI. Por seguridad, no se puede seleccionar automáticamente uno de ellos. Ingresa otro DNI o cancela la operación.');
-      this.scrollToBottom();
       return;
     }
     const { patient, antecedentes, existingClinicalHistoryCount } = resolution;
@@ -311,7 +310,6 @@ export class InterfazChatComponent implements OnDestroy {
     };
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient: summary, prefill };
     this.addBotMessage(this.formatPatientSummary(summary));
-    this.scrollToBottom();
   }
   private createCandidateData(dni: string, patient: IPacienteBusqueda, antecedentes?: IPaciente): ClinicalHistoryCandidateData {
     return {
@@ -373,7 +371,6 @@ export class InterfazChatComponent implements OnDestroy {
     if (this.clinicalHistoryFlow.step !== 'navigating' || this.clinicalHistoryFlow.transferId !== transferId) return;
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient, prefill };
     this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
-    this.scrollToBottom();
   }
   private handleClinicalHistoryFeedback(feedback: ClinicalHistoryFlowFeedback): void {
     if (this.processedFeedbackIds.has(feedback.id)) return;
@@ -385,14 +382,11 @@ export class InterfazChatComponent implements OnDestroy {
       : 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.');
     this.addBotMessage('¿Necesitas ayuda con algo más?');
     this.addMenuBlock('principal');
-    const menuBlock = this.messages.at(-1);
-    if (menuBlock) this.scrollToNewBlock(menuBlock.id);
   }
   private handleClinicalHistoryError(): void {
     this.removeClinicalHistoryLoadingMessage();
     this.clinicalHistoryFlow = { step: 'awaitingDni' };
     this.addBotMessage('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
-    this.scrollToBottom();
   }
   private removeClinicalHistoryLoadingMessage(): void { if (this.messages.at(-1)?.text === 'Consultando paciente...') this.messages.pop(); }
   private stopClinicalHistoryRequest(): void { this.clinicalHistoryRequest?.unsubscribe(); this.clinicalHistoryRequest = undefined; this.isLoading = false; this.removeClinicalHistoryLoadingMessage(); }
