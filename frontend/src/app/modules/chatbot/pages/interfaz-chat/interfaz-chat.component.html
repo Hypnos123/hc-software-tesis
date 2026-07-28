@@ -26,6 +26,11 @@
     <button *ngFor="let question of quickQuestions" type="button" (click)="quickAsk(question)" [disabled]="isLoading" [title]="question">{{ question }}</button>
   </div>
 
+  <div *ngIf="clinicalHistoryFlow.step !== 'idle'" class="clinical-history-flow-actions" aria-label="Acciones de creación de historia clínica">
+    <button *ngIf="clinicalHistoryFlow.step === 'awaitingConfirmation'" type="button" class="continue-action" (click)="continueClinicalHistoryFlow()" title="Continuar con el paciente seleccionado">Continuar</button>
+    <button type="button" class="cancel-action" (click)="cancelClinicalHistoryFlow()" [disabled]="clinicalHistoryFlow.step === 'navigating'" title="Cancelar creación de historia clínica">Cancelar</button>
+  </div>
+
   <div class="chatbot-footer">
     <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading" />
     <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || !userMessage.trim()">Enviar</button>
