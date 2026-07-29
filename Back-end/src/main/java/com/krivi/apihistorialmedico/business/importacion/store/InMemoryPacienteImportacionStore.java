@@ -7,6 +7,7 @@ import com.krivi.apihistorialmedico.model.importacion.PacienteImportacion;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionErrorCodigo;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionEstado;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -24,6 +25,7 @@ public class InMemoryPacienteImportacionStore implements PacienteImportacionStor
   private final Clock clock;
   private final PacienteImportacionProperties properties;
 
+  @Autowired
   public InMemoryPacienteImportacionStore(PacienteImportacionProperties properties) {
     this(properties, Clock.systemUTC());
   }
