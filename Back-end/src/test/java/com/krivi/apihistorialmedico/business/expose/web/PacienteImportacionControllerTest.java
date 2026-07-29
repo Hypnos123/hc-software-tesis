@@ -2,6 +2,7 @@ package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.services.importacion.PacientePlantillaService;
 import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionValidacionService;
+import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionConfirmacionService;
 import com.krivi.apihistorialmedico.business.exception.PacienteImportacionException;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionResumenResponse;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionValidacionResponse;
@@ -25,15 +26,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PacienteImportacionControllerTest {
   private PacientePlantillaService service;
   private PacienteImportacionValidacionService validacionService;
+  private PacienteImportacionConfirmacionService confirmacionService;
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     service = mock(PacientePlantillaService.class);
     validacionService = mock(PacienteImportacionValidacionService.class);
+    confirmacionService = mock(PacienteImportacionConfirmacionService.class);
     mockMvc = MockMvcBuilders.standaloneSetup(new PacienteImportacionController(
         service,
-        validacionService
+        validacionService,
+        confirmacionService
     )).build();
   }
 
@@ -88,5 +92,28 @@ class PacienteImportacionControllerTest {
             "$.codigo").value("FORMATO_NO_PERMITIDO"))
         .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
             "$.mensaje").value("Solo se permiten archivos .xlsx."));
+  }
+
+  @Test
+  void consultaYConfirmaUnaImportacionPorUuid() throws Exception {
+    java.util.UUID id = java.util.UUID.randomUUID();
+    when(confirmacionService.obtener(id)).thenReturn(PacienteImportacionValidacionResponse.builder()
+        .importacionId(id).estado(com.krivi.apihistorialmedico.model.importacion.PacienteImportacionEstado.PREVISUALIZADA)
+        .build());
+    when(confirmacionService.confirmar(id)).thenReturn(
+        com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionConfirmacionResponse.builder()
+            .importacionId(id)
+            .estado(com.krivi.apihistorialmedico.model.importacion.PacienteImportacionEstado.CONFIRMADA)
+            .build());
+
+    mockMvc.perform(get("/paciente/importacion/{id}", id))
+        .andExpect(status().isOk())
+        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+            "$.estado").value("PREVISUALIZADA"));
+    mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+            .post("/paciente/importacion/{id}/confirmar", id))
+        .andExpect(status().isOk())
+        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+            "$.estado").value("CONFIRMADA"));
   }
 }

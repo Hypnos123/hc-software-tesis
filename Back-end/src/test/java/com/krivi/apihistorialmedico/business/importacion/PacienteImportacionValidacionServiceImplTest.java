@@ -2,6 +2,8 @@ package com.krivi.apihistorialmedico.business.importacion;
 
 import com.krivi.apihistorialmedico.business.exception.PacienteImportacionException;
 import com.krivi.apihistorialmedico.business.services.impl.importacion.PacienteImportacionValidacionServiceImpl;
+import com.krivi.apihistorialmedico.business.importacion.store.InMemoryPacienteImportacionStore;
+import com.krivi.apihistorialmedico.business.importacion.store.PacienteImportacionStore;
 import com.krivi.apihistorialmedico.config.PacienteImportacionProperties;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionValidacionResponse;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionErrorCodigo;
@@ -36,14 +38,17 @@ class PacienteImportacionValidacionServiceImplTest {
   private PacienteExcelTemplateGenerator generator;
   private PacienteRepository repository;
   private PacienteImportacionValidacionServiceImpl service;
+  private PacienteImportacionStore store;
 
   @BeforeEach
   void setUp() {
     properties = new PacienteImportacionProperties(50, 2, 15, 18, "1.0");
     generator = new PacienteExcelTemplateGenerator(properties);
     repository = mock(PacienteRepository.class);
+    store = new InMemoryPacienteImportacionStore(properties);
     service = new PacienteImportacionValidacionServiceImpl(
-        new PacienteExcelReader(properties), repository, properties
+        new PacienteExcelReader(properties), repository, properties,
+        store
     );
     when(repository.findDnisExistentes(anyCollection())).thenReturn(Set.of());
   }
@@ -55,6 +60,10 @@ class PacienteImportacionValidacionServiceImplTest {
     PacienteImportacionValidacionResponse response = service.validar(archivo);
 
     assertThat(response.getResumen().getRegistrosAnalizados()).isEqualTo(1);
+    assertThat(response.getImportacionId()).isNotNull();
+    assertThat(response.getExpiraEn()).isAfter(java.time.Instant.now());
+    assertThat(store.obtener(response.getImportacionId()).getFilas()).hasSize(1);
+    assertThat(store.obtener(response.getImportacionId()).getFilas().getFirst().getDatosOriginales()).isEmpty();
     assertThat(response.getResumen().getValidos()).isEqualTo(1);
     assertThat(response.getFilas().getFirst().getNumeroFila()).isEqualTo(2);
     assertThat(response.getFilas().getFirst().getDni()).isEqualTo("01234567");

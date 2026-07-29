@@ -4,6 +4,7 @@ import com.krivi.apihistorialmedico.business.exception.PacienteImportacionExcept
 import com.krivi.apihistorialmedico.business.importacion.PacienteExcelReader;
 import com.krivi.apihistorialmedico.business.importacion.PacienteExcelValidationResult;
 import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionValidacionService;
+import com.krivi.apihistorialmedico.business.importacion.store.PacienteImportacionStore;
 import com.krivi.apihistorialmedico.config.PacienteImportacionProperties;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionAdvertenciaResponse;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionErrorResponse;
@@ -14,6 +15,9 @@ import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionError;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionErrorCodigo;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionFila;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionFilaEstado;
+import com.krivi.apihistorialmedico.model.importacion.PacienteImportacion;
+import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionEstado;
+import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionResumen;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +33,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Service
 public class PacienteImportacionValidacionServiceImpl implements PacienteImportacionValidacionService {
@@ -37,15 +44,18 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
   private final PacienteExcelReader reader;
   private final PacienteRepository pacienteRepository;
   private final PacienteImportacionProperties properties;
+  private final PacienteImportacionStore importacionStore;
 
   public PacienteImportacionValidacionServiceImpl(
       PacienteExcelReader reader,
       PacienteRepository pacienteRepository,
-      PacienteImportacionProperties properties
+      PacienteImportacionProperties properties,
+      PacienteImportacionStore importacionStore
   ) {
     this.reader = reader;
     this.pacienteRepository = pacienteRepository;
     this.properties = properties;
+    this.importacionStore = importacionStore;
   }
 
   @Override
@@ -77,7 +87,7 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
       else fila.setEstado(PacienteImportacionFilaEstado.VALIDO);
     }
 
-    return construirRespuesta(filas, lectura.filasVaciasIgnoradas(), duplicadosArchivo.size());
+    return construirYGuardarRespuesta(filas, lectura.filasVaciasIgnoradas(), duplicadosArchivo.size());
   }
 
   private byte[] validarYLeerContenido(MultipartFile archivo) {
@@ -138,7 +148,7 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
     }
   }
 
-  private PacienteImportacionValidacionResponse construirRespuesta(
+  private PacienteImportacionValidacionResponse construirYGuardarRespuesta(
       List<PacienteImportacionFila> filas,
       int filasVaciasIgnoradas,
       int gruposDuplicados
@@ -154,9 +164,50 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
         .filasVaciasIgnoradas(filasVaciasIgnoradas)
         .build();
 
+    UUID importacionId = UUID.randomUUID();
+    Instant fechaCreacion = Instant.now();
+    Instant expiraEn = fechaCreacion.plus(properties.tiempoExpiracionMinutos(), ChronoUnit.MINUTES);
+    PacienteImportacion importacion = PacienteImportacion.builder()
+        .importacionId(importacionId)
+        .versionPlantilla(properties.versionPlantilla())
+        .fechaCreacion(fechaCreacion)
+        .fechaExpiracion(expiraEn)
+        .estado(PacienteImportacionEstado.PREVISUALIZADA)
+        .resumen(toModel(resumen))
+        .filas(filas.stream().map(this::paraAlmacenamiento).collect(Collectors.toCollection(ArrayList::new)))
+        .build();
+    importacionStore.guardar(importacion);
+
     return PacienteImportacionValidacionResponse.builder()
+        .importacionId(importacionId)
+        .estado(PacienteImportacionEstado.PREVISUALIZADA)
+        .expiraEn(expiraEn)
         .resumen(resumen)
         .filas(filas.stream().map(this::toResponse).toList())
+        .build();
+  }
+
+  private PacienteImportacionResumen toModel(PacienteImportacionResumenResponse resumen) {
+    return PacienteImportacionResumen.builder()
+        .registrosAnalizados(resumen.getRegistrosAnalizados())
+        .validos(resumen.getValidos())
+        .conErrores(resumen.getConErrores())
+        .filasConDniDuplicado(resumen.getFilasConDniDuplicado())
+        .gruposDniDuplicados(resumen.getGruposDniDuplicados())
+        .dniExistentes(resumen.getDniExistentes())
+        .conAdvertencias(resumen.getConAdvertencias())
+        .filasVaciasIgnoradas(resumen.getFilasVaciasIgnoradas())
+        .build();
+  }
+
+  private PacienteImportacionFila paraAlmacenamiento(PacienteImportacionFila fila) {
+    return PacienteImportacionFila.builder()
+        .numeroFila(fila.getNumeroFila())
+        .estado(fila.getEstado())
+        .paciente(fila.getPaciente())
+        .antecedentes(fila.getAntecedentes())
+        .errores(new ArrayList<>(fila.getErrores()))
+        .advertencias(new ArrayList<>(fila.getAdvertencias()))
         .build();
   }
 

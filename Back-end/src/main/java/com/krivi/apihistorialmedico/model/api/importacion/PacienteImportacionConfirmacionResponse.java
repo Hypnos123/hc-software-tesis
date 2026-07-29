@@ -17,8 +17,7 @@ import java.util.UUID;
 public class PacienteImportacionConfirmacionResponse {
   private UUID importacionId;
   private PacienteImportacionEstado estado;
-  private int registrados;
-  private int noRegistrados;
+  private PacienteImportacionConfirmacionResumenResponse resumen;
   @Builder.Default
   private List<PacienteImportacionResultadoRegistroResponse> resultados = new ArrayList<>();
 }

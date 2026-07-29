@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionConfirmacionResponse;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ public class PacienteImportacion {
   private Instant fechaExpiracion;
   private PacienteImportacionEstado estado;
   private PacienteImportacionResumen resumen;
+  private PacienteImportacionConfirmacionResponse resultadoConfirmacion;
   @Builder.Default
   private List<PacienteImportacionFila> filas = new ArrayList<>();
 }

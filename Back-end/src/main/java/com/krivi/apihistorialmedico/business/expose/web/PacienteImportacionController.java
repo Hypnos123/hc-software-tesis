@@ -2,9 +2,11 @@ package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.exception.PacienteImportacionException;
 import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionValidacionService;
+import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionConfirmacionService;
 import com.krivi.apihistorialmedico.business.services.importacion.PacientePlantillaService;
 import com.krivi.apihistorialmedico.model.api.ApiErrorResponse;
 import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionValidacionResponse;
+import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionConfirmacionResponse;
 import com.krivi.apihistorialmedico.model.importacion.plantilla.PacientePlantillaExcel;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -17,10 +19,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/paciente/importacion")
@@ -31,13 +35,16 @@ public class PacienteImportacionController {
 
   private final PacientePlantillaService plantillaService;
   private final PacienteImportacionValidacionService validacionService;
+  private final PacienteImportacionConfirmacionService confirmacionService;
 
   public PacienteImportacionController(
       PacientePlantillaService plantillaService,
-      PacienteImportacionValidacionService validacionService
+      PacienteImportacionValidacionService validacionService,
+      PacienteImportacionConfirmacionService confirmacionService
   ) {
     this.plantillaService = plantillaService;
     this.validacionService = validacionService;
+    this.confirmacionService = confirmacionService;
   }
 
   @GetMapping("/plantilla")
@@ -59,6 +66,20 @@ public class PacienteImportacionController {
       @RequestPart("archivo") MultipartFile archivo
   ) {
     return ResponseEntity.ok(validacionService.validar(archivo));
+  }
+
+  @GetMapping("/{importacionId}")
+  public ResponseEntity<PacienteImportacionValidacionResponse> obtener(
+      @PathVariable UUID importacionId
+  ) {
+    return ResponseEntity.ok(confirmacionService.obtener(importacionId));
+  }
+
+  @PostMapping("/{importacionId}/confirmar")
+  public ResponseEntity<PacienteImportacionConfirmacionResponse> confirmar(
+      @PathVariable UUID importacionId
+  ) {
+    return ResponseEntity.ok(confirmacionService.confirmar(importacionId));
   }
 
   @ExceptionHandler(PacienteImportacionException.class)

@@ -13,8 +13,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PacienteImportacionResultadoRegistroResponse {
   private int numeroFila;
+  private String dni;
   private PacienteImportacionFilaEstado estado;
   private Integer idPaciente;
-  private PacienteImportacionErrorCodigo codigoError;
-  private String mensaje;
+  @Builder.Default
+  private java.util.List<PacienteImportacionErrorResponse> errores = new java.util.ArrayList<>();
 }
