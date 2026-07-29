@@ -1,6 +1,10 @@
 spring:
   application:
     name: apihistorialmedico
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
   datasource:
     url: jdbc:mysql://localhost:3306/historiaclinicadb?connectionTimeZone=-05:00&forceConnectionTimeZoneToSession=true
     username: visit
@@ -19,3 +23,11 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
+
+paciente:
+  importacion:
+    max-registros: 50
+    max-tamano-mb: 2
+    tiempo-expiracion-minutos: 15
+    max-columnas: 18
+    version-plantilla: "1.0"
