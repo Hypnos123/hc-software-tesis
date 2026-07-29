@@ -343,7 +343,9 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
 
   private Integer edad(Date fechaNacimiento) {
     if (fechaNacimiento == null) return null;
-    LocalDate birth = fechaNacimiento.toInstant().atZone(ZONA_HORARIA_LIMA).toLocalDate();
+    LocalDate birth = fechaNacimiento instanceof java.sql.Date fechaSql
+        ? fechaSql.toLocalDate()
+        : fechaNacimiento.toInstant().atZone(ZONA_HORARIA_LIMA).toLocalDate();
     return Period.between(birth, LocalDate.now(ZONA_HORARIA_LIMA)).getYears();
   }
 }
