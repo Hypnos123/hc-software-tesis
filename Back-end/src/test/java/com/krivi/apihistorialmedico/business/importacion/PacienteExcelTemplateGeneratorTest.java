@@ -57,7 +57,7 @@ class PacienteExcelTemplateGeneratorTest {
       XSSFSheet pacientes = workbook.getSheet("Pacientes");
 
       assertThat(pacientes.getPaneInformation()).isNotNull();
-      assertThat(pacientes.getPaneInformation().getHorizontalSplitPosition()).isEqualTo(1);
+      assertThat((int) pacientes.getPaneInformation().getHorizontalSplitPosition()).isEqualTo(1);
       assertThat(pacientes.getCTWorksheet().isSetAutoFilter()).isTrue();
       assertThat(pacientes.getCTWorksheet().isSetSheetProtection()).isTrue();
       assertThat(pacientes.getRow(0).getCell(0).getCellStyle().getLocked()).isTrue();
