@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,14 +49,30 @@ class PacienteImportacionControllerTest {
         new PacientePlantillaExcel(contenido, "plantilla-importacion-pacientes-v1.0.xlsx")
     );
 
-    mockMvc.perform(get("/paciente/importacion/plantilla"))
+    mockMvc.perform(get("/paciente/importacion/plantilla")
+            .header("Origin", "http://localhost:4200"))
         .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"))
+        .andExpect(header().string("Access-Control-Expose-Headers", "Content-Disposition"))
         .andExpect(content().contentType(PacienteImportacionController.XLSX_MEDIA_TYPE))
         .andExpect(header().string(
             "Content-Disposition",
             containsString("plantilla-importacion-pacientes-v1.0.xlsx")
         ))
         .andExpect(content().bytes(contenido));
+  }
+
+  @Test
+  void aceptaPreflightDeAngularParaLosEndpointsDeImportacion() throws Exception {
+    mockMvc.perform(options("/paciente/importacion/validar")
+            .header("Origin", "http://localhost:4200")
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", "content-type"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"))
+        .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")))
+        .andExpect(header().string("Access-Control-Allow-Headers", containsString("content-type")))
+        .andExpect(header().string("Access-Control-Expose-Headers", "Content-Disposition"));
   }
 
   @Test
