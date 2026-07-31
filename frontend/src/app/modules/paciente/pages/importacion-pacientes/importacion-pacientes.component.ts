@@ -15,8 +15,7 @@ import {
   IPacienteImportacionPrevisualizacion
 } from '../../models/paciente-importacion';
 import { PacienteImportacionService } from '../../services/paciente-importacion.service';
-
-const MAX_TAMANO_ARCHIVO = 2 * 1024 * 1024;
+import { validarArchivoImportacion } from '../../services/paciente-importacion-archivo.util';
 
 @Component({
   selector: 'app-importacion-pacientes',
@@ -183,10 +182,7 @@ export class ImportacionPacientesComponent implements OnDestroy {
   }
 
   private validarArchivoLocal(archivo: File): string {
-    if (archivo.size === 0) return 'El archivo seleccionado está vacío.';
-    if (!archivo.name.toLowerCase().endsWith('.xlsx')) return 'Solo se permiten archivos con extensión .xlsx.';
-    if (archivo.size > MAX_TAMANO_ARCHIVO) return 'El archivo supera el tamaño permitido de 2 MB.';
-    return '';
+    return validarArchivoImportacion(archivo);
   }
 
   private programarExpiracion(expiraEn: string): void {
