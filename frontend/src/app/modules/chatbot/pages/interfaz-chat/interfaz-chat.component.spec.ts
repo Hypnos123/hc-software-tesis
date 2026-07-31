@@ -10,6 +10,8 @@ import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinica
 import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
+import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
+import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
 
 describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
@@ -21,6 +23,7 @@ describe('InterfazChatComponent', () => {
   let transferService: ClinicalHistoryTransferService;
   let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
+  let importacionService: jasmine.SpyObj<PacienteImportacionService>;
   const paciente = {
     idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
     apellidos: 'Quispe Ramírez', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
@@ -37,6 +40,7 @@ describe('InterfazChatComponent', () => {
     antecedentesService.getByPacienteId.and.returnValue(of(undefined));
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     router.navigate.and.returnValue(Promise.resolve(true));
+    importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -45,6 +49,8 @@ describe('InterfazChatComponent', () => {
         { provide: HistoriaClinicaService, useValue: historiaClinicaService },
         { provide: AntecedentesService, useValue: antecedentesService },
         { provide: Router, useValue: router },
+        { provide: PacienteImportacionService, useValue: importacionService },
+        { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
         { provide: AuthService, useValue: { logout$: logoutSubject.asObservable() } }
       ]
     }).compileComponents();
@@ -71,6 +77,22 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = abrirMenuHistorias();
     const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear historia clínica');
     component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+  }
+
+  function abrirMenuPacientes(): any {
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Consultar información')!);
+    const consultar = component.messages.find(mensaje => mensaje.menuId === 'consultar')!;
+    component.selectHistoricalMenuOption(consultar, consultar.options!.find(opcion => opcion.label === 'Pacientes')!);
+    return component.messages.find(mensaje => mensaje.menuId === 'pacientes')!;
+  }
+
+  function iniciarImportacion(): any {
+    const pacientes = abrirMenuPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+    component.selectHistoricalMenuOption(pacientes, opcion);
+    fixture.detectChanges();
+    return component.messages.find(mensaje => mensaje.type === 'patient-import')!;
   }
 
   function enviarDni(dni: string): void {
@@ -168,6 +190,63 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = abrirMenuHistorias();
 
     expect(menuHistorias.options.some((opcion: any) => opcion.label === 'Crear historia clínica')).toBeTrue();
+  });
+
+  it('debe mostrar e iniciar el registro masivo desde Pacientes sin usar Botpress', () => {
+    const pacientes = abrirMenuPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+    expect(opcion).toBeTruthy();
+
+    component.selectHistoricalMenuOption(pacientes, opcion);
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.sender === 'user' && mensaje.text === opcion.label)).toBeTrue();
+    expect(pacientes.options.includes(opcion)).toBeFalse();
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Descargar plantilla oficial');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el estado y archivo de importación al minimizar', () => {
+    const mensaje = iniciarImportacion();
+    mensaje.importacion.plantillaDescargada = true;
+    mensaje.importacion.estado = 'ARCHIVO_SELECCIONADO';
+    mensaje.importacion.archivo = new File(['excel'], 'pacientes.xlsx');
+    component.openChat();
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+
+    const restaurado = component.messages.find(item => item.type === 'patient-import')!;
+    expect(restaurado.importacion.archivo.name).toBe('pacientes.xlsx');
+    expect(fixture.nativeElement.textContent).toContain('pacientes.xlsx');
+  });
+
+  it('debe limpiar el flujo de importación al cerrar el chatbot', () => {
+    const mensaje = iniciarImportacion();
+    const cancelar = jasmine.createSpy('cancelarSolicitud');
+    mensaje.importacion.cancelarSolicitud = cancelar;
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeTrue();
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.closeChat();
+
+    expect(cancelar).toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeFalse();
+    expect(component.messages.length).toBe(2);
+  });
+
+  it('debe conservar todas las opciones anteriores del menú Pacientes', () => {
+    const etiquetas = abrirMenuPacientes().options.map((opcion: any) => opcion.label);
+    expect(etiquetas).toContain('¿Cuántos pacientes hay registrados?');
+    expect(etiquetas).toContain('Muéstrame los últimos pacientes registrados');
+    expect(etiquetas).toContain('Buscar paciente por DNI');
+    expect(etiquetas).toContain('Buscar paciente por nombre');
+    expect(etiquetas).toContain('Consulta el paciente por ID');
+    expect(etiquetas).toContain('¿Cuál es la edad promedio de los pacientes?');
   });
 
   it('debe iniciar localmente el flujo y solicitar el DNI sin consultar al asistente', () => {
