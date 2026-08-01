@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { ButtonComponent, TableComponent } from '@app/shared/components';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +17,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { PacienteService } from '../../services/paciente.service';
 import { IPaciente } from '../../models/paciente';
+import { Subscription } from 'rxjs';
+import { PacienteListRefreshService } from '../../services/paciente-list-refresh.service';
 
 
 
@@ -43,17 +45,25 @@ import { IPaciente } from '../../models/paciente';
   templateUrl: './pacientes.component.html',
   styleUrl: './pacientes.component.scss'
 })
-export class PacientesComponent {
+export class PacientesComponent implements OnDestroy {
 
   customers: IPaciente[] = [];
   selectedCustomers: any[] = [];
   loading = false;
   searchValue = '';
   activityValues: number[] = [0, 100];
+  private readonly refreshSubscription: Subscription;
 
-  constructor(private router: Router, private pacienteService: PacienteService) {
+  constructor(
+    private router: Router,
+    private pacienteService: PacienteService,
+    refreshService: PacienteListRefreshService
+  ) {
     this.getAllActives();
+    this.refreshSubscription = refreshService.refresh$.subscribe(() => this.getAllActives());
   }
+
+  ngOnDestroy(): void { this.refreshSubscription.unsubscribe(); }
 
   getAllActives() {
     this.pacienteService.getAllActivos().subscribe((response) => {

@@ -19,6 +19,9 @@
         </button>
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
+      <div #conversationBlock *ngIf="message.type === 'patient-import' && message.importacion" [attr.data-block-id]="message.id" class="bot-message import-message-block">
+        <app-importacion-pacientes-chat [state]="message.importacion" (mensajeConversacional)="manejarMensajeImportacion(message.importacion, $event)" (registrarOtro)="registrarOtroArchivo()" (volverPacientes)="mostrarOpcionesPacientes()"></app-importacion-pacientes-chat>
+      </div>
     </ng-container>
   </div>
 

@@ -15,9 +15,15 @@ import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-hi
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
 import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
+import {
+  crearPacienteImportacionChatState,
+  ImportacionPacientesChatComponent,
+  PacienteImportacionChatMensaje,
+  PacienteImportacionChatState
+} from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu'; text?: string; menuId?: string; options?: MenuOption[]; }
-type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow';
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import'; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; }
+type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
 export interface PatientClinicalHistorySummary {
@@ -52,10 +58,11 @@ type PatientResolution =
   | { kind: 'multiple' }
   | { kind: 'unique'; patient: IPacienteBusqueda; antecedentes: IPaciente | undefined; existingClinicalHistoryCount: number };
 
-@Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
+@Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule, ImportacionPacientesChatComponent], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
 export class InterfazChatComponent implements OnDestroy {
   @ViewChild('chatBody') chatBody!: ElementRef;
   @ViewChildren('conversationBlock') conversationBlocks!: QueryList<ElementRef<HTMLElement>>;
+  @ViewChildren(ImportacionPacientesChatComponent) importacionComponents!: QueryList<ImportacionPacientesChatComponent>;
 
   private readonly initialMessage = 'Hola, soy el Asistente IA del sistema de historias clínicas.\n\nPuedo ayudarte a usar el sistema, consultar información registrada, verificar datos y revisar las opciones disponibles.\n\nSelecciona una categoría para continuar o escribe tu pregunta.';
   private readonly menus: Record<string, ChatMenu> = {
@@ -78,7 +85,8 @@ export class InterfazChatComponent implements OnDestroy {
       { label: 'Buscar paciente por DNI', action: 'prompt', text: 'Escribe el DNI de 8 dígitos del paciente.\nEjemplo: Buscar paciente por DNI 72845292' },
       { label: 'Buscar paciente por nombre', action: 'prompt', text: 'Escribe los nombres y apellidos del paciente.\nEjemplo: Buscar paciente por nombre Rafael Velásquez Morales' },
       { label: 'Consulta el paciente por ID', action: 'prompt', text: 'Escribe el ID del paciente.\nEjemplo: Consulta el paciente ID 4' },
-      { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' }
+      { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' },
+      { label: 'Registrar pacientes de forma masiva', description: 'Importa pacientes mediante la plantilla oficial Excel.', icon: 'pi pi-file-excel', action: 'patient-import-flow' }
     ] },
     historias: { question: 'Puedes realizar estas consultas sobre historias clínicas:', options: [
       { label: 'Crear historia clínica', description: 'Completa una nueva historia usando los datos de un paciente existente.', action: 'clinical-history-flow' },
@@ -142,7 +150,10 @@ export class InterfazChatComponent implements OnDestroy {
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.saveScrollPosition(); this.isOpen = false; }
-  closeChat(): void { this.resetChat(true); }
+  closeChat(): void {
+    this.importacionComponents?.forEach(component => component.limpiarFlujo());
+    this.resetChat(true);
+  }
   sendMessage(): void {
     const pregunta = this.userMessage.trim();
     if (this.isLoading) return;
@@ -176,6 +187,32 @@ export class InterfazChatComponent implements OnDestroy {
           : { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
     this.executeMenuOption(quickOption, selection.id);
+  }
+  mostrarOpcionesPacientes(): void {
+    const selection = this.addUserMessage('Volver a opciones de Pacientes');
+    this.addMenuBlock('pacientes');
+    this.scrollToNewBlock(selection.id);
+  }
+  registrarOtroArchivo(): void {
+    const selection = this.addUserMessage('Registrar otro archivo');
+    this.addBotMessage('Adjunta otra plantilla Excel para analizarla antes de confirmar el registro.');
+    const state = crearPacienteImportacionChatState();
+    state.plantillaDescargada = true;
+    state.estado = 'PLANTILLA_DESCARGADA';
+    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: state });
+    this.scrollToNewBlock(selection.id);
+  }
+  manejarMensajeImportacion(
+    state: PacienteImportacionChatState,
+    evento: PacienteImportacionChatMensaje
+  ): void {
+    const tarjeta = this.messages.find(message => message.type === 'patient-import' && message.importacion === state);
+    if (tarjeta) this.messages = this.messages.filter(message => message !== tarjeta);
+    const mensaje = evento.remitente === 'user'
+      ? this.addUserMessage(evento.texto)
+      : this.addBotMessage(evento.texto);
+    if (tarjeta) this.messages.push(tarjeta);
+    this.scrollToNewBlock(mensaje.id);
   }
   cancelClinicalHistoryFlow(): void {
     if (this.clinicalHistoryFlow.step === 'idle') return;
@@ -229,7 +266,7 @@ export class InterfazChatComponent implements OnDestroy {
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
-  private resetChat(clearStorage: boolean): void { this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.messages.forEach(message => message.importacion?.cancelarSolicitud?.()); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
   private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }]; }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
@@ -241,6 +278,18 @@ export class InterfazChatComponent implements OnDestroy {
     if (option.action === 'clinical-history-flow') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
       this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente existente.');
+      this.scrollToNewBlock(selectionId);
+      return;
+    }
+    if (option.action === 'patient-import-flow') {
+      const activa = this.messages.find(message => message.type === 'patient-import' && message.importacion?.estado !== 'CONFIRMADA');
+      if (activa) {
+        this.addBotMessage('Ya existe una importación activa. Complétala o ciérrala antes de iniciar otra.');
+        this.scrollToNewBlock(selectionId);
+        return;
+      }
+      this.addBotMessage('Puedes registrar varios pacientes al mismo tiempo utilizando la plantilla oficial Excel. Descarga la plantilla, completa la información sin modificar los encabezados y luego adjunta el archivo para revisarlo antes de confirmar el registro.');
+      this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: crearPacienteImportacionChatState() });
       this.scrollToNewBlock(selectionId);
       return;
     }

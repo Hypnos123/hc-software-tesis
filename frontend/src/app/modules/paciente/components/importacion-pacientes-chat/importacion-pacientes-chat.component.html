@@ -1,0 +1,95 @@
+<div class="import-chat" aria-label="Importación masiva de pacientes">
+  <section class="import-step completed-step">
+    <span class="step-label">Paso 1 de 4</span>
+    <strong>Descargar plantilla oficial</strong>
+    <button type="button" (click)="descargarPlantilla()" [disabled]="procesando || plantillaFueDescargada || state.estado === 'CONFIRMADA' || state.estado === 'CANCELADA'">
+      <i [class]="state.operacion === 'DESCARGANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-download'"></i> {{ state.operacion === 'DESCARGANDO' ? 'Descargando...' : 'Descargar plantilla Excel' }}
+    </button>
+    <button type="button" class="secondary" (click)="yaTengoPlantilla()" [disabled]="procesando || state.estado === 'CONFIRMADA' || state.estado === 'CANCELADA'">Ya tengo la plantilla</button>
+  </section>
+
+  <section *ngIf="state.plantillaDescargada" class="import-step">
+    <span class="step-label">Paso 2 de 4</span>
+    <strong>Adjuntar archivo Excel</strong>
+    <input #archivoInput type="file" hidden
+      accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      (change)="seleccionarArchivo($event)" [disabled]="procesando || state.estado === 'CONFIRMADA' || state.estado === 'CANCELADA'">
+    <button type="button" class="compact-button" (click)="archivoInput.click()" [disabled]="procesando || state.estado === 'CONFIRMADA' || state.estado === 'CANCELADA'">
+      <i class="pi pi-folder-open"></i> Seleccionar archivo Excel
+    </button>
+    <div *ngIf="state.archivo as archivo" class="selected-file">
+      <span><strong>{{ archivo.name }}</strong><small>{{ formatoTamano(archivo.size) }}</small></span>
+      <button type="button" class="link danger" (click)="quitarArchivo()" [disabled]="procesando">Quitar archivo</button>
+    </div>
+    <button *ngIf="state.archivo && !state.previsualizacion" type="button" (click)="analizarArchivo()" [disabled]="procesando">
+      <i [class]="state.operacion === 'ANALIZANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-search'"></i>
+      {{ state.operacion === 'ANALIZANDO' ? 'Analizando archivo...' : 'Analizar archivo' }}
+    </button>
+  </section>
+
+  <p *ngIf="state.mensaje" class="functional-detail" [class.error]="state.estado === 'ERROR' || state.estado === 'EXPIRADA'" role="status">{{ state.mensaje }}</p>
+
+  <section *ngIf="state.previsualizacion as preview" class="import-step results-step">
+    <span class="step-label">Paso 3 de 4</span>
+    <strong>Análisis completado</strong>
+    <div class="summary">
+      <span><b>{{ preview.resumen.registrosAnalizados }}</b> Analizados</span>
+      <span class="valid"><b>{{ preview.resumen.validos }}</b> Listos</span>
+      <span class="invalid"><b>{{ preview.resumen.conErrores }}</b> Con errores</span>
+      <span><b>{{ preview.resumen.filasConDniDuplicado }}</b> DNI duplicados</span>
+      <span><b>{{ preview.resumen.dniExistentes }}</b> DNI registrados</span>
+      <span><b>{{ preview.resumen.conAdvertencias }}</b> Advertencias</span>
+      <span><b>{{ preview.resumen.filasVaciasIgnoradas }}</b> Vacías ignoradas</span>
+    </div>
+    <div class="row-list" tabindex="0">
+      <article *ngFor="let fila of preview.filas" [class]="'result-row ' + fila.estado.toLowerCase().replaceAll('_', '-')">
+        <div><b>Fila {{ fila.numeroFila }}</b><span>{{ fila.nombreCompleto || 'Sin nombre' }}</span></div>
+        <div><span>{{ fila.dni || 'Sin DNI' }}</span><em>{{ etiquetaFila(fila) }}</em></div>
+        <small>{{ mensajeFila(fila) }}</small>
+      </article>
+    </div>
+    <p *ngIf="cantidadValidos === 0" class="no-valid">No hay pacientes disponibles para registrar.</p>
+    <button *ngIf="cantidadValidos === 0 || state.estado === 'EXPIRADA'" type="button" class="secondary" (click)="seleccionarOtroArchivo()" [disabled]="procesando">
+      {{ state.estado === 'EXPIRADA' ? 'Volver a analizar el archivo' : 'Seleccionar otro archivo' }}
+    </button>
+  </section>
+
+  <section *ngIf="state.previsualizacion && state.estado !== 'CONFIRMADA' && state.estado !== 'CANCELADA'" class="import-step confirm-step">
+    <span class="step-label">Paso 4 de 4</span>
+    <strong>Confirmar registro</strong>
+    <button type="button" (click)="confirmar()" [disabled]="!puedeConfirmar || procesando">
+      <i [class]="state.operacion === 'CONFIRMANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
+      {{ state.operacion === 'CONFIRMANDO' ? 'Registrando pacientes...' : 'Confirmar registro de ' + cantidadValidos + ' pacientes' }}
+    </button>
+    <button type="button" class="secondary cancel-import" (click)="noRegistrarPacientes()" [disabled]="state.estado !== 'PREVISUALIZADA' || procesando">No registrar pacientes</button>
+  </section>
+
+  <section *ngIf="state.estado === 'CANCELADA' && state.previsualizacion as previewCancelada" class="import-step cancelled-step">
+    <span class="step-label">Importación cancelada</span>
+    <div class="cancelled-summary">
+      <span><b>Archivo:</b> {{ state.archivo?.name || 'Sin nombre' }}</span>
+      <span><b>Registros analizados:</b> {{ previewCancelada.resumen.registrosAnalizados }}</span>
+      <span><b>Pacientes registrados:</b> 0</span>
+    </div>
+    <button type="button" class="secondary" (click)="registrarOtro.emit()">Analizar otro archivo</button>
+    <button type="button" class="secondary" (click)="volverPacientes.emit()">Volver a opciones de Pacientes</button>
+  </section>
+
+  <section *ngIf="state.confirmacion as resultado" class="import-step final-step">
+    <span class="step-label">Importación completada</span>
+    <div class="summary final-summary">
+      <span class="valid"><b>{{ resultado.resumen.pacientesRegistrados }}</b> Registrados</span>
+      <span><b>{{ resultado.resumen.omitidosPorDniExistente }}</b> Omitidos</span>
+      <span class="invalid"><b>{{ resultado.resumen.erroresAlRegistrar }}</b> Errores</span>
+    </div>
+    <div class="row-list">
+      <article *ngFor="let fila of resultado.resultados" class="result-row">
+        <div><b>Fila {{ fila.numeroFila }}</b><span>DNI {{ fila.dni }}</span></div>
+        <div><em>{{ fila.estado }}</em><span>ID {{ fila.idPaciente || '—' }}</span></div>
+        <small *ngIf="fila.errores.length">{{ fila.errores[0].mensaje }}</small>
+      </article>
+    </div>
+    <button type="button" class="secondary" (click)="registrarOtro.emit()">Registrar otro archivo</button>
+    <button type="button" class="secondary" (click)="volverPacientes.emit()">Volver a opciones de Pacientes</button>
+  </section>
+</div>

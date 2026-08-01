@@ -240,6 +240,43 @@ class HistoriaClinicaServiceImplTest {
   }
 
   @Test
+  void calculaEdadDesdeJavaSqlDate() {
+    LocalDate nacimiento = LocalDate.now(ZoneId.of("America/Lima")).minusYears(30).minusDays(1);
+    HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
+    historia.getPaciente().setFechaNacimiento(java.sql.Date.valueOf(nacimiento));
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+        .thenReturn(List.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+
+    assertEquals(30, historiaClinicaService.findByPaciente(10).getData().getFirst().getEdad());
+  }
+
+  @Test
+  void calculaEdadDesdeJavaUtilDateUsandoZonaHorariaLima() {
+    ZoneId lima = ZoneId.of("America/Lima");
+    LocalDate nacimiento = LocalDate.now(lima).minusYears(24);
+    java.util.Date fechaNacimiento = java.util.Date.from(nacimiento.atTime(12, 0).atZone(lima).toInstant());
+    HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
+    historia.getPaciente().setFechaNacimiento(fechaNacimiento);
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+        .thenReturn(List.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+
+    assertEquals(24, historiaClinicaService.findByPaciente(10).getData().getFirst().getEdad());
+  }
+
+  @Test
+  void conservaEdadNulaCuandoNoExisteFechaDeNacimiento() {
+    HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
+    historia.getPaciente().setFechaNacimiento(null);
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+        .thenReturn(List.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+
+    assertNull(historiaClinicaService.findByPaciente(10).getData().getFirst().getEdad());
+  }
+
+  @Test
   void buscaNumeroCortoPorHistoriaYPacienteYEliminaRepetidos() {
     HistoriaClinica historiaPorId = historia(5, 10, "72845292", "Ana", "Lima");
     HistoriaClinica historiaPorPaciente = historia(7, 5, "12345678", "Bruno", "Paz");
