@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
 
@@ -38,4 +39,7 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
 
   @Query("select p from Paciente p where trim(p.numDocumento) = :dni order by p.idPaciente")
   List<Paciente> findByDniNormalizado(@Param("dni") String dni);
+
+  @Query("select distinct trim(p.numDocumento) from Paciente p where trim(p.numDocumento) in :dnis")
+  Set<String> findDnisExistentes(@Param("dnis") java.util.Collection<String> dnis);
 }

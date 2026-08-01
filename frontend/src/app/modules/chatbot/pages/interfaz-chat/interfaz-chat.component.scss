@@ -148,6 +148,13 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
+.import-message-block {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px;
+}
+
 .chatbot-footer {
   padding: 12px;
   display: flex;
