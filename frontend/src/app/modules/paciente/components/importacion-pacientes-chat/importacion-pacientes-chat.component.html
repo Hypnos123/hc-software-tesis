@@ -18,14 +18,22 @@
     <button type="button" class="compact-button" (click)="archivoInput.click()" [disabled]="!active || procesando">
       <i class="pi pi-folder-open"></i> Seleccionar archivo Excel
     </button>
-    <div *ngIf="state.archivo as archivo" class="selected-file">
-      <span><strong>{{ archivo.name }}</strong><small>{{ formatoTamano(archivo.size) }}</small></span>
-      <button type="button" class="link danger" (click)="quitarArchivo()" [disabled]="!active || procesando">Quitar archivo</button>
-    </div>
-    <button *ngIf="state.archivo" type="button" (click)="analizarArchivo()" [disabled]="!active || procesando">
-      <i [class]="state.operacion === 'ANALIZANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-search'"></i>
-      {{ state.operacion === 'ANALIZANDO' ? 'Analizando archivo...' : 'Analizar archivo' }}
-    </button>
+    <p *ngIf="active && state.mensaje" class="functional-detail" [class.error]="state.estado === 'ERROR'" role="status">{{ state.mensaje }}</p>
+  </section>
+
+  <section *ngSwitchCase="'file-ready'" class="import-step">
+    <span class="step-label">Archivo listo para analizar</span>
+    <ng-container *ngIf="state.archivo as archivo; else archivoQuitado">
+      <div class="selected-file">
+        <span><strong>{{ archivo.name }}</strong><small>{{ formatoTamano(archivo.size) }}</small></span>
+        <button type="button" class="link danger" (click)="quitarArchivo()" [disabled]="!active || procesando">Quitar archivo</button>
+      </div>
+      <button type="button" (click)="analizarArchivo()" [disabled]="!active || procesando">
+        <i [class]="state.operacion === 'ANALIZANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-search'"></i>
+        {{ state.operacion === 'ANALIZANDO' ? 'Analizando archivo...' : 'Analizar archivo' }}
+      </button>
+    </ng-container>
+    <ng-template #archivoQuitado><span class="empty-value">Archivo retirado.</span></ng-template>
     <p *ngIf="active && state.mensaje" class="functional-detail" [class.error]="state.estado === 'ERROR'" role="status">{{ state.mensaje }}</p>
   </section>
 

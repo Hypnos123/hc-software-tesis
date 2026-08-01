@@ -95,13 +95,27 @@ describe('ImportacionPacientesChatComponent', () => {
   it('conserva el mensaje con el nombre del archivo después de analizar', () => {
     service.validarArchivo.and.returnValue(of(preview()));
     component.state.plantillaDescargada = true;
-    component.view = 'file-selection';
+    component.view = 'file-ready';
     seleccionar(new File(['excel'], 'mis-pacientes.xlsx'));
     component.analizarArchivo();
     fixture.detectChanges();
 
     expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('He recibido el archivo «mis-pacientes.xlsx»');
     expect(fixture.nativeElement.textContent).toContain('mis-pacientes.xlsx');
+  });
+
+  it('quita el archivo únicamente de la vista activa file-ready', () => {
+    component.view = 'file-ready';
+    component.state.archivo = new File(['excel'], 'pacientes.xlsx');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('pacientes.xlsx');
+
+    component.quitarArchivo();
+    fixture.detectChanges();
+
+    expect(component.state.archivo).toBeUndefined();
+    expect(fixture.nativeElement.textContent).toContain('Archivo retirado');
+    expect(fixture.nativeElement.textContent).not.toContain('Analizar archivo');
   });
 
   it('deshabilita confirmación cuando no hay filas válidas', () => {
@@ -177,7 +191,7 @@ describe('ImportacionPacientesChatComponent', () => {
     corta.expiraEn = new Date(Date.now() + 10).toISOString();
     service.validarArchivo.and.returnValue(of(corta));
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
-    component.view = 'file-selection';
+    component.view = 'file-ready';
     component.analizarArchivo();
     component.view = 'confirmation';
     tick(20);
@@ -190,7 +204,7 @@ describe('ImportacionPacientesChatComponent', () => {
   it('muestra errores HTTP seguros', () => {
     service.validarArchivo.and.returnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
-    component.view = 'file-selection';
+    component.view = 'file-ready';
     component.analizarArchivo();
     fixture.detectChanges();
     expect(component.state.mensaje).toBe('El archivo supera los 2 MB.');

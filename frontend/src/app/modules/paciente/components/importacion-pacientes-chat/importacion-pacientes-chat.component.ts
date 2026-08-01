@@ -35,7 +35,7 @@ export interface PacienteImportacionChatMensaje {
   reemplazarVistaActiva?: boolean;
 }
 
-export type PacienteImportView = 'template' | 'file-selection' | 'analysis' | 'confirmation' | 'completed' | 'cancelled';
+export type PacienteImportView = 'template' | 'file-selection' | 'file-ready' | 'analysis' | 'confirmation' | 'completed' | 'cancelled';
 
 export function crearPacienteImportacionChatState(): PacienteImportacionChatState {
   return { estado: 'INICIAL', mensaje: '', plantillaDescargada: false, mensajes: [] };
@@ -146,7 +146,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.confirmacion = undefined;
     this.state.estado = 'ARCHIVO_SELECCIONADO';
     this.state.mensaje = '';
-    this.agregarMensaje(`archivo-${archivo!.name}-${archivo!.size}`, 'ARCHIVO', 'bot', `He recibido el archivo «${archivo!.name}». Presiona “Analizar archivo” para revisar sus datos antes de realizar cualquier registro.`, { inicioGrupo: true, vistasSiguientes: ['file-selection'], reemplazarVistaActiva: true });
+    this.agregarMensaje(`archivo-${archivo!.name}-${archivo!.size}`, 'ARCHIVO', 'bot', `He recibido el archivo «${archivo!.name}». Puedes analizarlo para revisar sus datos antes de realizar cualquier registro.`, { inicioGrupo: true, vistasSiguientes: ['file-ready'] });
     this.limpiarTemporizador();
   }
 

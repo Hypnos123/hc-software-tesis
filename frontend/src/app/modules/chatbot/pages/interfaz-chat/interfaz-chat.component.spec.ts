@@ -245,7 +245,13 @@ describe('InterfazChatComponent', () => {
     activa = component.importacionComponents.last;
     activa.seleccionarArchivo({ target: { files: [new File(['excel'], 'PacientesV2.xlsx')], value: 'x' } } as unknown as Event);
     fixture.detectChanges();
-    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection']);
+    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection', 'file-ready']);
+    const ordenArchivo = component.messages.slice(-2);
+    expect(ordenArchivo[0]).toEqual(jasmine.objectContaining({ sender: 'bot', text: jasmine.stringContaining('He recibido el archivo «PacientesV2.xlsx»') }));
+    expect(ordenArchivo[1]).toEqual(jasmine.objectContaining({ type: 'patient-import', importView: 'file-ready' }));
+    const cardsArchivo = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block'));
+    expect(cardsArchivo[1].textContent).not.toContain('PacientesV2.xlsx');
+    expect(cardsArchivo[2].textContent).toContain('PacientesV2.xlsx');
 
     importacionService.validarArchivo.and.returnValue(of({
       importacionId: 'preview-1', estado: 'PREVISUALIZADA', expiraEn: new Date(Date.now() + 60000).toISOString(),
@@ -257,16 +263,18 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
 
     const vistas = component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView);
-    expect(vistas).toEqual(['template', 'file-selection', 'analysis', 'confirmation']);
+    expect(vistas).toEqual(['template', 'file-selection', 'file-ready', 'analysis', 'confirmation']);
     const cards = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block'));
     expect(cards[0].textContent).toContain('Paso 1 de 4');
     expect(cards[0].textContent).not.toContain('Paso 2 de 4');
     expect(cards[1].textContent).toContain('Paso 2 de 4');
     expect(cards[1].textContent).not.toContain('Paso 1 de 4');
-    expect(cards[2].textContent).toContain('Paso 3 de 4');
-    expect(cards[2].textContent).not.toContain('Paso 2 de 4');
-    expect(cards[3].textContent).toContain('Paso 4 de 4');
-    expect(cards[3].textContent).not.toContain('Paso 3 de 4');
+    expect(cards[2].textContent).toContain('Archivo listo para analizar');
+    expect(cards[2].textContent).not.toContain('Paso 3 de 4');
+    expect(cards[3].textContent).toContain('Paso 3 de 4');
+    expect(cards[3].textContent).not.toContain('Paso 2 de 4');
+    expect(cards[4].textContent).toContain('Paso 4 de 4');
+    expect(cards[4].textContent).not.toContain('Paso 3 de 4');
 
     importacionService.confirmarImportacion.and.returnValue(of({
       importacionId: 'preview-1', estado: 'CONFIRMADA',
@@ -287,7 +295,7 @@ describe('InterfazChatComponent', () => {
     mensaje.importacion.plantillaDescargada = true;
     mensaje.importacion.estado = 'ARCHIVO_SELECCIONADO';
     mensaje.importacion.archivo = new File(['excel'], 'pacientes.xlsx');
-    mensaje.importView = 'file-selection';
+    mensaje.importView = 'file-ready';
     component.openChat();
 
     component.minimizeChat();
