@@ -10,6 +10,9 @@ import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinica
 import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
+import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
+import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
+import { ImportacionPacientesChatComponent } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 
 describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
@@ -21,6 +24,7 @@ describe('InterfazChatComponent', () => {
   let transferService: ClinicalHistoryTransferService;
   let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
+  let importacionService: jasmine.SpyObj<PacienteImportacionService>;
   const paciente = {
     idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
     apellidos: 'Quispe Ramírez', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
@@ -37,6 +41,7 @@ describe('InterfazChatComponent', () => {
     antecedentesService.getByPacienteId.and.returnValue(of(undefined));
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     router.navigate.and.returnValue(Promise.resolve(true));
+    importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -45,6 +50,8 @@ describe('InterfazChatComponent', () => {
         { provide: HistoriaClinicaService, useValue: historiaClinicaService },
         { provide: AntecedentesService, useValue: antecedentesService },
         { provide: Router, useValue: router },
+        { provide: PacienteImportacionService, useValue: importacionService },
+        { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
         { provide: AuthService, useValue: { logout$: logoutSubject.asObservable() } }
       ]
     }).compileComponents();
@@ -71,6 +78,22 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = abrirMenuHistorias();
     const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear historia clínica');
     component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+  }
+
+  function abrirMenuPacientes(): any {
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Consultar información')!);
+    const consultar = component.messages.find(mensaje => mensaje.menuId === 'consultar')!;
+    component.selectHistoricalMenuOption(consultar, consultar.options!.find(opcion => opcion.label === 'Pacientes')!);
+    return component.messages.find(mensaje => mensaje.menuId === 'pacientes')!;
+  }
+
+  function iniciarImportacion(): any {
+    const pacientes = abrirMenuPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+    component.selectHistoricalMenuOption(pacientes, opcion);
+    fixture.detectChanges();
+    return component.messages.find(mensaje => mensaje.type === 'patient-import')!;
   }
 
   function enviarDni(dni: string): void {
@@ -168,6 +191,164 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = abrirMenuHistorias();
 
     expect(menuHistorias.options.some((opcion: any) => opcion.label === 'Crear historia clínica')).toBeTrue();
+  });
+
+  it('debe mostrar e iniciar el registro masivo desde Pacientes sin usar Botpress', () => {
+    const pacientes = abrirMenuPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+    expect(opcion).toBeTruthy();
+
+    component.selectHistoricalMenuOption(pacientes, opcion);
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.sender === 'user' && mensaje.text === opcion.label)).toBeTrue();
+    expect(pacientes.options.includes(opcion)).toBeFalse();
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Descargar plantilla oficial');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe agregar los mensajes de importación al historial general y mantener la tarjeta separada', () => {
+    component.openChat();
+    iniciarImportacion();
+    const importacion = component.importacionComponents.first as ImportacionPacientesChatComponent;
+
+    importacion.yaTengoPlantilla();
+    fixture.detectChanges();
+
+    const ultimos = component.messages.slice(-3);
+    expect(ultimos[0]).toEqual(jasmine.objectContaining({ type: 'text', sender: 'user', text: 'Ya tengo la plantilla' }));
+    expect(ultimos[1]).toEqual(jasmine.objectContaining({ type: 'text', sender: 'bot', text: jasmine.stringContaining('Perfecto. Selecciona la plantilla Excel') }));
+    expect(ultimos[2]).toEqual(jasmine.objectContaining({ type: 'patient-import' }));
+    const tarjeta: HTMLElement = fixture.nativeElement.querySelector('.import-message-block');
+    expect(tarjeta.textContent).not.toContain('Ya tengo la plantilla');
+    expect(tarjeta.textContent).not.toContain('Perfecto. Selecciona la plantilla Excel');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+
+    component.minimizeChat();
+    component.openChat();
+    expect(component.messages.slice(-3).map(mensaje => mensaje.type)).toEqual(['text', 'text', 'patient-import']);
+  });
+
+  it('debe conservar cards progresivas congeladas y mostrar solo la etapa de cada bloque', () => {
+    component.openChat();
+    iniciarImportacion();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    let activa = component.importacionComponents.last;
+
+    activa.yaTengoPlantilla();
+    fixture.detectChanges();
+    const mensajeUsuario = component.messages.find(mensaje => mensaje.text === 'Ya tengo la plantilla')!;
+    expect(scrollSpy).toHaveBeenCalledOnceWith(mensajeUsuario.id);
+    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection']);
+
+    activa = component.importacionComponents.last;
+    activa.seleccionarArchivo({ target: { files: [new File(['excel'], 'PacientesV2.xlsx')], value: 'x' } } as unknown as Event);
+    fixture.detectChanges();
+    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection', 'file-ready']);
+    const ordenArchivo = component.messages.slice(-2);
+    expect(ordenArchivo[0]).toEqual(jasmine.objectContaining({ sender: 'bot', text: jasmine.stringContaining('He recibido el archivo «PacientesV2.xlsx»') }));
+    expect(ordenArchivo[1]).toEqual(jasmine.objectContaining({ type: 'patient-import', importView: 'file-ready' }));
+    const cardsArchivo = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block'));
+    expect(cardsArchivo[1].textContent).not.toContain('PacientesV2.xlsx');
+    expect(cardsArchivo[2].textContent).toContain('PacientesV2.xlsx');
+
+    importacionService.validarArchivo.and.returnValue(of({
+      importacionId: 'preview-1', estado: 'PREVISUALIZADA', expiraEn: new Date(Date.now() + 60000).toISOString(),
+      resumen: { registrosAnalizados: 1, validos: 1, conErrores: 0, filasConDniDuplicado: 0, gruposDniDuplicados: 0, dniExistentes: 0, conAdvertencias: 0, filasVaciasIgnoradas: 0 },
+      filas: [{ numeroFila: 2, nombreCompleto: 'Ana Pérez', dni: '01234567', estado: 'VALIDO', paciente: {}, antecedentes: {}, errores: [], advertencias: [] }]
+    } as any));
+    activa = component.importacionComponents.last;
+    activa.analizarArchivo();
+    fixture.detectChanges();
+
+    const vistas = component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView);
+    expect(vistas).toEqual(['template', 'file-selection', 'file-ready', 'analysis', 'confirmation']);
+    const cards = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block'));
+    expect(cards[0].textContent).toContain('Paso 1 de 4');
+    expect(cards[0].textContent).not.toContain('Paso 2 de 4');
+    expect(cards[1].textContent).toContain('Paso 2 de 4');
+    expect(cards[1].textContent).not.toContain('Paso 1 de 4');
+    expect(cards[2].textContent).toContain('Archivo listo para analizar');
+    expect(cards[2].textContent).not.toContain('Paso 3 de 4');
+    expect(cards[3].textContent).toContain('Paso 3 de 4');
+    expect(cards[3].textContent).not.toContain('Paso 2 de 4');
+    expect(cards[4].textContent).toContain('Paso 4 de 4');
+    expect(cards[4].textContent).not.toContain('Paso 3 de 4');
+
+    importacionService.confirmarImportacion.and.returnValue(of({
+      importacionId: 'preview-1', estado: 'CONFIRMADA',
+      resumen: { filasValidasEnPrevisualizacion: 1, pacientesRegistrados: 1, omitidosPorDniExistente: 0, erroresAlRegistrar: 0 },
+      resultados: []
+    }));
+    component.importacionComponents.last.confirmar();
+    fixture.detectChanges();
+    const final = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block')).at(-1)!;
+    expect(final.textContent).toContain('Importación completada');
+    expect(final.textContent).not.toContain('Paso 1 de 4');
+    expect(final.textContent).not.toContain('Paso 4 de 4');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el estado y archivo de importación al minimizar', () => {
+    const mensaje = iniciarImportacion();
+    mensaje.importacion.plantillaDescargada = true;
+    mensaje.importacion.estado = 'ARCHIVO_SELECCIONADO';
+    mensaje.importacion.archivo = new File(['excel'], 'pacientes.xlsx');
+    mensaje.importView = 'file-ready';
+    component.openChat();
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+
+    const restaurado = component.messages.find(item => item.type === 'patient-import')!;
+    expect(restaurado.importacion.archivo.name).toBe('pacientes.xlsx');
+    expect(fixture.nativeElement.textContent).toContain('pacientes.xlsx');
+  });
+
+  it('debe limpiar el flujo de importación al cerrar el chatbot', () => {
+    const mensaje = iniciarImportacion();
+    const cancelar = jasmine.createSpy('cancelarSolicitud');
+    mensaje.importacion.cancelarSolicitud = cancelar;
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeTrue();
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.closeChat();
+
+    expect(cancelar).toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeFalse();
+    expect(component.messages.length).toBe(2);
+  });
+
+  it('debe conservar el resultado anterior al registrar otro archivo y crear un bloque nuevo', () => {
+    const anterior = iniciarImportacion();
+    anterior.importacion.estado = 'CONFIRMADA';
+    anterior.importacion.confirmacion = {
+      importacionId: 'confirmada-1', estado: 'CONFIRMADA',
+      resumen: { filasValidasEnPrevisualizacion: 1, pacientesRegistrados: 1, omitidosPorDniExistente: 0, erroresAlRegistrar: 0 },
+      resultados: []
+    };
+
+    component.registrarOtroArchivo();
+
+    const importaciones = component.messages.filter(mensaje => mensaje.type === 'patient-import');
+    expect(importaciones.length).toBe(2);
+    expect(importaciones[0].importacion!.confirmacion!.importacionId).toBe('confirmada-1');
+    expect(importaciones[1].importacion!.estado).toBe('PLANTILLA_DESCARGADA');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar todas las opciones anteriores del menú Pacientes', () => {
+    const etiquetas = abrirMenuPacientes().options.map((opcion: any) => opcion.label);
+    expect(etiquetas).toContain('¿Cuántos pacientes hay registrados?');
+    expect(etiquetas).toContain('Muéstrame los últimos pacientes registrados');
+    expect(etiquetas).toContain('Buscar paciente por DNI');
+    expect(etiquetas).toContain('Buscar paciente por nombre');
+    expect(etiquetas).toContain('Consulta el paciente por ID');
+    expect(etiquetas).toContain('¿Cuál es la edad promedio de los pacientes?');
   });
 
   it('debe iniciar localmente el flujo y solicitar el DNI sin consultar al asistente', () => {

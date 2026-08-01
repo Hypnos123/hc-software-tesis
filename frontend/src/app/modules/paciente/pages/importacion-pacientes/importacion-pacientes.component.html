@@ -1,0 +1,100 @@
+<section class="importacion-page">
+  <div class="importacion-card">
+    <header class="page-header">
+      <div class="header-icon"><i class="pi pi-users"></i></div>
+      <div>
+        <p class="eyebrow">Pacientes</p>
+        <h2>Registro masivo de pacientes</h2>
+        <p>Registra varios pacientes al mismo tiempo utilizando la plantilla oficial Excel. Descarga la plantilla, completa la información sin modificar los encabezados y adjunta el archivo para revisarlo antes de confirmar el registro.</p>
+      </div>
+    </header>
+
+    <ol class="steps" aria-label="Progreso de la importación">
+      <li [class.active]="estado !== 'INICIAL'" [class.current]="estado === 'INICIAL' || descargando"><span>1</span><div><strong>Descargar plantilla</strong><small>Usa el formato oficial</small></div></li>
+      <li [class.active]="archivoSeleccionado" [class.current]="estado === 'PLANTILLA_DESCARGADA' || estado === 'ARCHIVO_SELECCIONADO'"><span>2</span><div><strong>Adjuntar archivo</strong><small>Máximo 2 MB</small></div></li>
+      <li [class.active]="previsualizacion" [class.current]="estado === 'VALIDANDO' || estado === 'PREVISUALIZADA'"><span>3</span><div><strong>Revisar resultados</strong><small>Valida antes de guardar</small></div></li>
+      <li [class.active]="confirmacion" [class.current]="estado === 'CONFIRMANDO' || estado === 'CONFIRMADA'"><span>4</span><div><strong>Confirmar registro</strong><small>Solo pacientes válidos</small></div></li>
+    </ol>
+
+    <div *ngIf="mensajeError" class="message error-message" role="alert">
+      <i class="pi pi-exclamation-circle"></i><span>{{ mensajeError }}</span>
+    </div>
+    <div *ngIf="estado === 'EXPIRADA'" class="message warning-message" role="alert">
+      <i class="pi pi-clock"></i><span>La previsualización expiró. Vuelve a analizar el archivo para continuar.</span>
+    </div>
+
+    <section class="action-panel" aria-labelledby="plantilla-title">
+      <div><h3 id="plantilla-title">1. Plantilla oficial</h3><p>Descarga el archivo con encabezados, formatos y catálogos autorizados.</p></div>
+      <button pButton type="button" icon="pi pi-download" [label]="descargando ? 'Descargando...' : 'Descargar plantilla Excel'" (click)="descargarPlantilla()" [disabled]="procesando || estado === 'CONFIRMADA'"></button>
+    </section>
+
+    <section class="upload-panel" [class.disabled]="!puedeSeleccionarArchivo" aria-labelledby="archivo-title">
+      <div class="upload-icon"><i class="pi pi-file-excel"></i></div>
+      <div class="upload-copy">
+        <h3 id="archivo-title">2. Adjuntar archivo</h3>
+        <p>Selecciona la plantilla completada en formato .xlsx.</p>
+        <div *ngIf="archivoSeleccionado" class="selected-file">
+          <i class="pi pi-check-circle"></i>
+          <div><strong>{{ archivoSeleccionado.name }}</strong><small>{{ formatoTamano(archivoSeleccionado.size) }}</small></div>
+        </div>
+      </div>
+      <div class="upload-actions">
+        <input #archivoInput id="archivoExcel" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" (change)="seleccionarArchivo($event)" [disabled]="!puedeSeleccionarArchivo" hidden>
+        <label for="archivoExcel" class="file-button" [class.file-button-disabled]="!puedeSeleccionarArchivo"><i class="pi pi-folder-open"></i> Seleccionar archivo Excel</label>
+        <button *ngIf="archivoSeleccionado" pButton type="button" class="p-button-text p-button-danger" icon="pi pi-times" label="Quitar archivo" (click)="quitarArchivo()" [disabled]="procesando"></button>
+      </div>
+    </section>
+
+    <div class="analyze-action" *ngIf="archivoSeleccionado && !previsualizacion">
+      <button pButton type="button" icon="pi pi-search" [label]="estado === 'VALIDANDO' ? 'Analizando archivo...' : 'Analizar archivo'" (click)="analizarArchivo()" [disabled]="procesando"></button>
+      <span *ngIf="estado === 'VALIDANDO'" class="loading-indicator" aria-label="Analizando"><i class="pi pi-spin pi-spinner"></i> Validando estructura y pacientes</span>
+    </div>
+
+    <ng-container *ngIf="previsualizacion as preview">
+      <section class="preview-section">
+        <div class="section-heading"><div><p class="eyebrow">Previsualización</p><h3>3. Resultados del análisis</h3></div><span class="expiration"><i class="pi pi-clock"></i> Vigente hasta {{ preview.expiraEn | date:'dd/MM/yyyy HH:mm' }}</span></div>
+        <div class="summary-grid">
+          <article><strong>{{ preview.resumen.registrosAnalizados }}</strong><span>Registros analizados</span></article>
+          <article class="success"><strong>{{ preview.resumen.validos }}</strong><span>Listos para registrar</span></article>
+          <article class="danger"><strong>{{ preview.resumen.conErrores }}</strong><span>Filas con errores</span></article>
+          <article class="danger"><strong>{{ preview.resumen.filasConDniDuplicado }}</strong><span>DNI duplicados en archivo</span></article>
+          <article><strong>{{ preview.resumen.gruposDniDuplicados }}</strong><span>Grupos duplicados</span></article>
+          <article class="warning"><strong>{{ preview.resumen.dniExistentes }}</strong><span>DNI ya registrados</span></article>
+          <article class="warning"><strong>{{ preview.resumen.conAdvertencias }}</strong><span>Advertencias</span></article>
+          <article><strong>{{ preview.resumen.filasVaciasIgnoradas }}</strong><span>Filas vacías ignoradas</span></article>
+        </div>
+
+        <p-table [value]="preview.filas" [paginator]="preview.filas.length > 10" [rows]="10" styleClass="p-datatable-sm" [tableStyle]="{ 'min-width': '64rem' }">
+          <ng-template pTemplate="header"><tr><th>Fila</th><th>Nombre completo</th><th>DNI</th><th>Estado</th><th>Errores</th><th>Advertencias</th></tr></ng-template>
+          <ng-template pTemplate="body" let-fila>
+            <tr [class.invalid-row]="fila.estado !== 'VALIDO'">
+              <td>{{ fila.numeroFila }}</td><td><strong>{{ fila.nombreCompleto || 'Sin nombre' }}</strong></td><td>{{ fila.dni || '—' }}</td>
+              <td><span class="status" [ngClass]="claseEstadoFila(fila)">{{ etiquetaEstadoFila(fila) }}</span></td>
+              <td><ul class="issue-list" *ngIf="fila.errores.length; else sinErrores"><li *ngFor="let error of fila.errores"><strong *ngIf="error.campo">{{ error.campo }}:</strong> {{ error.mensaje }}</li></ul><ng-template #sinErrores><span class="empty-value">Sin errores</span></ng-template></td>
+              <td><ul class="issue-list warnings" *ngIf="fila.advertencias.length; else sinAdvertencias"><li *ngFor="let warning of fila.advertencias">{{ warning.mensaje }}</li></ul><ng-template #sinAdvertencias><span class="empty-value">Sin advertencias</span></ng-template></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </section>
+
+      <section class="confirm-panel" *ngIf="estado !== 'CONFIRMADA'">
+        <div><h3>4. Confirmar registro</h3><p>Se registrarán únicamente las filas identificadas como válidas.</p></div>
+        <button pButton type="button" icon="pi pi-check" [label]="estado === 'CONFIRMANDO' ? 'Registrando pacientes...' : 'Confirmar registro de ' + cantidadValidos + ' pacientes'" (click)="confirmar()" [disabled]="!puedeConfirmar || procesando"></button>
+      </section>
+    </ng-container>
+
+    <section *ngIf="confirmacion as resultado" class="completion-section">
+      <div class="completion-title"><i class="pi pi-check-circle"></i><div><p class="eyebrow">Proceso finalizado</p><h3>Importación completada</h3></div></div>
+      <div class="summary-grid confirmation-summary">
+        <article class="success"><strong>{{ resultado.resumen.pacientesRegistrados }}</strong><span>Pacientes registrados</span></article>
+        <article class="warning"><strong>{{ resultado.resumen.omitidosPorDniExistente }}</strong><span>Omitidos por DNI existente</span></article>
+        <article class="danger"><strong>{{ resultado.resumen.erroresAlRegistrar }}</strong><span>Errores al registrar</span></article>
+      </div>
+      <p-table [value]="resultado.resultados" styleClass="p-datatable-sm">
+        <ng-template pTemplate="header"><tr><th>Fila</th><th>DNI</th><th>Estado</th><th>ID paciente</th><th>Observaciones</th></tr></ng-template>
+        <ng-template pTemplate="body" let-fila><tr><td>{{ fila.numeroFila }}</td><td>{{ fila.dni }}</td><td><span class="status" [ngClass]="fila.estado.toLowerCase().replaceAll('_', '-')">{{ fila.estado }}</span></td><td>{{ fila.idPaciente || '—' }}</td><td><span *ngIf="!fila.errores.length" class="empty-value">Sin errores</span><ul class="issue-list" *ngIf="fila.errores.length"><li *ngFor="let error of fila.errores">{{ error.mensaje }}</li></ul></td></tr></ng-template>
+      </p-table>
+      <div class="new-import"><button pButton type="button" class="p-button-outlined" icon="pi pi-refresh" label="Registrar otro archivo" (click)="registrarOtroArchivo()"></button></div>
+    </section>
+  </div>
+</section>
