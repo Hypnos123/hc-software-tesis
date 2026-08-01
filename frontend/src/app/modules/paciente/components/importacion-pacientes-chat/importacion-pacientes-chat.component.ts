@@ -30,7 +30,12 @@ export interface PacienteImportacionChatMensaje {
   etapa: 'PLANTILLA' | 'ARCHIVO' | 'ANALISIS' | 'CONFIRMACION';
   remitente: 'user' | 'bot';
   texto: string;
+  inicioGrupo?: boolean;
+  vistasSiguientes?: PacienteImportView[];
+  reemplazarVistaActiva?: boolean;
 }
+
+export type PacienteImportView = 'template' | 'file-selection' | 'analysis' | 'confirmation' | 'completed' | 'cancelled';
 
 export function crearPacienteImportacionChatState(): PacienteImportacionChatState {
   return { estado: 'INICIAL', mensaje: '', plantillaDescargada: false, mensajes: [] };
@@ -45,6 +50,8 @@ export function crearPacienteImportacionChatState(): PacienteImportacionChatStat
 })
 export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   @Input({ required: true }) state!: PacienteImportacionChatState;
+  @Input({ required: true }) view!: PacienteImportView;
+  @Input() active = false;
   @Output() volverPacientes = new EventEmitter<void>();
   @Output() registrarOtro = new EventEmitter<void>();
   @Output() mensajeConversacional = new EventEmitter<PacienteImportacionChatMensaje>();
@@ -59,7 +66,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    if (this.state.previsualizacion && this.state.estado === 'PREVISUALIZADA') {
+    if (this.active && this.state.previsualizacion && this.state.estado === 'PREVISUALIZADA') {
       this.programarExpiracion(this.state.previsualizacion.expiraEn);
     }
   }
@@ -95,8 +102,8 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   descargarPlantilla(): void {
-    if (this.procesando || this.plantillaFueDescargada || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
-    this.agregarMensaje('descargar-plantilla', 'PLANTILLA', 'user', 'Descargar plantilla Excel');
+    if (!this.active || this.procesando || this.plantillaFueDescargada || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
+    this.agregarMensaje('descargar-plantilla', 'PLANTILLA', 'user', 'Descargar plantilla Excel', { inicioGrupo: true });
     this.state.operacion = 'DESCARGANDO';
     this.state.estado = 'VALIDANDO';
     this.state.mensaje = '';
@@ -108,7 +115,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
         saveAs(response.body, this.importacionService.obtenerNombreArchivo(response));
         this.state.plantillaDescargada = true;
         this.state.estado = 'PLANTILLA_DESCARGADA';
-        this.agregarMensaje('plantilla-descargada', 'PLANTILLA', 'bot', 'La plantilla se descargó correctamente. Complétala sin modificar sus encabezados y luego adjúntala para analizarla.');
+        this.agregarMensaje('plantilla-descargada', 'PLANTILLA', 'bot', 'La plantilla se descargó correctamente. Complétala sin modificar sus encabezados y luego adjúntala para analizarla.', { vistasSiguientes: ['file-selection'] });
       },
       error: error => this.manejarError(error)
     });
@@ -116,16 +123,16 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   yaTengoPlantilla(): void {
-    if (this.procesando || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
+    if (!this.active || this.procesando || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
     this.state.plantillaDescargada = true;
     this.state.estado = 'PLANTILLA_DESCARGADA';
     this.state.mensaje = '';
-    this.agregarMensaje('ya-tengo-plantilla', 'PLANTILLA', 'user', 'Ya tengo la plantilla');
-    this.agregarMensaje('usar-plantilla-existente', 'PLANTILLA', 'bot', 'Perfecto. Selecciona la plantilla Excel que ya tienes para revisar su contenido. Recuerda que debe conservar los encabezados originales y tener formato .xlsx.');
+    this.agregarMensaje('ya-tengo-plantilla', 'PLANTILLA', 'user', 'Ya tengo la plantilla', { inicioGrupo: true });
+    this.agregarMensaje('usar-plantilla-existente', 'PLANTILLA', 'bot', 'Perfecto. Selecciona la plantilla Excel que ya tienes para revisar su contenido. Recuerda que debe conservar los encabezados originales y tener formato .xlsx.', { vistasSiguientes: ['file-selection'] });
   }
 
   seleccionarArchivo(event: Event): void {
-    if (this.procesando || !this.state.plantillaDescargada) return;
+    if (!this.active || this.procesando || !this.state.plantillaDescargada) return;
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0];
     const error = validarArchivoImportacion(archivo);
@@ -139,12 +146,12 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.confirmacion = undefined;
     this.state.estado = 'ARCHIVO_SELECCIONADO';
     this.state.mensaje = '';
-    this.agregarMensaje(`archivo-${archivo!.name}-${archivo!.size}`, 'ARCHIVO', 'bot', `He recibido el archivo «${archivo!.name}». Presiona “Analizar archivo” para revisar sus datos antes de realizar cualquier registro.`);
+    this.agregarMensaje(`archivo-${archivo!.name}-${archivo!.size}`, 'ARCHIVO', 'bot', `He recibido el archivo «${archivo!.name}». Presiona “Analizar archivo” para revisar sus datos antes de realizar cualquier registro.`, { inicioGrupo: true, vistasSiguientes: ['file-selection'], reemplazarVistaActiva: true });
     this.limpiarTemporizador();
   }
 
   quitarArchivo(): void {
-    if (this.procesando) return;
+    if (!this.active || this.procesando) return;
     this.state.archivo = undefined;
     this.state.previsualizacion = undefined;
     this.state.confirmacion = undefined;
@@ -155,7 +162,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   analizarArchivo(): void {
-    if (this.procesando) return;
+    if (!this.active || this.procesando) return;
     const error = validarArchivoImportacion(this.state.archivo);
     if (error) {
       this.state.mensaje = error;
@@ -164,14 +171,14 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.estado = 'VALIDANDO';
     this.state.operacion = 'ANALIZANDO';
     this.state.mensaje = '';
-    this.agregarMensaje(`analizar-${this.state.archivo!.name}`, 'ANALISIS', 'user', 'Analizar archivo');
+    this.agregarMensaje(`analizar-${this.state.archivo!.name}`, 'ANALISIS', 'user', 'Analizar archivo', { inicioGrupo: true });
     this.solicitud = this.importacionService.validarArchivo(this.state.archivo!).pipe(
       finalize(() => { this.solicitud = undefined; this.state.operacion = undefined; })
     ).subscribe({
       next: previsualizacion => {
         this.state.previsualizacion = previsualizacion;
         this.state.estado = previsualizacion.estado === 'EXPIRADA' ? 'EXPIRADA' : 'PREVISUALIZADA';
-        this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', 'Análisis completado. Estos son los resultados encontrados en el archivo.');
+        this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', 'Análisis completado. Estos son los resultados encontrados en el archivo.', { vistasSiguientes: ['analysis', 'confirmation'] });
         this.programarExpiracion(previsualizacion.expiraEn);
       },
       error: errorHttp => {
@@ -183,8 +190,8 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   confirmar(): void {
-    if (!this.puedeConfirmar || this.procesando || !this.state.previsualizacion) return;
-    this.agregarMensaje(`confirmar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', `Confirmar registro de ${this.cantidadValidos} pacientes`);
+    if (!this.active || !this.puedeConfirmar || this.procesando || !this.state.previsualizacion) return;
+    this.agregarMensaje(`confirmar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', `Confirmar registro de ${this.cantidadValidos} pacientes`, { inicioGrupo: true });
     this.state.estado = 'CONFIRMANDO';
     this.state.operacion = 'CONFIRMANDO';
     this.state.mensaje = '';
@@ -195,7 +202,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
         this.state.confirmacion = confirmacion;
         this.state.estado = confirmacion.estado === 'CONFIRMADA' ? 'CONFIRMADA' : 'ERROR';
         if (this.state.estado === 'CONFIRMADA') {
-          this.agregarMensaje(`confirmada-${confirmacion.importacionId}`, 'CONFIRMACION', 'bot', 'El registro masivo se completó correctamente. Los pacientes válidos fueron incorporados al sistema. Aquí tienes el resumen de la operación.');
+          this.agregarMensaje(`confirmada-${confirmacion.importacionId}`, 'CONFIRMACION', 'bot', 'El registro masivo se completó correctamente. Los pacientes válidos fueron incorporados al sistema. Aquí tienes el resumen de la operación.', { vistasSiguientes: ['completed'] });
           this.refreshService.solicitarActualizacion();
         }
         this.limpiarTemporizador();
@@ -206,11 +213,11 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   noRegistrarPacientes(): void {
-    if (!this.state.previsualizacion || this.state.estado !== 'PREVISUALIZADA' || this.procesando) return;
+    if (!this.active || !this.state.previsualizacion || this.state.estado !== 'PREVISUALIZADA' || this.procesando) return;
     this.state.estado = 'CANCELADA';
     this.state.mensaje = '';
-    this.agregarMensaje(`cancelar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', 'No registrar pacientes');
-    this.agregarMensaje(`cancelada-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'bot', 'La importación fue cancelada. Ningún paciente del archivo fue registrado en el sistema.');
+    this.agregarMensaje(`cancelar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', 'No registrar pacientes', { inicioGrupo: true });
+    this.agregarMensaje(`cancelada-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'bot', 'La importación fue cancelada. Ningún paciente del archivo fue registrado en el sistema.', { vistasSiguientes: ['cancelled'] });
     this.limpiarTemporizador();
   }
 
@@ -252,10 +259,11 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     id: string,
     etapa: PacienteImportacionChatMensaje['etapa'],
     remitente: PacienteImportacionChatMensaje['remitente'],
-    texto: string
+    texto: string,
+    transicion: Pick<PacienteImportacionChatMensaje, 'inicioGrupo' | 'vistasSiguientes' | 'reemplazarVistaActiva'> = {}
   ): void {
     if (this.state.mensajes.some(mensaje => mensaje.id === id)) return;
-    const mensaje = { id, etapa, remitente, texto };
+    const mensaje = { id, etapa, remitente, texto, ...transicion };
     this.state.mensajes.push(mensaje);
     this.mensajeConversacional.emit(mensaje);
   }

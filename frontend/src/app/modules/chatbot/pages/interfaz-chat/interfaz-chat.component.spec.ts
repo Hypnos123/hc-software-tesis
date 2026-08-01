@@ -230,11 +230,64 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.slice(-3).map(mensaje => mensaje.type)).toEqual(['text', 'text', 'patient-import']);
   });
 
+  it('debe conservar cards progresivas congeladas y mostrar solo la etapa de cada bloque', () => {
+    component.openChat();
+    iniciarImportacion();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    let activa = component.importacionComponents.last;
+
+    activa.yaTengoPlantilla();
+    fixture.detectChanges();
+    const mensajeUsuario = component.messages.find(mensaje => mensaje.text === 'Ya tengo la plantilla')!;
+    expect(scrollSpy).toHaveBeenCalledOnceWith(mensajeUsuario.id);
+    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection']);
+
+    activa = component.importacionComponents.last;
+    activa.seleccionarArchivo({ target: { files: [new File(['excel'], 'PacientesV2.xlsx')], value: 'x' } } as unknown as Event);
+    fixture.detectChanges();
+    expect(component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView)).toEqual(['template', 'file-selection']);
+
+    importacionService.validarArchivo.and.returnValue(of({
+      importacionId: 'preview-1', estado: 'PREVISUALIZADA', expiraEn: new Date(Date.now() + 60000).toISOString(),
+      resumen: { registrosAnalizados: 1, validos: 1, conErrores: 0, filasConDniDuplicado: 0, gruposDniDuplicados: 0, dniExistentes: 0, conAdvertencias: 0, filasVaciasIgnoradas: 0 },
+      filas: [{ numeroFila: 2, nombreCompleto: 'Ana Pérez', dni: '01234567', estado: 'VALIDO', paciente: {}, antecedentes: {}, errores: [], advertencias: [] }]
+    } as any));
+    activa = component.importacionComponents.last;
+    activa.analizarArchivo();
+    fixture.detectChanges();
+
+    const vistas = component.messages.filter(mensaje => mensaje.type === 'patient-import').map(mensaje => mensaje.importView);
+    expect(vistas).toEqual(['template', 'file-selection', 'analysis', 'confirmation']);
+    const cards = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block'));
+    expect(cards[0].textContent).toContain('Paso 1 de 4');
+    expect(cards[0].textContent).not.toContain('Paso 2 de 4');
+    expect(cards[1].textContent).toContain('Paso 2 de 4');
+    expect(cards[1].textContent).not.toContain('Paso 1 de 4');
+    expect(cards[2].textContent).toContain('Paso 3 de 4');
+    expect(cards[2].textContent).not.toContain('Paso 2 de 4');
+    expect(cards[3].textContent).toContain('Paso 4 de 4');
+    expect(cards[3].textContent).not.toContain('Paso 3 de 4');
+
+    importacionService.confirmarImportacion.and.returnValue(of({
+      importacionId: 'preview-1', estado: 'CONFIRMADA',
+      resumen: { filasValidasEnPrevisualizacion: 1, pacientesRegistrados: 1, omitidosPorDniExistente: 0, erroresAlRegistrar: 0 },
+      resultados: []
+    }));
+    component.importacionComponents.last.confirmar();
+    fixture.detectChanges();
+    const final = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.import-message-block')).at(-1)!;
+    expect(final.textContent).toContain('Importación completada');
+    expect(final.textContent).not.toContain('Paso 1 de 4');
+    expect(final.textContent).not.toContain('Paso 4 de 4');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
   it('debe conservar el estado y archivo de importación al minimizar', () => {
     const mensaje = iniciarImportacion();
     mensaje.importacion.plantillaDescargada = true;
     mensaje.importacion.estado = 'ARCHIVO_SELECCIONADO';
     mensaje.importacion.archivo = new File(['excel'], 'pacientes.xlsx');
+    mensaje.importView = 'file-selection';
     component.openChat();
 
     component.minimizeChat();

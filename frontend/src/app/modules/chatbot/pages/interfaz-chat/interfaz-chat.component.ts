@@ -19,10 +19,11 @@ import {
   crearPacienteImportacionChatState,
   ImportacionPacientesChatComponent,
   PacienteImportacionChatMensaje,
-  PacienteImportacionChatState
+  PacienteImportacionChatState,
+  PacienteImportView
 } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import'; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import'; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -199,20 +200,24 @@ export class InterfazChatComponent implements OnDestroy {
     const state = crearPacienteImportacionChatState();
     state.plantillaDescargada = true;
     state.estado = 'PLANTILLA_DESCARGADA';
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: state });
+    this.addImportBlock(state, 'file-selection', true);
     this.scrollToNewBlock(selection.id);
   }
   manejarMensajeImportacion(
     state: PacienteImportacionChatState,
     evento: PacienteImportacionChatMensaje
   ): void {
-    const tarjeta = this.messages.find(message => message.type === 'patient-import' && message.importacion === state);
-    if (tarjeta) this.messages = this.messages.filter(message => message !== tarjeta);
+    const tarjetaActiva = this.messages.find(message => message.type === 'patient-import' && message.importacion === state && message.importActive);
+    if (evento.reemplazarVistaActiva && tarjetaActiva) {
+      this.messages = this.messages.filter(message => message !== tarjetaActiva);
+    } else if (evento.vistasSiguientes?.length && tarjetaActiva) {
+      tarjetaActiva.importActive = false;
+    }
     const mensaje = evento.remitente === 'user'
       ? this.addUserMessage(evento.texto)
       : this.addBotMessage(evento.texto);
-    if (tarjeta) this.messages.push(tarjeta);
-    this.scrollToNewBlock(mensaje.id);
+    evento.vistasSiguientes?.forEach((view, index, views) => this.addImportBlock(state, view, index === views.length - 1));
+    if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
   }
   cancelClinicalHistoryFlow(): void {
     if (this.clinicalHistoryFlow.step === 'idle') return;
@@ -257,6 +262,9 @@ export class InterfazChatComponent implements OnDestroy {
     if (menuId !== 'principal' && menu.question) this.addBotMessage(menu.question);
     this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId, options: this.createMenuOptions(menuId) });
   }
+  private addImportBlock(state: PacienteImportacionChatState, view: PacienteImportView, active: boolean): void {
+    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: state, importView: view, importActive: active });
+  }
   private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage { return { id: this.nextMessageId(), sender, type: 'text', text }; }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
@@ -289,7 +297,7 @@ export class InterfazChatComponent implements OnDestroy {
         return;
       }
       this.addBotMessage('Puedes registrar varios pacientes al mismo tiempo utilizando la plantilla oficial Excel. Descarga la plantilla, completa la información sin modificar los encabezados y luego adjunta el archivo para revisarlo antes de confirmar el registro.');
-      this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: crearPacienteImportacionChatState() });
+      this.addImportBlock(crearPacienteImportacionChatState(), 'template', true);
       this.scrollToNewBlock(selectionId);
       return;
     }

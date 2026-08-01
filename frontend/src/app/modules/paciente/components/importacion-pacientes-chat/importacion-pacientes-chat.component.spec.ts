@@ -26,6 +26,8 @@ describe('ImportacionPacientesChatComponent', () => {
     fixture = TestBed.createComponent(ImportacionPacientesChatComponent);
     component = fixture.componentInstance;
     component.state = crearPacienteImportacionChatState();
+    component.view = 'template';
+    component.active = true;
     fixture.detectChanges();
   });
 
@@ -37,8 +39,8 @@ describe('ImportacionPacientesChatComponent', () => {
 
     expect(service.descargarPlantilla).toHaveBeenCalledTimes(1);
     expect(component.state.plantillaDescargada).toBeTrue();
-    expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
     expect(component.state.mensajes.filter(mensaje => mensaje.texto.includes('se descargó correctamente')).length).toBe(1);
+    expect(component.state.mensajes.at(-1)?.vistasSiguientes).toEqual(['file-selection']);
     expect(fixture.nativeElement.textContent).not.toContain('La plantilla se descargó correctamente');
   });
 
@@ -61,11 +63,12 @@ describe('ImportacionPacientesChatComponent', () => {
       'Ya tengo la plantilla',
       'Perfecto. Selecciona la plantilla Excel que ya tienes para revisar su contenido. Recuerda que debe conservar los encabezados originales y tener formato .xlsx.'
     ]);
-    expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
+    expect(component.state.mensajes.at(-1)?.vistasSiguientes).toEqual(['file-selection']);
     expect(fixture.nativeElement.querySelector('.conversation-line')).toBeNull();
   });
 
   it('rechaza extensiones distintas de xlsx y archivos mayores de 2 MB', () => {
+    component.view = 'file-selection';
     component.state.plantillaDescargada = true;
     seleccionar(new File(['pdf'], 'pacientes.pdf'));
     expect(component.state.mensaje).toContain('.xlsx');
@@ -79,6 +82,7 @@ describe('ImportacionPacientesChatComponent', () => {
     component.state.plantillaDescargada = true;
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     component.analizarArchivo();
+    component.view = 'analysis';
     fixture.detectChanges();
 
     expect(component.state.estado).toBe('PREVISUALIZADA');
@@ -91,6 +95,7 @@ describe('ImportacionPacientesChatComponent', () => {
   it('conserva el mensaje con el nombre del archivo después de analizar', () => {
     service.validarArchivo.and.returnValue(of(preview()));
     component.state.plantillaDescargada = true;
+    component.view = 'file-selection';
     seleccionar(new File(['excel'], 'mis-pacientes.xlsx'));
     component.analizarArchivo();
     fixture.detectChanges();
@@ -105,6 +110,7 @@ describe('ImportacionPacientesChatComponent', () => {
     sinValidos.resumen.validos = 0;
     component.state.previsualizacion = sinValidos;
     component.state.estado = 'PREVISUALIZADA';
+    component.view = 'analysis';
     fixture.detectChanges();
 
     expect(component.puedeConfirmar).toBeFalse();
@@ -121,6 +127,7 @@ describe('ImportacionPacientesChatComponent', () => {
     component.state.estado = 'PREVISUALIZADA';
     component.confirmar();
     component.confirmar();
+    component.view = 'completed';
     fixture.detectChanges();
 
     expect(service.confirmarImportacion).toHaveBeenCalledTimes(1);
@@ -134,12 +141,14 @@ describe('ImportacionPacientesChatComponent', () => {
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     component.state.previsualizacion = preview();
     component.state.estado = 'PREVISUALIZADA';
+    component.view = 'confirmation';
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Confirmar registro de 1 pacientes');
     expect(fixture.nativeElement.textContent).toContain('No registrar pacientes');
 
     component.noRegistrarPacientes();
     component.confirmar();
+    component.view = 'cancelled';
     fixture.detectChanges();
 
     expect(component.state.estado).toBe('CANCELADA');
@@ -168,18 +177,22 @@ describe('ImportacionPacientesChatComponent', () => {
     corta.expiraEn = new Date(Date.now() + 10).toISOString();
     service.validarArchivo.and.returnValue(of(corta));
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
+    component.view = 'file-selection';
     component.analizarArchivo();
+    component.view = 'confirmation';
     tick(20);
     fixture.detectChanges();
     expect(component.state.estado).toBe('EXPIRADA');
     expect(component.puedeConfirmar).toBeFalse();
-    expect(fixture.nativeElement.textContent).toContain('Volver a analizar');
+    expect(fixture.nativeElement.textContent).toContain('previsualización expiró');
   }));
 
   it('muestra errores HTTP seguros', () => {
     service.validarArchivo.and.returnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
+    component.view = 'file-selection';
     component.analizarArchivo();
+    fixture.detectChanges();
     expect(component.state.mensaje).toBe('El archivo supera los 2 MB.');
     expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('No pude analizar completamente el archivo');
   });
