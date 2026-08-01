@@ -9,6 +9,7 @@ export type EstadoFlujoImportacion =
   | 'PREVISUALIZADA'
   | 'CONFIRMANDO'
   | 'CONFIRMADA'
+  | 'CANCELADA'
   | 'EXPIRADA'
   | 'ERROR';
 

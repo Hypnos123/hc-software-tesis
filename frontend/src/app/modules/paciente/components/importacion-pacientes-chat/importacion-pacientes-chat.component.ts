@@ -20,11 +20,20 @@ export interface PacienteImportacionChatState {
   confirmacion?: IPacienteImportacionConfirmacion;
   mensaje: string;
   plantillaDescargada: boolean;
+  mensajes: PacienteImportacionChatMensaje[];
+  operacion?: 'DESCARGANDO' | 'ANALIZANDO' | 'CONFIRMANDO';
   cancelarSolicitud?: () => void;
 }
 
+export interface PacienteImportacionChatMensaje {
+  id: string;
+  etapa: 'PLANTILLA' | 'ARCHIVO' | 'ANALISIS' | 'CONFIRMACION';
+  remitente: 'user' | 'bot';
+  texto: string;
+}
+
 export function crearPacienteImportacionChatState(): PacienteImportacionChatState {
-  return { estado: 'INICIAL', mensaje: '', plantillaDescargada: false };
+  return { estado: 'INICIAL', mensaje: '', plantillaDescargada: false, mensajes: [] };
 }
 
 @Component({
@@ -66,11 +75,15 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   get procesando(): boolean {
-    return ['VALIDANDO', 'CONFIRMANDO'].includes(this.state.estado);
+    return !!this.state.operacion;
   }
 
   get cantidadValidos(): number {
     return this.state.previsualizacion?.filas.filter(fila => fila.estado === 'VALIDO').length ?? 0;
+  }
+
+  get plantillaFueDescargada(): boolean {
+    return this.state.mensajes.some(mensaje => mensaje.id === 'plantilla-descargada');
   }
 
   get puedeConfirmar(): boolean {
@@ -81,22 +94,33 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   descargarPlantilla(): void {
-    if (this.procesando || this.state.estado === 'PLANTILLA_DESCARGADA') return;
+    if (this.procesando || this.plantillaFueDescargada || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
+    this.agregarMensaje('descargar-plantilla', 'PLANTILLA', 'user', 'Descargar plantilla Excel');
+    this.state.operacion = 'DESCARGANDO';
     this.state.estado = 'VALIDANDO';
     this.state.mensaje = '';
     this.solicitud = this.importacionService.descargarPlantilla().pipe(
-      finalize(() => this.solicitud = undefined)
+      finalize(() => { this.solicitud = undefined; this.state.operacion = undefined; })
     ).subscribe({
       next: response => {
         if (!response.body) return this.mostrarError('No se recibió la plantilla Excel.');
         saveAs(response.body, this.importacionService.obtenerNombreArchivo(response));
         this.state.plantillaDescargada = true;
         this.state.estado = 'PLANTILLA_DESCARGADA';
-        this.state.mensaje = 'La plantilla se descargó correctamente. Complétala y adjúntala para analizarla. Solo se permiten archivos .xlsx de hasta 2 MB.';
+        this.agregarMensaje('plantilla-descargada', 'PLANTILLA', 'bot', 'La plantilla se descargó correctamente. Complétala sin modificar sus encabezados y luego adjúntala para analizarla.');
       },
       error: error => this.manejarError(error)
     });
     this.registrarCancelacion();
+  }
+
+  yaTengoPlantilla(): void {
+    if (this.procesando || ['CONFIRMADA', 'CANCELADA'].includes(this.state.estado)) return;
+    this.state.plantillaDescargada = true;
+    this.state.estado = 'PLANTILLA_DESCARGADA';
+    this.state.mensaje = '';
+    this.agregarMensaje('ya-tengo-plantilla', 'PLANTILLA', 'user', 'Ya tengo la plantilla');
+    this.agregarMensaje('usar-plantilla-existente', 'PLANTILLA', 'bot', 'Perfecto. Selecciona la plantilla Excel que ya tienes para revisar su contenido. Recuerda que debe conservar los encabezados originales y tener formato .xlsx.');
   }
 
   seleccionarArchivo(event: Event): void {
@@ -114,6 +138,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.confirmacion = undefined;
     this.state.estado = 'ARCHIVO_SELECCIONADO';
     this.state.mensaje = '';
+    this.agregarMensaje(`archivo-${archivo!.name}-${archivo!.size}`, 'ARCHIVO', 'bot', `He recibido el archivo «${archivo!.name}». Presiona “Analizar archivo” para revisar sus datos antes de realizar cualquier registro.`);
     this.limpiarTemporizador();
   }
 
@@ -136,36 +161,56 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
       return;
     }
     this.state.estado = 'VALIDANDO';
+    this.state.operacion = 'ANALIZANDO';
     this.state.mensaje = '';
+    this.agregarMensaje(`analizar-${this.state.archivo!.name}`, 'ANALISIS', 'user', 'Analizar archivo');
     this.solicitud = this.importacionService.validarArchivo(this.state.archivo!).pipe(
-      finalize(() => this.solicitud = undefined)
+      finalize(() => { this.solicitud = undefined; this.state.operacion = undefined; })
     ).subscribe({
       next: previsualizacion => {
         this.state.previsualizacion = previsualizacion;
         this.state.estado = previsualizacion.estado === 'EXPIRADA' ? 'EXPIRADA' : 'PREVISUALIZADA';
+        this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', 'Análisis completado. Estos son los resultados encontrados en el archivo.');
         this.programarExpiracion(previsualizacion.expiraEn);
       },
-      error: errorHttp => this.manejarError(errorHttp)
+      error: errorHttp => {
+        this.agregarMensaje(`analisis-error-${Date.now()}`, 'ANALISIS', 'bot', 'No pude analizar completamente el archivo. Revisa los errores indicados y vuelve a intentarlo.');
+        this.manejarError(errorHttp);
+      }
     });
     this.registrarCancelacion();
   }
 
   confirmar(): void {
     if (!this.puedeConfirmar || this.procesando || !this.state.previsualizacion) return;
+    this.agregarMensaje(`confirmar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', `Confirmar registro de ${this.cantidadValidos} pacientes`);
     this.state.estado = 'CONFIRMANDO';
+    this.state.operacion = 'CONFIRMANDO';
     this.state.mensaje = '';
     this.solicitud = this.importacionService.confirmarImportacion(this.state.previsualizacion.importacionId).pipe(
-      finalize(() => this.solicitud = undefined)
+      finalize(() => { this.solicitud = undefined; this.state.operacion = undefined; })
     ).subscribe({
       next: confirmacion => {
         this.state.confirmacion = confirmacion;
         this.state.estado = confirmacion.estado === 'CONFIRMADA' ? 'CONFIRMADA' : 'ERROR';
-        if (this.state.estado === 'CONFIRMADA') this.refreshService.solicitarActualizacion();
+        if (this.state.estado === 'CONFIRMADA') {
+          this.agregarMensaje(`confirmada-${confirmacion.importacionId}`, 'CONFIRMACION', 'bot', 'El registro masivo se completó correctamente. Los pacientes válidos fueron incorporados al sistema. Aquí tienes el resumen de la operación.');
+          this.refreshService.solicitarActualizacion();
+        }
         this.limpiarTemporizador();
       },
       error: error => this.manejarError(error)
     });
     this.registrarCancelacion();
+  }
+
+  noRegistrarPacientes(): void {
+    if (!this.state.previsualizacion || this.state.estado !== 'PREVISUALIZADA' || this.procesando) return;
+    this.state.estado = 'CANCELADA';
+    this.state.mensaje = '';
+    this.agregarMensaje(`cancelar-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'user', 'No registrar pacientes');
+    this.agregarMensaje(`cancelada-${this.state.previsualizacion.importacionId}`, 'CONFIRMACION', 'bot', 'La importación fue cancelada. Ningún paciente del archivo fue registrado en el sistema.');
+    this.limpiarTemporizador();
   }
 
   seleccionarOtroArchivo(): void {
@@ -192,6 +237,10 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024 / 1024).toFixed(2)} MB`;
   }
 
+  mensajesDe(etapa: PacienteImportacionChatMensaje['etapa']): PacienteImportacionChatMensaje[] {
+    return this.state.mensajes.filter(mensaje => mensaje.etapa === etapa);
+  }
+
   private estaExpirada(): boolean {
     const expiraEn = this.state.previsualizacion?.expiraEn;
     return !expiraEn || new Date(expiraEn).getTime() <= Date.now();
@@ -200,6 +249,16 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   private registrarCancelacion(): void {
     const solicitud = this.solicitud;
     this.state.cancelarSolicitud = () => solicitud?.unsubscribe();
+  }
+
+  private agregarMensaje(
+    id: string,
+    etapa: PacienteImportacionChatMensaje['etapa'],
+    remitente: PacienteImportacionChatMensaje['remitente'],
+    texto: string
+  ): void {
+    if (this.state.mensajes.some(mensaje => mensaje.id === id)) return;
+    this.state.mensajes.push({ id, etapa, remitente, texto });
   }
 
   private programarExpiracion(expiraEn: string): void {

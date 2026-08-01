@@ -239,6 +239,24 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.length).toBe(2);
   });
 
+  it('debe conservar el resultado anterior al registrar otro archivo y crear un bloque nuevo', () => {
+    const anterior = iniciarImportacion();
+    anterior.importacion.estado = 'CONFIRMADA';
+    anterior.importacion.confirmacion = {
+      importacionId: 'confirmada-1', estado: 'CONFIRMADA',
+      resumen: { filasValidasEnPrevisualizacion: 1, pacientesRegistrados: 1, omitidosPorDniExistente: 0, erroresAlRegistrar: 0 },
+      resultados: []
+    };
+
+    component.registrarOtroArchivo();
+
+    const importaciones = component.messages.filter(mensaje => mensaje.type === 'patient-import');
+    expect(importaciones.length).toBe(2);
+    expect(importaciones[0].importacion!.confirmacion!.importacionId).toBe('confirmada-1');
+    expect(importaciones[1].importacion!.estado).toBe('PLANTILLA_DESCARGADA');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
   it('debe conservar todas las opciones anteriores del menú Pacientes', () => {
     const etiquetas = abrirMenuPacientes().options.map((opcion: any) => opcion.label);
     expect(etiquetas).toContain('¿Cuántos pacientes hay registrados?');

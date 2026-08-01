@@ -39,6 +39,23 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(component.state.plantillaDescargada).toBeTrue();
     expect(fixture.nativeElement.textContent).toContain('La plantilla se descargó correctamente');
     expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
+    expect(component.state.mensajes.filter(mensaje => mensaje.texto.includes('se descargó correctamente')).length).toBe(1);
+  });
+
+  it('permite indicar que ya tiene la plantilla sin descargar y agrega la conversación', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Ya tengo la plantilla');
+
+    component.yaTengoPlantilla();
+    component.yaTengoPlantilla();
+    fixture.detectChanges();
+
+    expect(service.descargarPlantilla).not.toHaveBeenCalled();
+    expect(component.state.plantillaDescargada).toBeTrue();
+    expect(component.state.mensajes.map(mensaje => mensaje.texto)).toContain('Ya tengo la plantilla');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('Perfecto. Selecciona la plantilla Excel');
+    expect(component.state.mensajes.filter(mensaje => mensaje.id === 'ya-tengo-plantilla').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
   });
 
   it('rechaza extensiones distintas de xlsx y archivos mayores de 2 MB', () => {
@@ -61,6 +78,18 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Análisis completado');
     expect(fixture.nativeElement.textContent).toContain('DNI EXISTENTE');
     expect(fixture.nativeElement.textContent).toContain('DNI DUPLICADO');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto)).toContain('Análisis completado. Estos son los resultados encontrados en el archivo.');
+  });
+
+  it('conserva el mensaje con el nombre del archivo después de analizar', () => {
+    service.validarArchivo.and.returnValue(of(preview()));
+    component.state.plantillaDescargada = true;
+    seleccionar(new File(['excel'], 'mis-pacientes.xlsx'));
+    component.analizarArchivo();
+    fixture.detectChanges();
+
+    expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('He recibido el archivo «mis-pacientes.xlsx»');
+    expect(fixture.nativeElement.textContent).toContain('mis-pacientes.xlsx');
   });
 
   it('deshabilita confirmación cuando no hay filas válidas', () => {
@@ -91,6 +120,29 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(refreshService.solicitarActualizacion).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.textContent).toContain('Importación completada');
     expect(fixture.nativeElement.textContent).toContain('ID 25');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('El registro masivo se completó correctamente');
+  });
+
+  it('muestra las dos decisiones y cancela localmente sin confirmar ni actualizar pacientes', () => {
+    component.state.archivo = new File(['excel'], 'pacientes.xlsx');
+    component.state.previsualizacion = preview();
+    component.state.estado = 'PREVISUALIZADA';
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Confirmar registro de 1 pacientes');
+    expect(fixture.nativeElement.textContent).toContain('No registrar pacientes');
+
+    component.noRegistrarPacientes();
+    component.confirmar();
+    fixture.detectChanges();
+
+    expect(component.state.estado).toBe('CANCELADA');
+    expect(service.confirmarImportacion).not.toHaveBeenCalled();
+    expect(refreshService.solicitarActualizacion).not.toHaveBeenCalled();
+    expect(component.puedeConfirmar).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Importación cancelada');
+    expect(fixture.nativeElement.textContent).toContain('Pacientes registrados: 0');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto)).toContain('No registrar pacientes');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('Ningún paciente del archivo fue registrado');
   });
 
   it('bloquea doble confirmación mientras la solicitud está pendiente', () => {
@@ -122,6 +174,7 @@ describe('ImportacionPacientesChatComponent', () => {
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     component.analizarArchivo();
     expect(component.state.mensaje).toBe('El archivo supera los 2 MB.');
+    expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('No pude analizar completamente el archivo');
   });
 
   function seleccionar(archivo: File): void {
