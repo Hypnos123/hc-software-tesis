@@ -37,12 +37,14 @@ describe('ImportacionPacientesChatComponent', () => {
 
     expect(service.descargarPlantilla).toHaveBeenCalledTimes(1);
     expect(component.state.plantillaDescargada).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('La plantilla se descargó correctamente');
     expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
     expect(component.state.mensajes.filter(mensaje => mensaje.texto.includes('se descargó correctamente')).length).toBe(1);
+    expect(fixture.nativeElement.textContent).not.toContain('La plantilla se descargó correctamente');
   });
 
   it('permite indicar que ya tiene la plantilla sin descargar y agrega la conversación', () => {
+    const emitidos: string[] = [];
+    component.mensajeConversacional.subscribe(mensaje => emitidos.push(mensaje.texto));
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Ya tengo la plantilla');
 
@@ -55,7 +57,12 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(component.state.mensajes.map(mensaje => mensaje.texto)).toContain('Ya tengo la plantilla');
     expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('Perfecto. Selecciona la plantilla Excel');
     expect(component.state.mensajes.filter(mensaje => mensaje.id === 'ya-tengo-plantilla').length).toBe(1);
+    expect(emitidos).toEqual([
+      'Ya tengo la plantilla',
+      'Perfecto. Selecciona la plantilla Excel que ya tienes para revisar su contenido. Recuerda que debe conservar los encabezados originales y tener formato .xlsx.'
+    ]);
     expect(fixture.nativeElement.querySelector('input[type=file]').disabled).toBeFalse();
+    expect(fixture.nativeElement.querySelector('.conversation-line')).toBeNull();
   });
 
   it('rechaza extensiones distintas de xlsx y archivos mayores de 2 MB', () => {

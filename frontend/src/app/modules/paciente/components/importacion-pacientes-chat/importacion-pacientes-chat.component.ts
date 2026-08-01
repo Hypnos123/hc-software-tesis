@@ -47,6 +47,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   @Input({ required: true }) state!: PacienteImportacionChatState;
   @Output() volverPacientes = new EventEmitter<void>();
   @Output() registrarOtro = new EventEmitter<void>();
+  @Output() mensajeConversacional = new EventEmitter<PacienteImportacionChatMensaje>();
   @ViewChild('archivoInput') archivoInput?: ElementRef<HTMLInputElement>;
 
   private solicitud?: Subscription;
@@ -237,10 +238,6 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024 / 1024).toFixed(2)} MB`;
   }
 
-  mensajesDe(etapa: PacienteImportacionChatMensaje['etapa']): PacienteImportacionChatMensaje[] {
-    return this.state.mensajes.filter(mensaje => mensaje.etapa === etapa);
-  }
-
   private estaExpirada(): boolean {
     const expiraEn = this.state.previsualizacion?.expiraEn;
     return !expiraEn || new Date(expiraEn).getTime() <= Date.now();
@@ -258,7 +255,9 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     texto: string
   ): void {
     if (this.state.mensajes.some(mensaje => mensaje.id === id)) return;
-    this.state.mensajes.push({ id, etapa, remitente, texto });
+    const mensaje = { id, etapa, remitente, texto };
+    this.state.mensajes.push(mensaje);
+    this.mensajeConversacional.emit(mensaje);
   }
 
   private programarExpiracion(expiraEn: string): void {

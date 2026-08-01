@@ -5,8 +5,6 @@
 button, .compact-button { border: 0; border-radius: 8px; padding: 8px 10px; background: #2563eb; color: #fff; font: inherit; font-weight: 600; text-align: center; cursor: pointer; }
 button:disabled, .compact-button.disabled { cursor: not-allowed; opacity: .55; }
 .secondary { border: 1px solid #2563eb; background: #fff; color: #1d4ed8; }
-.conversation-line { max-width: 88%; padding: 9px 10px; border-radius: 12px 12px 12px 4px; background: #fff; box-shadow: 0 3px 9px rgba(15, 23, 42, .08); line-height: 1.35; }
-.conversation-line.user { justify-self: end; border-radius: 12px 12px 4px; background: #2563eb; color: #fff; }
 .functional-detail { margin: 0; padding: 8px; border-radius: 8px; background: #eff6ff; color: #1e40af; line-height: 1.35; }
 .functional-detail.error, .no-valid { background: #fef2f2; color: #b91c1c; }
 .selected-file { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px; border-radius: 8px; background: #f8fafc; overflow: hidden; }

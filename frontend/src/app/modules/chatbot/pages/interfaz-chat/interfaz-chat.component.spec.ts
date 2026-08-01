@@ -12,6 +12,7 @@ import { AsistenteService } from '../../services/asistente.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
 import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
+import { ImportacionPacientesChatComponent } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 
 describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
@@ -205,6 +206,28 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.type === 'patient-import')).toBeTrue();
     expect(fixture.nativeElement.textContent).toContain('Descargar plantilla oficial');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe agregar los mensajes de importación al historial general y mantener la tarjeta separada', () => {
+    component.openChat();
+    iniciarImportacion();
+    const importacion = component.importacionComponents.first as ImportacionPacientesChatComponent;
+
+    importacion.yaTengoPlantilla();
+    fixture.detectChanges();
+
+    const ultimos = component.messages.slice(-3);
+    expect(ultimos[0]).toEqual(jasmine.objectContaining({ type: 'text', sender: 'user', text: 'Ya tengo la plantilla' }));
+    expect(ultimos[1]).toEqual(jasmine.objectContaining({ type: 'text', sender: 'bot', text: jasmine.stringContaining('Perfecto. Selecciona la plantilla Excel') }));
+    expect(ultimos[2]).toEqual(jasmine.objectContaining({ type: 'patient-import' }));
+    const tarjeta: HTMLElement = fixture.nativeElement.querySelector('.import-message-block');
+    expect(tarjeta.textContent).not.toContain('Ya tengo la plantilla');
+    expect(tarjeta.textContent).not.toContain('Perfecto. Selecciona la plantilla Excel');
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+
+    component.minimizeChat();
+    component.openChat();
+    expect(component.messages.slice(-3).map(mensaje => mensaje.type)).toEqual(['text', 'text', 'patient-import']);
   });
 
   it('debe conservar el estado y archivo de importación al minimizar', () => {

@@ -8,8 +8,6 @@
     <button type="button" class="secondary" (click)="yaTengoPlantilla()" [disabled]="procesando || state.estado === 'CONFIRMADA' || state.estado === 'CANCELADA'">Ya tengo la plantilla</button>
   </section>
 
-  <div *ngFor="let mensaje of mensajesDe('PLANTILLA')" class="conversation-line" [class.user]="mensaje.remitente === 'user'" [class.bot]="mensaje.remitente === 'bot'">{{ mensaje.texto }}</div>
-
   <section *ngIf="state.plantillaDescargada" class="import-step">
     <span class="step-label">Paso 2 de 4</span>
     <strong>Adjuntar archivo Excel</strong>
@@ -29,8 +27,6 @@
     </button>
   </section>
 
-  <div *ngFor="let mensaje of mensajesDe('ARCHIVO')" class="conversation-line" [class.user]="mensaje.remitente === 'user'" [class.bot]="mensaje.remitente === 'bot'">{{ mensaje.texto }}</div>
-  <div *ngFor="let mensaje of mensajesDe('ANALISIS')" class="conversation-line" [class.user]="mensaje.remitente === 'user'" [class.bot]="mensaje.remitente === 'bot'">{{ mensaje.texto }}</div>
   <p *ngIf="state.mensaje" class="functional-detail" [class.error]="state.estado === 'ERROR' || state.estado === 'EXPIRADA'" role="status">{{ state.mensaje }}</p>
 
   <section *ngIf="state.previsualizacion as preview" class="import-step results-step">
@@ -67,8 +63,6 @@
     </button>
     <button type="button" class="secondary cancel-import" (click)="noRegistrarPacientes()" [disabled]="state.estado !== 'PREVISUALIZADA' || procesando">No registrar pacientes</button>
   </section>
-
-  <div *ngFor="let mensaje of mensajesDe('CONFIRMACION')" class="conversation-line" [class.user]="mensaje.remitente === 'user'" [class.bot]="mensaje.remitente === 'bot'">{{ mensaje.texto }}</div>
 
   <section *ngIf="state.estado === 'CANCELADA' && state.previsualizacion as previewCancelada" class="import-step cancelled-step">
     <span class="step-label">Importación cancelada</span>

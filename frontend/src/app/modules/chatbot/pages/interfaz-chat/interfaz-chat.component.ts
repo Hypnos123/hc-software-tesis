@@ -18,6 +18,7 @@ import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history
 import {
   crearPacienteImportacionChatState,
   ImportacionPacientesChatComponent,
+  PacienteImportacionChatMensaje,
   PacienteImportacionChatState
 } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 
@@ -200,6 +201,18 @@ export class InterfazChatComponent implements OnDestroy {
     state.estado = 'PLANTILLA_DESCARGADA';
     this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: state });
     this.scrollToNewBlock(selection.id);
+  }
+  manejarMensajeImportacion(
+    state: PacienteImportacionChatState,
+    evento: PacienteImportacionChatMensaje
+  ): void {
+    const tarjeta = this.messages.find(message => message.type === 'patient-import' && message.importacion === state);
+    if (tarjeta) this.messages = this.messages.filter(message => message !== tarjeta);
+    const mensaje = evento.remitente === 'user'
+      ? this.addUserMessage(evento.texto)
+      : this.addBotMessage(evento.texto);
+    if (tarjeta) this.messages.push(tarjeta);
+    this.scrollToNewBlock(mensaje.id);
   }
   cancelClinicalHistoryFlow(): void {
     if (this.clinicalHistoryFlow.step === 'idle') return;
