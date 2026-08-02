@@ -50,7 +50,8 @@ class PacienteImportacionValidacionServiceImplTest {
         new PacienteExcelReader(properties), repository, properties,
         store
     );
-    when(repository.findDnisExistentes(anyCollection())).thenReturn(Set.of());
+    when(repository.findDnisActivos(anyCollection())).thenReturn(Set.of());
+    when(repository.findDnisArchivados(anyCollection())).thenReturn(Set.of());
   }
 
   @Test
@@ -70,7 +71,8 @@ class PacienteImportacionValidacionServiceImplTest {
     assertThat(response.getFilas().getFirst().getPaciente().getSexo()).isEqualTo("F");
     assertThat(response.getFilas().getFirst().getPaciente().getEstadoCivil()).isEqualTo("SOLTERO");
     assertThat(response.getFilas().getFirst().getAntecedentes().getEducacion()).isEqualTo("S1");
-    verify(repository).findDnisExistentes(anyCollection());
+    verify(repository).findDnisActivos(anyCollection());
+    verify(repository).findDnisArchivados(anyCollection());
     verifyNoMoreInteractions(repository);
   }
 
@@ -141,14 +143,28 @@ class PacienteImportacionValidacionServiceImplTest {
 
   @Test
   void consultaDnisUnaSolaVezYMarcaLosExistentesSinAsumirUnicidad() throws Exception {
-    when(repository.findDnisExistentes(anyCollection())).thenReturn(Set.of("12345678"));
+    when(repository.findDnisActivos(anyCollection())).thenReturn(Set.of("12345678"));
 
     var response = service.validar(archivoConFilas(filaValida("12345678"), filaValida("87654321")));
 
     assertThat(response.getFilas()).extracting(fila -> fila.getEstado()).containsExactly(
         PacienteImportacionFilaEstado.DNI_EXISTENTE, PacienteImportacionFilaEstado.VALIDO
     );
-    verify(repository, times(1)).findDnisExistentes(anyCollection());
+    verify(repository, times(1)).findDnisActivos(anyCollection());
+  }
+
+  @Test
+  void marcaUnDniQueSoloExisteEnUnPacienteArchivado() throws Exception {
+    when(repository.findDnisArchivados(anyCollection())).thenReturn(Set.of("12345678"));
+
+    var response = service.validar(archivoConFilas(filaValida("12345678")));
+
+    assertThat(response.getFilas().getFirst().getEstado())
+        .isEqualTo(PacienteImportacionFilaEstado.DNI_ARCHIVADO_EXISTENTE);
+    assertThat(response.getFilas().getFirst().getErrores())
+        .extracting(error -> error.getCodigo())
+        .contains(PacienteImportacionErrorCodigo.DNI_ARCHIVADO_EXISTENTE);
+    assertThat(response.getResumen().getValidos()).isZero();
   }
 
   @ParameterizedTest

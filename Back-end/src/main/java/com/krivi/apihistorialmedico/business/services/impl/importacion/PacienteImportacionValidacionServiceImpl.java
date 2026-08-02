@@ -69,21 +69,26 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
         .filter(entry -> entry.getValue().size() > 1)
         .map(Map.Entry::getKey)
         .collect(Collectors.toSet());
-    Set<String> dnisExistentes = consultarDnisExistentes(filasPorDni.keySet());
+    Set<String> dnisActivos = consultarDnisActivos(filasPorDni.keySet());
+    Set<String> dnisArchivados = consultarDnisArchivados(filasPorDni.keySet());
 
     for (PacienteImportacionFila fila : filas) {
       boolean tieneErroresDatos = !fila.getErrores().isEmpty();
       String dni = fila.getPaciente().getDni();
       boolean duplicado = dniValido(dni) && duplicadosArchivo.contains(dni);
-      boolean existente = dniValido(dni) && dnisExistentes.contains(dni);
+      boolean existente = dniValido(dni) && dnisActivos.contains(dni);
+      boolean archivadoExistente = dniValido(dni) && !existente && dnisArchivados.contains(dni);
       if (duplicado) agregarErrorSiNoExiste(fila, PacienteImportacionErrorCodigo.DNI_DUPLICADO_ARCHIVO,
           "El DNI está repetido dentro del archivo.");
       if (existente) agregarErrorSiNoExiste(fila, PacienteImportacionErrorCodigo.DNI_EXISTENTE,
           "El DNI ya se encuentra registrado.");
+      if (archivadoExistente) agregarErrorSiNoExiste(fila, PacienteImportacionErrorCodigo.DNI_ARCHIVADO_EXISTENTE,
+          "El DNI pertenece a un paciente archivado y no puede registrarse nuevamente.");
 
       if (tieneErroresDatos) fila.setEstado(PacienteImportacionFilaEstado.ERROR_DATOS);
       else if (duplicado) fila.setEstado(PacienteImportacionFilaEstado.DNI_DUPLICADO_ARCHIVO);
       else if (existente) fila.setEstado(PacienteImportacionFilaEstado.DNI_EXISTENTE);
+      else if (archivadoExistente) fila.setEstado(PacienteImportacionFilaEstado.DNI_ARCHIVADO_EXISTENTE);
       else fila.setEstado(PacienteImportacionFilaEstado.VALIDO);
     }
 
@@ -127,9 +132,15 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
     return resultado;
   }
 
-  private Set<String> consultarDnisExistentes(Collection<String> dnis) {
+  private Set<String> consultarDnisActivos(Collection<String> dnis) {
     if (dnis.isEmpty()) return Set.of();
-    Set<String> encontrados = pacienteRepository.findDnisExistentes(dnis);
+    Set<String> encontrados = pacienteRepository.findDnisActivos(dnis);
+    return encontrados == null ? Set.of() : new HashSet<>(encontrados);
+  }
+
+  private Set<String> consultarDnisArchivados(Collection<String> dnis) {
+    if (dnis.isEmpty()) return Set.of();
+    Set<String> encontrados = pacienteRepository.findDnisArchivados(dnis);
     return encontrados == null ? Set.of() : new HashSet<>(encontrados);
   }
 
@@ -159,7 +170,8 @@ public class PacienteImportacionValidacionServiceImpl implements PacienteImporta
         .conErrores(contar(filas, PacienteImportacionFilaEstado.ERROR_DATOS))
         .filasConDniDuplicado(contar(filas, PacienteImportacionFilaEstado.DNI_DUPLICADO_ARCHIVO))
         .gruposDniDuplicados(gruposDuplicados)
-        .dniExistentes(contar(filas, PacienteImportacionFilaEstado.DNI_EXISTENTE))
+        .dniExistentes(contar(filas, PacienteImportacionFilaEstado.DNI_EXISTENTE)
+            + contar(filas, PacienteImportacionFilaEstado.DNI_ARCHIVADO_EXISTENTE))
         .conAdvertencias((int) filas.stream().filter(fila -> !fila.getAdvertencias().isEmpty()).count())
         .filasVaciasIgnoradas(filasVaciasIgnoradas)
         .build();

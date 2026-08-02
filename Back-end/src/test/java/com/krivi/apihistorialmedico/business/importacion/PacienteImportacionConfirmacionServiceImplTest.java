@@ -94,6 +94,23 @@ class PacienteImportacionConfirmacionServiceImplTest {
   }
 
   @Test
+  void noRegistraSiElDniFueArchivadoDespuesDeLaPrevisualizacion() {
+    PacienteImportacion importacion = importacion(List.of(
+        fila(2, "01234567", PacienteImportacionFilaEstado.VALIDO)
+    ));
+    store.guardar(importacion);
+    when(repository.findDnisExistentes(anyCollection())).thenReturn(Set.of("01234567"));
+    when(repository.findDnisArchivados(anyCollection())).thenReturn(Set.of("01234567"));
+
+    var response = service.confirmar(importacion.getImportacionId());
+
+    assertThat(response.getResumen().getPacientesRegistrados()).isZero();
+    assertThat(response.getResultados().getFirst().getErrores().getFirst().getCodigo().name())
+        .isEqualTo("DNI_ARCHIVADO_EXISTENTE_AL_CONFIRMAR");
+    verify(writer, never()).registrar(any());
+  }
+
+  @Test
   void errorDeUnaFilaNoImpideRegistrarLaSiguiente() {
     PacienteImportacion importacion = importacion(List.of(
         fila(2, "01234567", PacienteImportacionFilaEstado.VALIDO),
