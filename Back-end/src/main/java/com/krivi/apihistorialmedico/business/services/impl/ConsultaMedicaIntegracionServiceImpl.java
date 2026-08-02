@@ -6,6 +6,7 @@ import com.krivi.apihistorialmedico.model.api.*;
 import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.entity.Empleado;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -108,10 +109,10 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
     if (paciente.matches()) {
       String id = paciente.group(1).trim();
       if (!ID_PATTERN.matcher(id).matches()) throw error("CRITERIO_INVALIDO", "El ID de paciente debe ser un entero positivo de hasta 7 dígitos.");
-      return pacienteRepository.findById(Integer.parseInt(id)).map(List::of).orElse(List.of());
+      return pacienteRepository.findByIdPacienteAndEstadoRegistro(Integer.parseInt(id), EstadoRegistroPaciente.ACTIVO).map(List::of).orElse(List.of());
     }
-    if (DNI_PATTERN.matcher(valor).matches()) return pacienteRepository.findByNumDocumento(valor).map(List::of).orElse(List.of());
-    if (ID_PATTERN.matcher(valor).matches()) return pacienteRepository.findById(Integer.parseInt(valor)).map(List::of).orElse(List.of());
+    if (DNI_PATTERN.matcher(valor).matches()) return pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(valor, EstadoRegistroPaciente.ACTIVO);
+    if (ID_PATTERN.matcher(valor).matches()) return pacienteRepository.findByIdPacienteAndEstadoRegistro(Integer.parseInt(valor), EstadoRegistroPaciente.ACTIVO).map(List::of).orElse(List.of());
     if (SOLO_DIGITOS_PATTERN.matcher(valor).matches()) throw error("CRITERIO_INVALIDO", "El criterio numérico debe ser un DNI de 8 dígitos o un ID de paciente positivo de hasta 7 dígitos.");
     return buscarPorNombre(valor);
   }

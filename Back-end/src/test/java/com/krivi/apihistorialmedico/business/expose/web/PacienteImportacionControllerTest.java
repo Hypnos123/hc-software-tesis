@@ -9,10 +9,15 @@ import com.krivi.apihistorialmedico.model.api.importacion.PacienteImportacionVal
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionErrorCodigo;
 import com.krivi.apihistorialmedico.model.importacion.plantilla.PacientePlantillaExcel;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.mock;
@@ -29,17 +34,30 @@ class PacienteImportacionControllerTest {
   private PacienteImportacionValidacionService validacionService;
   private PacienteImportacionConfirmacionService confirmacionService;
   private MockMvc mockMvc;
+  private AnnotationConfigWebApplicationContext context;
 
   @BeforeEach
   void setUp() {
     service = mock(PacientePlantillaService.class);
     validacionService = mock(PacienteImportacionValidacionService.class);
     confirmacionService = mock(PacienteImportacionConfirmacionService.class);
-    mockMvc = MockMvcBuilders.standaloneSetup(new PacienteImportacionController(
-        service,
-        validacionService,
-        confirmacionService
-    )).build();
+    context = new AnnotationConfigWebApplicationContext();
+    context.setServletContext(new MockServletContext());
+    context.register(WebMvcTestConfiguration.class);
+    context.registerBean(PacienteImportacionController.class, () -> new PacienteImportacionController(
+        service, validacionService, confirmacionService));
+    context.refresh();
+    mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
+  }
+
+  @AfterEach
+  void tearDown() {
+    context.close();
+  }
+
+  @Configuration
+  @EnableWebMvc
+  static class WebMvcTestConfiguration {
   }
 
   @Test

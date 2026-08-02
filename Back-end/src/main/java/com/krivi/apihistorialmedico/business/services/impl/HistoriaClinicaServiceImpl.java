@@ -34,16 +34,16 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
 
   public ResponseModelGet<HistoriaClinicaResponse> getAll() {
     List<HistoriaClinicaResponse> data = new ArrayList<>();
-    historiaClinicaRepository.findAll().forEach(h -> data.add(toResponse(h)));
+    historiaClinicaRepository.findAllByPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(EstadoRegistroPaciente.ACTIVO).forEach(h -> data.add(toResponse(h)));
     return response(data);
   }
 
   public ResponseModelGet<HistoriaClinicaResponse> findById(int id) {
-    return response(historiaClinicaRepository.findById(id).map(this::toResponse).map(List::of).orElse(List.of()));
+    return response(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(id, EstadoRegistroPaciente.ACTIVO).map(this::toResponse).map(List::of).orElse(List.of()));
   }
 
   public ResponseModelGet<HistoriaClinicaResponse> findByPaciente(int idPaciente) {
-    return response(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(idPaciente)
+    return response(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(idPaciente, EstadoRegistroPaciente.ACTIVO)
         .stream().map(this::toResponse).toList());
   }
 
@@ -149,7 +149,7 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
 
   @Transactional
   public ResponseModelSet update(int idHistoriaClinica, HistoriaClinicaUpdateRequest request) {
-    HistoriaClinica historia = historiaClinicaRepository.findById(idHistoriaClinica)
+    HistoriaClinica historia = historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(idHistoriaClinica, EstadoRegistroPaciente.ACTIVO)
         .orElseThrow(() -> errorCreacion("HISTORIA_NO_ENCONTRADA", "La historia clínica no existe.", HttpStatus.NOT_FOUND));
     validarRequestActualizacion(request);
     Paciente paciente = historia.getPaciente();
