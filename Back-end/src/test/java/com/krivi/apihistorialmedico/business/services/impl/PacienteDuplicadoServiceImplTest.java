@@ -95,7 +95,7 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void priorizaMayorCantidadDeConsultas() {
     prepararPacientes(paciente(1, 10, fecha(2024, 1, 1)), paciente(2, 2, fecha(2025, 1, 1)));
-    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(
+    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(
         filaActividad(2, 4, fecha(2025, 1, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
@@ -108,7 +108,7 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void priorizaMayorCantidadDeHistoriasCuandoLasConsultasEmpatan() {
     prepararPacientes(paciente(1, 10, fecha(2024, 1, 1)), paciente(2, 2, fecha(2025, 1, 1)));
-    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(
+    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(
         filaActividad(2, 2, fecha(2025, 1, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
@@ -120,7 +120,7 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void priorizaAntecedentesInformados() {
     prepararPacientes(paciente(1, 10, fecha(2024, 1, 1)), paciente(2, 2, fecha(2025, 1, 1)));
-    when(antecedentesRepository.resumirPorPacientes(anyList())).thenReturn(List.of(filaAntecedentes(2, 1, 3)));
+    when(antecedentesRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaAntecedentes(2, 1, 3)));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
 
@@ -132,8 +132,8 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void marcaRevisionCuandoDosPacientesTienenInformacionClinica() {
     prepararPacientes(paciente(1, 5, fecha(2024, 1, 1)), paciente(2, 5, fecha(2025, 1, 1)));
-    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(filaActividad(1, 1, fecha(2025, 1, 1))));
-    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(filaActividad(2, 1, fecha(2025, 2, 1))));
+    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaActividad(1, 1, fecha(2025, 1, 1))));
+    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaActividad(2, 1, fecha(2025, 2, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
 
@@ -146,7 +146,7 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void permiteAnalisisSimpleCuandoSoloUnoTieneInformacionClinica() {
     prepararPacientes(paciente(1, 5, fecha(2024, 1, 1)), paciente(2, 5, fecha(2025, 1, 1)));
-    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(filaActividad(2, 1, fecha(2025, 1, 1))));
+    when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaActividad(2, 1, fecha(2025, 1, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
 
@@ -160,7 +160,7 @@ class PacienteDuplicadoServiceImplTest {
   void soportaTresOMasDuplicadosYEligeEntreTodos() {
     prepararPacientes(paciente(1, 3, fecha(2024, 1, 1)), paciente(2, 6, fecha(2025, 1, 1)),
         paciente(3, 8, fecha(2026, 1, 1)), paciente(4, 10, fecha(2023, 1, 1)));
-    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(filaActividad(3, 5, fecha(2026, 1, 1))));
+    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaActividad(3, 5, fecha(2026, 1, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
 
@@ -181,7 +181,7 @@ class PacienteDuplicadoServiceImplTest {
   @Test
   void desempataPorActividadClinicaMasReciente() {
     prepararPacientes(paciente(1, 5, fecha(2024, 1, 1)), paciente(2, 5, fecha(2025, 1, 1)));
-    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.of(
+    when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(
         filaActividad(1, 1, fecha(2025, 1, 1)), filaActividad(2, 1, fecha(2026, 1, 1))));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
