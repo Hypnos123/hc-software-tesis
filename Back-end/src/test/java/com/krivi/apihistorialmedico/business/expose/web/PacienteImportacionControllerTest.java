@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -38,17 +39,13 @@ class PacienteImportacionControllerTest {
 
   @BeforeEach
   void setUp() {
-    service = mock(PacientePlantillaService.class);
-    validacionService = mock(PacienteImportacionValidacionService.class);
-    confirmacionService = mock(PacienteImportacionConfirmacionService.class);
     context = new AnnotationConfigWebApplicationContext();
     context.setServletContext(new MockServletContext());
     context.register(WebMvcTestConfiguration.class);
-    context.getBeanFactory().registerSingleton(
-        "pacienteImportacionController",
-        new PacienteImportacionController(service, validacionService, confirmacionService)
-    );
     context.refresh();
+    service = context.getBean(PacientePlantillaService.class);
+    validacionService = context.getBean(PacienteImportacionValidacionService.class);
+    confirmacionService = context.getBean(PacienteImportacionConfirmacionService.class);
     mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
   }
 
@@ -60,6 +57,29 @@ class PacienteImportacionControllerTest {
   @Configuration
   @EnableWebMvc
   static class WebMvcTestConfiguration {
+    @Bean
+    PacientePlantillaService pacientePlantillaService() {
+      return mock(PacientePlantillaService.class);
+    }
+
+    @Bean
+    PacienteImportacionValidacionService pacienteImportacionValidacionService() {
+      return mock(PacienteImportacionValidacionService.class);
+    }
+
+    @Bean
+    PacienteImportacionConfirmacionService pacienteImportacionConfirmacionService() {
+      return mock(PacienteImportacionConfirmacionService.class);
+    }
+
+    @Bean
+    PacienteImportacionController pacienteImportacionController(
+        PacientePlantillaService plantillaService,
+        PacienteImportacionValidacionService validacionService,
+        PacienteImportacionConfirmacionService confirmacionService
+    ) {
+      return new PacienteImportacionController(plantillaService, validacionService, confirmacionService);
+    }
   }
 
   @Test
