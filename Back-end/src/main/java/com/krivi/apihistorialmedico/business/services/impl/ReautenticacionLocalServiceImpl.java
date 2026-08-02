@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -71,10 +72,15 @@ public class ReautenticacionLocalServiceImpl implements ReautenticacionLocalServ
 
   static String normalizarCargo(String cargo) {
     if (cargo == null) return "";
-    return Normalizer.normalize(cargo.trim(), Normalizer.Form.NFD)
+    String cargoNormalizado = Normalizer.normalize(cargo.trim(), Normalizer.Form.NFD)
         .replaceAll("\\p{M}", "")
         .replaceAll("\\s+", " ")
-        .toUpperCase();
+        .toUpperCase(Locale.ROOT);
+
+    return switch (cargoNormalizado) {
+      case "ENFERMERA", "ENFERMERA(O)", "ENFERMERO(A)", "ENFERMERIA" -> "ENFERMERO";
+      default -> cargoNormalizado;
+    };
   }
 
   private ReautenticacionException error(String resultado, String mensaje, String cargo, HttpStatus status) {

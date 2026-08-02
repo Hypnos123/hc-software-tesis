@@ -7,6 +7,8 @@ import com.krivi.apihistorialmedico.model.entity.Usuario;
 import com.krivi.apihistorialmedico.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,6 +47,27 @@ class ReautenticacionLocalServiceImplTest {
     assertEquals("ENFERMERO", response.getCargo());
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "ENFERMERO",
+      "ENFERMERA",
+      "ENFERMERA(O)",
+      "ENFERMERO(A)",
+      "ENFERMERIA",
+      "  enfermera(o)  ",
+      " enfermero(a) ",
+      "  enfermería  "
+  })
+  void autorizaAliasDeEnfermeriaYLosNormalizaComoEnfermero(String cargo) {
+    prepararUsuario(usuarioActivo(cargo, CLAVE));
+
+    var response = service.reautenticar(7, request(CLAVE));
+
+    assertTrue(response.isAutorizado());
+    assertTrue(response.isPuedeArchivarPacientes());
+    assertEquals("ENFERMERO", response.getCargo());
+  }
+
   @Test
   void normalizaCargoPermitidoEnMinusculasConEspacios() {
     prepararUsuario(usuarioActivo("  administrador  ", CLAVE));
@@ -75,6 +98,17 @@ class ReautenticacionLocalServiceImplTest {
 
     assertEquals("CARGO_NO_AUTORIZADO", error.getResultado());
     assertEquals("MEDICO", error.getCargo());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"DOCTOR", "doctor", "MEDICO", "MÉDICO", " médico "})
+  void mantieneSinPermisoLosCargosMedicos(String cargo) {
+    prepararUsuario(usuarioActivo(cargo, CLAVE));
+
+    ReautenticacionException error = assertThrows(ReautenticacionException.class,
+        () -> service.reautenticar(7, request(CLAVE)));
+
+    assertEquals("CARGO_NO_AUTORIZADO", error.getResultado());
   }
 
   @Test
