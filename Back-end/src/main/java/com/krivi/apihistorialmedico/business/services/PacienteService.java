@@ -9,6 +9,7 @@ import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.PacientesRegistradosHoyResponse;
 import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
+import com.krivi.apihistorialmedico.model.entity.Paciente;
 
 public interface PacienteService {
 
@@ -31,6 +32,9 @@ public interface PacienteService {
   ResponseModelSet save(PacienteRequest pacienteRequest);
 
   ResponseModelSet update(PacienteRequest pacienteRequest);
+
+  Paciente archivarInternamente(int idPaciente, int idPacientePrincipal, int idUsuario,
+                                String motivo, String detalleMotivo);
 
 
 }
