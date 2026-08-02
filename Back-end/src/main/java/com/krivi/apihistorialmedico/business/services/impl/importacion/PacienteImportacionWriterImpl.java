@@ -3,6 +3,7 @@ package com.krivi.apihistorialmedico.business.services.impl.importacion;
 import com.krivi.apihistorialmedico.business.services.importacion.PacienteImportacionWriter;
 import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionAntecedentes;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionDatos;
 import com.krivi.apihistorialmedico.model.importacion.PacienteImportacionFila;
@@ -32,6 +33,7 @@ public class PacienteImportacionWriterImpl implements PacienteImportacionWriter 
   public Integer registrar(PacienteImportacionFila fila) {
     PacienteImportacionDatos datos = fila.getPaciente();
     Paciente paciente = new Paciente();
+    paciente.setEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
     paciente.setApellidos(datos.getApellidos());
     paciente.setNombres(datos.getNombres());
     paciente.setFechaNacimiento(Date.valueOf(datos.getFechaNacimiento()));
