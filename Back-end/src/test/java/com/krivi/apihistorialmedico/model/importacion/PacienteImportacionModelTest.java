@@ -22,6 +22,7 @@ class PacienteImportacionModelTest {
         PacienteImportacionFilaEstado.VALIDO,
         PacienteImportacionFilaEstado.ERROR_DATOS,
         PacienteImportacionFilaEstado.DNI_EXISTENTE,
+        PacienteImportacionFilaEstado.DNI_ARCHIVADO_EXISTENTE,
         PacienteImportacionFilaEstado.DNI_DUPLICADO_ARCHIVO,
         PacienteImportacionFilaEstado.REGISTRADO,
         PacienteImportacionFilaEstado.NO_REGISTRADO

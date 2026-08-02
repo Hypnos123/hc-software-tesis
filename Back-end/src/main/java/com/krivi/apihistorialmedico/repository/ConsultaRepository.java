@@ -8,8 +8,11 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 
 public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
+  @Query("select c.paciente.idPaciente, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.paciente.idPaciente in :idsPaciente group by c.paciente.idPaciente")
+  List<Object[]> resumirPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
   List<Consulta> findByDoctorResponsableIdEmpleado(Integer idEmpleado);
   long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
