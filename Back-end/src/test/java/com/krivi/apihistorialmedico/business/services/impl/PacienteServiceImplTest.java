@@ -7,11 +7,13 @@ import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.PacientesRegistradosHoyResponse;
 import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class PacienteServiceImplTest {
@@ -39,9 +42,34 @@ class PacienteServiceImplTest {
   private PacienteServiceImpl pacienteService;
 
   @Test
+  void listadoNormalSolicitaUnicamentePacientesActivos() {
+    Paciente activo = paciente(1, "12345678", "Ana", "Paz");
+    when(pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(List.of(activo));
+
+    var response = pacienteService.getAllActive();
+
+    assertEquals(1, response.getData().size());
+    assertEquals(1, response.getData().getFirst().getIdPaciente());
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
+    verify(pacienteRepository, never()).findAll();
+  }
+
+  @Test
+  void busquedaNormalPorIdNoRecuperaPacientesArchivados() {
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(7, EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(Optional.empty());
+
+    var response = pacienteService.findById(7);
+
+    assertTrue(response.getData().isEmpty());
+    verify(pacienteRepository, never()).findById(7);
+  }
+
+  @Test
   void buscaPorDniYDevuelveSoloDatosPermitidos() {
     Paciente paciente = paciente(6, "78451268", "Patricia Elena", "Cárdenas Torres");
-    when(pacienteRepository.findByNumDocumento("78451268")).thenReturn(Optional.of(paciente));
+    when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("78451268", EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.existsByPacienteIdPaciente(6)).thenReturn(true);
 
     BusquedaPacienteResponse response = pacienteService.buscarParaIntegracion("78451268");
@@ -51,13 +79,13 @@ class PacienteServiceImplTest {
     assertEquals(1, response.getPacientes().size());
     assertEquals("Patricia Elena Cárdenas Torres", response.getPacientes().getFirst().getNombreCompleto());
     assertTrue(response.getPacientes().getFirst().isTieneHistoriaClinica());
-    verify(pacienteRepository).findByNumDocumento("78451268");
+    verify(pacienteRepository).findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("78451268", EstadoRegistroPaciente.ACTIVO);
   }
 
   @Test
   void buscaPorIdPositivoDeMenosDeOchoDigitos() {
     Paciente paciente = paciente(25, "12345678", "Ana", "Pérez");
-    when(pacienteRepository.findById(25)).thenReturn(Optional.of(paciente));
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(25, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(paciente));
     when(historiaClinicaRepository.existsByPacienteIdPaciente(25)).thenReturn(false);
 
     BusquedaPacienteResponse response = pacienteService.buscarParaIntegracion("25");
@@ -65,7 +93,7 @@ class PacienteServiceImplTest {
     assertTrue(response.isEncontrado());
     assertEquals("unico", response.getTipoResultado());
     assertFalse(response.getPacientes().getFirst().isTieneHistoriaClinica());
-    verify(pacienteRepository).findById(25);
+    verify(pacienteRepository).findByIdPacienteAndEstadoRegistro(25, EstadoRegistroPaciente.ACTIVO);
   }
 
   @Test
@@ -85,7 +113,7 @@ class PacienteServiceImplTest {
 
   @Test
   void devuelveSinResultadosParaBusquedaValida() {
-    when(pacienteRepository.findByNumDocumento("78451268")).thenReturn(Optional.empty());
+    when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("78451268", EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of());
 
     BusquedaPacienteResponse response = pacienteService.buscarParaIntegracion("78451268");
 
@@ -110,8 +138,8 @@ class PacienteServiceImplTest {
   @Test
   void obtieneEstadisticasUsandoElRangoDeHoy() {
     LocalDateTime inicioHoy = LocalDateTime.now(java.time.ZoneId.of("America/Lima")).toLocalDate().atStartOfDay();
-    when(pacienteRepository.count()).thenReturn(25L);
-    when(pacienteRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(inicioHoy, inicioHoy.plusDays(1))).thenReturn(3L);
+    when(pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)).thenReturn(25L);
+    when(pacienteRepository.countByEstadoRegistroAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(EstadoRegistroPaciente.ACTIVO, inicioHoy, inicioHoy.plusDays(1))).thenReturn(3L);
 
     EstadisticasPacientesResponse response = pacienteService.obtenerEstadisticasParaIntegracion();
 
@@ -125,7 +153,7 @@ class PacienteServiceImplTest {
     reciente.setFechaCreacion(LocalDateTime.of(2026, 7, 22, 10, 0));
     Paciente anterior = paciente(1, "11111111", "Bruno", "Paz");
     anterior.setFechaCreacion(LocalDateTime.of(2026, 7, 21, 10, 0));
-    when(pacienteRepository.findTop10ByOrderByFechaCreacionDesc()).thenReturn(List.of(reciente, anterior));
+    when(pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(reciente, anterior));
 
     UltimosPacientesResponse response = pacienteService.obtenerUltimosParaIntegracion(1);
 
@@ -140,7 +168,7 @@ class PacienteServiceImplTest {
     Paciente paciente = paciente(3, "33333333", "Carla", "Ríos");
     paciente.setFechaCreacion(fechaCreacion);
     LocalDateTime inicioHoy = fechaCreacion.toLocalDate().atStartOfDay();
-    when(pacienteRepository.findByFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(inicioHoy, inicioHoy.plusDays(1)))
+    when(pacienteRepository.findByEstadoRegistroAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO, inicioHoy, inicioHoy.plusDays(1)))
         .thenReturn(List.of(paciente));
 
     PacientesRegistradosHoyResponse response = pacienteService.obtenerRegistradosHoyParaIntegracion();
@@ -164,7 +192,7 @@ class PacienteServiceImplTest {
     Paciente primero = paciente(1, "72845292", "Rafael", "Velasquez Morales");
     Paciente segundo = paciente(2, "72845292", "Rafael", "Velasquez Morales");
     when(pacienteRepository.findDnisDuplicados()).thenReturn(List.of("72845292"));
-    when(pacienteRepository.findByNumDocumentoOrderByIdPacienteAsc("72845292")).thenReturn(List.of(primero, segundo));
+    when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("72845292", EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(primero, segundo));
 
     DuplicadosPacientesResponse response = pacienteService.obtenerDuplicadosParaIntegracion();
 
@@ -186,12 +214,64 @@ class PacienteServiceImplTest {
     assertTrue(response.getDuplicados().isEmpty());
   }
 
+  @Test
+  void archivaSinBorrarNiModificarRelacionesClinicas() {
+    Paciente archivado = paciente(1, "12345678", "Ana", "Paz");
+    Paciente principal = paciente(2, "12345678", "Ana", "Paz");
+    var historias = new java.util.ArrayList<com.krivi.apihistorialmedico.model.entity.Consulta>();
+    var antecedentes = new java.util.ArrayList<com.krivi.apihistorialmedico.model.entity.Antecedentes>();
+    archivado.setConsultas(historias);
+    archivado.setAntecedentes(antecedentes);
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(1, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(archivado));
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(2, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(principal));
+    when(pacienteRepository.save(archivado)).thenReturn(archivado);
+
+    Paciente resultado = pacienteService.archivarInternamente(1, 2, 9, "REGISTRO_DUPLICADO", null);
+
+    assertEquals(EstadoRegistroPaciente.ARCHIVADO, resultado.getEstadoRegistro());
+    assertEquals(principal, resultado.getPacientePrincipal());
+    assertEquals(9, resultado.getArchivadoPor().getIdUsuario());
+    assertEquals(historias, resultado.getConsultas());
+    assertEquals(antecedentes, resultado.getAntecedentes());
+    verify(pacienteRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+    verify(pacienteRepository, never()).deleteById(org.mockito.ArgumentMatchers.anyInt());
+  }
+
+  @Test
+  void rechazaArchivarElMismoPacienteComoPrincipal() {
+    assertThrows(IllegalArgumentException.class,
+        () -> pacienteService.archivarInternamente(1, 1, 9, "REGISTRO_DUPLICADO", null));
+    verify(pacienteRepository, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void registraPacientesNuevosComoActivos() {
+    com.krivi.apihistorialmedico.model.api.PacienteRequest request = new com.krivi.apihistorialmedico.model.api.PacienteRequest();
+    request.setNombres("Ana");
+    request.setApellidos("Paz");
+    request.setNumDocumento("12345678");
+    request.setFechaNacimiento(java.util.Date.from(
+        java.time.LocalDate.of(1990, 1, 1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+    when(pacienteRepository.save(org.mockito.ArgumentMatchers.any(Paciente.class))).thenAnswer(invocation -> {
+      Paciente paciente = invocation.getArgument(0);
+      paciente.setIdPaciente(10);
+      return paciente;
+    });
+
+    pacienteService.save(request);
+
+    ArgumentCaptor<Paciente> captor = ArgumentCaptor.forClass(Paciente.class);
+    verify(pacienteRepository).save(captor.capture());
+    assertEquals(EstadoRegistroPaciente.ACTIVO, captor.getValue().getEstadoRegistro());
+  }
+
   private Paciente paciente(Integer id, String dni, String nombres, String apellidos) {
     Paciente paciente = new Paciente();
     paciente.setIdPaciente(id);
     paciente.setNumDocumento(dni);
     paciente.setNombres(nombres);
     paciente.setApellidos(apellidos);
+    paciente.setEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
     return paciente;
   }
 }
