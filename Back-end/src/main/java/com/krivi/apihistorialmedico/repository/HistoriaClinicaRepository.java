@@ -8,8 +8,11 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinica, Integer> {
+  @Query("select h.paciente.idPaciente, count(h), max(h.ultimaActualizacion) from HistoriaClinica h where h.paciente.idPaciente in :idsPaciente group by h.paciente.idPaciente")
+  List<Object[]> resumirPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
   List<HistoriaClinica> findAllByPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente estadoRegistro);
   Optional<HistoriaClinica> findByIdHistoriaClinicaAndPacienteEstadoRegistro(Integer idHistoriaClinica, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente estadoRegistro);
   @Query(value = "select h.* from historiaclinica h join paciente p on p.idpaciente = h.idpaciente where h.idpaciente = :idPaciente and p.estadoregistro = 'ACTIVO' order by h.idhistoriaclinica desc limit 1", nativeQuery = true)

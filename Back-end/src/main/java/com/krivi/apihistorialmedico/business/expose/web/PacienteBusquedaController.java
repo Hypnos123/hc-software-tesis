@@ -78,7 +78,7 @@ public class PacienteBusquedaController {
 
   @Operation(summary = "Detectar pacientes duplicados por DNI", description = "Incluye solo DNI exactos no nulos ni vacíos con más de un paciente asociado.")
   @ApiResponse(responseCode = "200", description = "Duplicados obtenidos", content = @Content(schema = @Schema(implementation = DuplicadosPacientesResponse.class)))
-  @GetMapping("/duplicados")
+  @GetMapping(value = "/duplicados", params = "!dni")
   public ResponseEntity<DuplicadosPacientesResponse> duplicados() {
     return ResponseEntity.ok(pacienteService.obtenerDuplicadosParaIntegracion());
   }

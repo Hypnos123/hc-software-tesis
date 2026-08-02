@@ -66,10 +66,10 @@ BEGIN
     ALTER TABLE `paciente` ADD CONSTRAINT `fk_paciente_principal`
       FOREIGN KEY (`idpacienteprincipal`) REFERENCES `paciente` (`idpaciente`) ON DELETE NO ACTION ON UPDATE NO ACTION;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'paciente' AND CONSTRAINT_NAME = 'chk_paciente_principal_distinto') THEN
-    ALTER TABLE `paciente` ADD CONSTRAINT `chk_paciente_principal_distinto`
-      CHECK (`idpacienteprincipal` IS NULL OR `idpacienteprincipal` <> `idpaciente`);
-  END IF;
+  -- No se crea un CHECK para comparar idpacienteprincipal con idpaciente porque
+  -- MySQL no permite que un CHECK haga referencia a la columna AUTO_INCREMENT.
+  -- La regla "el paciente principal debe ser distinto del archivado" se valida
+  -- en Paciente y en PacienteServiceImpl antes de persistir el archivado.
 END$$
 
 CALL `migrar_soft_delete_paciente`()$$

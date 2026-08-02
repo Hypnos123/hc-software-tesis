@@ -50,9 +50,7 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`paciente` (
     FOREIGN KEY (`idpacienteprincipal`)
     REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
     ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `chk_paciente_principal_distinto`
-    CHECK (`idpacienteprincipal` IS NULL OR `idpacienteprincipal` <> `idpaciente`))
+    ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
