@@ -250,7 +250,8 @@ class PacienteServiceImplTest {
     request.setNombres("Ana");
     request.setApellidos("Paz");
     request.setNumDocumento("12345678");
-    request.setFechaNacimiento(java.sql.Date.valueOf("1990-01-01"));
+    request.setFechaNacimiento(java.util.Date.from(
+        java.time.LocalDate.of(1990, 1, 1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
     when(pacienteRepository.save(org.mockito.ArgumentMatchers.any(Paciente.class))).thenAnswer(invocation -> {
       Paciente paciente = invocation.getArgument(0);
       paciente.setIdPaciente(10);
