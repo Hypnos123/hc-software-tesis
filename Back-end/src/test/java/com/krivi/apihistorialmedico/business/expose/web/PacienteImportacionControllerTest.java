@@ -44,8 +44,10 @@ class PacienteImportacionControllerTest {
     context = new AnnotationConfigWebApplicationContext();
     context.setServletContext(new MockServletContext());
     context.register(WebMvcTestConfiguration.class);
-    context.registerBean(PacienteImportacionController.class, () -> new PacienteImportacionController(
-        service, validacionService, confirmacionService));
+    context.getBeanFactory().registerSingleton(
+        "pacienteImportacionController",
+        new PacienteImportacionController(service, validacionService, confirmacionService)
+    );
     context.refresh();
     mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
   }
