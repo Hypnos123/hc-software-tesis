@@ -228,12 +228,17 @@ class ArchivadoPacienteDuplicadoServiceImplTest {
   @Test
   void falloAuditoriaLanzaErrorTransaccionalYNoSeOculta() throws Exception {
     prepararExito("ADMINISTRADOR", false, 2);
-    when(auditoriaRepository.saveAndFlush(any())).thenThrow(new RuntimeException("base no disponible"));
+    doThrow(new RuntimeException("Error de auditoría"))
+        .when(auditoriaRepository)
+        .saveAndFlush(any(AuditoriaArchivadoPaciente.class));
 
     ArchivadoPacienteDuplicadoException error = assertThrows(ArchivadoPacienteDuplicadoException.class,
         () -> service.archivar(7, 1, request()));
 
     assertEquals("AUDITORIA_FALLIDA", error.getResultado());
+    assertNotNull(error.getCause());
+    assertEquals("Error de auditoría", error.getCause().getMessage());
+    verify(auditoriaRepository).saveAndFlush(any(AuditoriaArchivadoPaciente.class));
     assertNotNull(ArchivadoPacienteDuplicadoServiceImpl.class
         .getMethod("archivar", Integer.class, Integer.class, ArchivarPacienteDuplicadoRequest.class)
         .getAnnotation(Transactional.class));
@@ -304,7 +309,7 @@ class ArchivadoPacienteDuplicadoServiceImplTest {
           archivado.setPacientePrincipal(principal);
           return archivado;
         });
-    lenient().when(auditoriaRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+    lenient().when(auditoriaRepository.saveAndFlush(any(AuditoriaArchivadoPaciente.class))).thenAnswer(invocation -> {
       AuditoriaArchivadoPaciente auditoria = invocation.getArgument(0);
       auditoria.setIdAuditoria(90);
       return auditoria;
