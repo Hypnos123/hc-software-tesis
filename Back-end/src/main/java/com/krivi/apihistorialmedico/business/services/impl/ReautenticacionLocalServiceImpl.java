@@ -29,6 +29,33 @@ public class ReautenticacionLocalServiceImpl implements ReautenticacionLocalServ
   @Override
   @Transactional(readOnly = true)
   public ReautenticacionResponse reautenticar(Integer idUsuarioActual, ReautenticacionRequest request) {
+    ContextoUsuario contexto = resolverContexto(idUsuarioActual);
+    Usuario usuario = contexto.usuario();
+    String cargo = contexto.cargo();
+
+    String contrasena = request == null ? null : request.getContrasena();
+    if (contrasena == null || contrasena.isBlank()) {
+      throw error("CONTRASENA_REQUERIDA", "Debe ingresar la contraseña.", cargo, HttpStatus.BAD_REQUEST);
+    }
+    if (!Objects.equals(contrasena, usuario.getContrasena())) {
+      throw error("CONTRASENA_INCORRECTA", "La contraseña ingresada no es correcta.", cargo, HttpStatus.UNAUTHORIZED);
+    }
+
+    return respuestaAutorizada(cargo);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public ReautenticacionResponse validarAdministrador(Integer idUsuarioActual) {
+    ContextoUsuario contexto = resolverContexto(idUsuarioActual);
+    if (!"ADMINISTRADOR".equals(contexto.cargo())) {
+      throw error("CARGO_NO_AUTORIZADO", "Solo un administrador puede consultar la auditoría.",
+          contexto.cargo(), HttpStatus.FORBIDDEN);
+    }
+    return respuestaAutorizada(contexto.cargo());
+  }
+
+  private ContextoUsuario resolverContexto(Integer idUsuarioActual) {
     if (idUsuarioActual == null) {
       throw error("USUARIO_REQUERIDO", "Debe indicar el usuario actual.", null, HttpStatus.BAD_REQUEST);
     }
@@ -52,15 +79,10 @@ public class ReautenticacionLocalServiceImpl implements ReautenticacionLocalServ
       throw error("CARGO_NO_AUTORIZADO", "El cargo del usuario no permite archivar pacientes.",
           cargo.isEmpty() ? null : cargo, HttpStatus.FORBIDDEN);
     }
+    return new ContextoUsuario(usuario, cargo);
+  }
 
-    String contrasena = request == null ? null : request.getContrasena();
-    if (contrasena == null || contrasena.isBlank()) {
-      throw error("CONTRASENA_REQUERIDA", "Debe ingresar la contraseña.", cargo, HttpStatus.BAD_REQUEST);
-    }
-    if (!Objects.equals(contrasena, usuario.getContrasena())) {
-      throw error("CONTRASENA_INCORRECTA", "La contraseña ingresada no es correcta.", cargo, HttpStatus.UNAUTHORIZED);
-    }
-
+  private ReautenticacionResponse respuestaAutorizada(String cargo) {
     return ReautenticacionResponse.builder()
         .autorizado(true)
         .cargo(cargo)
@@ -85,5 +107,8 @@ public class ReautenticacionLocalServiceImpl implements ReautenticacionLocalServ
 
   private ReautenticacionException error(String resultado, String mensaje, String cargo, HttpStatus status) {
     return new ReautenticacionException(resultado, mensaje, cargo, status);
+  }
+
+  private record ContextoUsuario(Usuario usuario, String cargo) {
   }
 }

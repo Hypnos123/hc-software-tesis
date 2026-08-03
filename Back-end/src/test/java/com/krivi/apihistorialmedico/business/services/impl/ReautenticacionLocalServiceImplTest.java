@@ -217,6 +217,22 @@ class ReautenticacionLocalServiceImplTest {
         ReautenticacionLocalServiceImpl.class.getConstructors()[0].getParameterTypes());
   }
 
+  @Test
+  void soloAdministradorPuedeConsultarAuditoria() {
+    prepararUsuario(usuarioActivo(" administrador ", CLAVE));
+
+    var response = service.validarAdministrador(7);
+
+    assertTrue(response.isAutorizado());
+    assertEquals("ADMINISTRADOR", response.getCargo());
+
+    prepararUsuario(usuarioActivo("ENFERMERA(O)", CLAVE));
+    ReautenticacionException error = assertThrows(ReautenticacionException.class,
+        () -> service.validarAdministrador(7));
+    assertEquals("CARGO_NO_AUTORIZADO", error.getResultado());
+    assertEquals("ENFERMERO", error.getCargo());
+  }
+
   private void prepararUsuario(Usuario usuario) {
     when(usuarioRepository.findById(7)).thenReturn(Optional.of(usuario));
   }

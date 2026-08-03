@@ -450,7 +450,9 @@ public class PacienteServiceImpl implements PacienteService {
       throw new IllegalArgumentException("El motivo o su detalle supera la longitud permitida.");
     }
     paciente.setEstadoRegistro(EstadoRegistroPaciente.ARCHIVADO);
-    paciente.setFechaArchivado(LocalDateTime.now(ZONA_HORARIA_LIMA));
+    LocalDateTime ahora = LocalDateTime.now(ZONA_HORARIA_LIMA);
+    paciente.setFechaArchivado(ahora);
+    paciente.setUltimaActualizacion(ahora);
     paciente.setArchivadoPor(new Usuario(idUsuario));
     paciente.setMotivoArchivado(motivo.trim());
     paciente.setDetalleMotivoArchivado(detalleMotivo == null || detalleMotivo.isBlank() ? null : detalleMotivo.trim());
