@@ -1,0 +1,97 @@
+<section class="duplicate-flow-card" [attr.aria-busy]="state.estado === 'CONSULTANDO_DUPLICADOS' || state.estado === 'ARCHIVANDO'">
+  <ng-container [ngSwitch]="view">
+    <div *ngSwitchCase="'dni'" class="flow-section">
+      <span class="step-label">Gestión de duplicados</span>
+      <strong>Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.</strong>
+      <div class="inline-form">
+        <input type="text" inputmode="numeric" maxlength="8" aria-label="DNI del paciente duplicado" [(ngModel)]="dniInput" (keydown.enter)="consultarDni()" [disabled]="!active" />
+        <button type="button" class="primary-action" (click)="consultarDni()" [disabled]="!active || !dniInput.trim()" aria-label="Analizar pacientes duplicados">Analizar</button>
+      </div>
+      <p *ngIf="state.mensajeError" class="inline-error" role="alert">{{ state.mensajeError }}</p>
+      <button type="button" class="link-action" (click)="cancelar()" [disabled]="!active">Cancelar y volver a Pacientes</button>
+    </div>
+
+    <div *ngSwitchCase="'loading'" class="flow-section loading-state" role="status">
+      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+      <span>Analizando pacientes registrados con el DNI {{ state.dni }}...</span>
+      <button type="button" class="link-action" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+
+    <div *ngSwitchCase="'results'" class="flow-section">
+      <span class="step-label">Pacientes encontrados</span>
+      <div *ngFor="let paciente of state.analisis?.pacientes" class="patient-card" [class.recommended]="paciente.idPaciente === state.analisis?.idPacienteRecomendado">
+        <span *ngIf="paciente.idPaciente === state.analisis?.idPacienteRecomendado" class="recommended-badge">Recomendado para conservar</span>
+        <strong>Paciente ID {{ paciente.idPaciente }}</strong>
+        <span>{{ paciente.nombreCompleto }}</span>
+        <small>DNI: {{ paciente.dni }}</small>
+        <dl>
+          <div><dt>Creación</dt><dd>{{ formatDate(paciente.fechaCreacion) }}</dd></div>
+          <div><dt>Actualización</dt><dd>{{ formatDate(paciente.ultimaActualizacion) }}</dd></div>
+          <div><dt>Historias clínicas</dt><dd>{{ paciente.cantidadHistoriasClinicas }}</dd></div>
+          <div><dt>Consultas</dt><dd>{{ paciente.cantidadConsultas }}</dd></div>
+          <div><dt>Antecedentes</dt><dd>{{ paciente.cantidadAntecedentes }}</dd></div>
+          <div><dt>Campos personales</dt><dd>{{ paciente.cantidadCamposPersonalesCompletos }}</dd></div>
+          <div><dt>Grupos clínicos</dt><dd>{{ paciente.cantidadGruposClinicosCompletos }}</dd></div>
+          <div><dt>Información clínica</dt><dd>{{ paciente.tieneInformacionClinicaRelevante ? 'Sí' : 'No' }}</dd></div>
+          <div><dt>Estado</dt><dd>{{ paciente.estadoRegistro }}</dd></div>
+        </dl>
+        <button type="button" class="archive-choice" (click)="seleccionarParaArchivar(paciente)" [disabled]="!active" [attr.aria-label]="'Archivar paciente ID ' + paciente.idPaciente">Archivar paciente ID {{ paciente.idPaciente }}</button>
+      </div>
+      <div *ngIf="state.analisis?.razonesRecomendacion?.length" class="recommendation-reasons">
+        <strong>Razones para conservar al paciente ID {{ state.analisis?.idPacienteRecomendado }}:</strong>
+        <ul><li *ngFor="let razon of state.analisis?.razonesRecomendacion">{{ razon }}</li></ul>
+      </div>
+      <button type="button" class="link-action" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+
+    <div *ngSwitchCase="'confirmation'" class="flow-section confirmation-box">
+      <strong>Confirma la selección</strong>
+      <p>Se conservará al paciente ID {{ state.pacientePrincipal?.idPaciente }} como registro principal y se archivará al paciente ID {{ state.pacienteArchivado?.idPaciente }}.</p>
+      <p>¿Deseas continuar?</p>
+      <div class="action-row">
+        <button type="button" class="primary-action" (click)="confirmarSeleccion()" [disabled]="!active">Sí, continuar</button>
+        <button type="button" class="secondary-action" (click)="cambiarSeleccion()" [disabled]="!active">Cambiar selección</button>
+        <button type="button" class="danger-action" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'warning'" class="flow-section clinical-warning" role="alert">
+      <strong><i class="pi pi-exclamation-triangle" aria-hidden="true"></i> Advertencia</strong>
+      <p>Dos o más pacientes contienen información clínica.</p>
+      <p>El archivado no fusionará ni transferirá historias clínicas, consultas o antecedentes. Revisa los datos antes de continuar.</p>
+      <div class="action-row">
+        <button type="button" class="warning-action" (click)="confirmarRevision()" [disabled]="!active">He revisado la información y deseo continuar</button>
+        <button type="button" class="danger-action" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'password'" class="flow-section password-card">
+      <strong>Por seguridad, ingresa la contraseña de tu usuario para confirmar el archivado.</strong>
+      <p>Intentos disponibles: {{ state.intentosRestantes }}</p>
+      <div class="password-field">
+        <input #passwordInput [type]="mostrarPassword ? 'text' : 'password'" autocomplete="current-password" aria-label="Contraseña para confirmar el archivado" [(ngModel)]="password" (keydown.enter)="onPasswordEnter($event)" [disabled]="!active" />
+        <button type="button" class="visibility-action" (click)="alternarPassword()" [disabled]="!active" [attr.aria-label]="mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+          <i [class]="mostrarPassword ? 'pi pi-eye-slash' : 'pi pi-eye'" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="action-row">
+        <button type="button" class="primary-action" (click)="confirmarArchivado()" [disabled]="!active || !password">Confirmar eliminación</button>
+        <button type="button" class="danger-action" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'archiving'" class="flow-section loading-state" role="status">
+      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i><span>Archivando paciente de forma segura...</span>
+    </div>
+
+    <div *ngSwitchCase="'success'" class="flow-section success-card">
+      <strong><i class="pi pi-check-circle" aria-hidden="true"></i> Paciente archivado correctamente</strong>
+      <p><b>Paciente archivado:</b><br>ID {{ state.pacienteArchivado?.idPaciente }} — {{ state.pacienteArchivado?.nombreCompleto }}</p>
+      <p><b>Paciente conservado:</b><br>ID {{ state.pacientePrincipal?.idPaciente }} — {{ state.pacientePrincipal?.nombreCompleto }}</p>
+      <p>La operación fue registrada en auditoría<span *ngIf="state.respuestaArchivado?.idAuditoria"> N.° {{ state.respuestaArchivado?.idAuditoria }}</span>.</p>
+    </div>
+
+    <div *ngSwitchCase="'cancelled'" class="flow-section neutral-card"><span>La gestión de pacientes duplicados finalizó sin realizar cambios.</span></div>
+    <div *ngSwitchCase="'error'" class="flow-section inline-error"><span>{{ state.mensajeError }}</span></div>
+  </ng-container>
+</section>

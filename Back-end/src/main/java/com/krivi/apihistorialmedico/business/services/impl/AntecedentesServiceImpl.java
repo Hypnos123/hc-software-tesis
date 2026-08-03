@@ -7,11 +7,14 @@ import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
+import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.util.Constant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,10 +28,14 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   @Autowired
   AntecedentesRepository antecedentesRepository;
 
+  @Autowired
+  PacienteRepository pacienteRepository;
+
   @Override
   public ResponseModelGet<AntecedentesResponse> getAllActive() {
     List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
-    antecedentesRepository.findAll().forEach(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
+    antecedentesRepository.findAllByPacienteEstadoRegistro(EstadoRegistroPaciente.ACTIVO)
+        .forEach(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
 
     ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
     responseModelGet.setData(antecedentesResponseList);
@@ -39,7 +46,8 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   @Override
   public ResponseModelGet<AntecedentesResponse> findById(int idAntecedente) {
     List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
-    antecedentesRepository.findById(idAntecedente).ifPresent(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
+    antecedentesRepository.findByIdAntecedentesAndPacienteEstadoRegistro(idAntecedente, EstadoRegistroPaciente.ACTIVO)
+        .ifPresent(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
 
     ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
     responseModelGet.setData(antecedentesResponseList);
@@ -50,7 +58,7 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   @Override
   public ResponseModelGet<AntecedentesResponse> findByPaciente(int idPaciente) {
     List<AntecedentesResponse> antecedentesResponseList = new ArrayList<>();
-    antecedentesRepository.findByPacienteIdPaciente(idPaciente)
+    antecedentesRepository.findByPacienteIdPacienteAndPacienteEstadoRegistro(idPaciente, EstadoRegistroPaciente.ACTIVO)
         .forEach(antecedentes -> antecedentesResponseList.add(toResponse(antecedentes)));
 
     ResponseModelGet<AntecedentesResponse> responseModelGet = new ResponseModelGet<>();
@@ -60,40 +68,48 @@ public class AntecedentesServiceImpl implements AntecedentesService {
   }
 
   @Override
+  @Transactional
   public ResponseModelSet save(AntecedentesRequest analisisRequest) {
     ResponseModelSet responseModelSet = new ResponseModelSet();
-    try {
-      Antecedentes antecedentesResponse = antecedentesRepository.save(toEntity(analisisRequest));
-      responseModelSet.setIdGenerado(antecedentesResponse.getIdAntecedentes());
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
-      return responseModelSet;
-
-    } catch (Exception e) {
-      log.error("save(): " + e.getMessage());
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
-      return responseModelSet;
-    }
+    Paciente paciente = obtenerPacienteActivo(analisisRequest);
+    Antecedentes antecedentes = new Antecedentes();
+    aplicarDatos(antecedentes, analisisRequest);
+    antecedentes.setPaciente(paciente);
+    Antecedentes antecedentesResponse = antecedentesRepository.save(antecedentes);
+    responseModelSet.setIdGenerado(antecedentesResponse.getIdAntecedentes());
+    responseModelSet.setMensaje(MENSAJE_GUARDAR_OK);
+    return responseModelSet;
   }
 
   @Override
+  @Transactional
   public ResponseModelSet update(AntecedentesRequest analisisRequest) {
-
     ResponseModelSet responseModelSet = new ResponseModelSet();
-    try {
-      antecedentesRepository.save(toEntity(analisisRequest));
-      responseModelSet.setMensaje(MENSAJE_EDITAR_OK);
-      return responseModelSet;
-
-    } catch (Exception e) {
-      log.error("update(): {}", e.getMessage());
-      responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
-      return responseModelSet;
+    Paciente paciente = obtenerPacienteActivo(analisisRequest);
+    if (analisisRequest.getIdAntecedentes() == null) {
+      throw new IllegalArgumentException("El identificador de antecedentes es obligatorio para actualizar.");
     }
+    Antecedentes antecedentes = antecedentesRepository.findByIdAntecedentesAndPacienteEstadoRegistro(
+            analisisRequest.getIdAntecedentes(), EstadoRegistroPaciente.ACTIVO)
+        .orElseThrow(() -> new IllegalArgumentException("Los antecedentes no existen o pertenecen a un paciente archivado."));
+    if (!paciente.getIdPaciente().equals(antecedentes.getPaciente().getIdPaciente())) {
+      throw new IllegalArgumentException("Los antecedentes no corresponden al paciente indicado.");
+    }
+    aplicarDatos(antecedentes, analisisRequest);
+    antecedentesRepository.save(antecedentes);
+    responseModelSet.setMensaje(MENSAJE_EDITAR_OK);
+    return responseModelSet;
   }
 
-  private Antecedentes toEntity(AntecedentesRequest analisisRequest) {
-    Antecedentes antecedentes = new Antecedentes();
-    antecedentes.setIdAntecedentes(analisisRequest.getIdAntecedentes());
+  private Paciente obtenerPacienteActivo(AntecedentesRequest request) {
+    if (request == null || request.getIdPaciente() == null) {
+      throw new IllegalArgumentException("El paciente es obligatorio.");
+    }
+    return pacienteRepository.findByIdPacienteAndEstadoRegistro(request.getIdPaciente(), EstadoRegistroPaciente.ACTIVO)
+        .orElseThrow(() -> new IllegalArgumentException("El paciente no existe o está archivado."));
+  }
+
+  private void aplicarDatos(Antecedentes antecedentes, AntecedentesRequest analisisRequest) {
     antecedentes.setAlimentacion(analisisRequest.getAlimentacion());
     antecedentes.setHabitos(analisisRequest.getHabitos());
     antecedentes.setVivienda(analisisRequest.getVivienda());
@@ -103,8 +119,6 @@ public class AntecedentesServiceImpl implements AntecedentesService {
     antecedentes.setEnfermedadesPrevias(analisisRequest.getEnfermedadesPrevias());
     antecedentes.setCirugiasPrevias(analisisRequest.getCirugiasPrevias());
     antecedentes.setAlergiaMedicamentos(analisisRequest.getAlergiaMedicamentos());
-    antecedentes.setPaciente(new Paciente(analisisRequest.getIdPaciente()));
-    return antecedentes;
   }
 
   private AntecedentesResponse toResponse(Antecedentes antecedentes) {
