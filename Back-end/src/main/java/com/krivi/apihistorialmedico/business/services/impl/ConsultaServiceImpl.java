@@ -124,7 +124,8 @@ public class ConsultaServiceImpl implements ConsultaService {
 
   private void applyRequest(Consulta consulta, ConsultaRequest request, boolean nuevo) {
     Integer idHistoriaClinica = request.getIdHistoriaClinica() != null ? request.getIdHistoriaClinica() : consulta.getHistoriaClinica().getIdHistoriaClinica();
-    HistoriaClinica historia = historiaClinicaRepository.findById(idHistoriaClinica)
+    HistoriaClinica historia = historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(
+            idHistoriaClinica, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)
         .orElseThrow(() -> new IllegalArgumentException("Historia clínica no encontrada"));
     Empleado doctor = empleadoRepository.findById(request.getIdEmpleadoDoctor())
         .filter(this::isDoctorActivo)

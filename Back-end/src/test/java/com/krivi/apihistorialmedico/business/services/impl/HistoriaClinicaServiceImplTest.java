@@ -52,7 +52,7 @@ class HistoriaClinicaServiceImplTest {
     Antecedentes antecedentes = new Antecedentes();
     antecedentes.setIdAntecedentes(8);
     antecedentes.setPaciente(paciente);
-    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    when(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(25, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(java.util.Optional.of(historia));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of(antecedentes));
     when(historiaClinicaRepository.save(historia)).thenReturn(historia);
 
@@ -70,7 +70,7 @@ class HistoriaClinicaServiceImplTest {
     HistoriaClinica segundaHistoria = new HistoriaClinica();
     segundaHistoria.setIdHistoriaClinica(26);
     segundaHistoria.setPaciente(paciente);
-    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(10, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
         .thenReturn(List.of(historia, segundaHistoria));
     assertEquals(List.of("Ana Actualizada", "Ana Actualizada"), historiaClinicaService.findByPaciente(10)
         .getData().stream().map(item -> item.getNombres()).toList());
@@ -78,7 +78,7 @@ class HistoriaClinicaServiceImplTest {
 
   @Test
   void rechazaActualizacionDeHistoriaInexistenteODatosInvalidos() {
-    when(historiaClinicaRepository.findById(999)).thenReturn(java.util.Optional.empty());
+    when(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(999, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(java.util.Optional.empty());
     CreacionHistoriaClinicaException inexistente = assertThrows(CreacionHistoriaClinicaException.class,
         () -> historiaClinicaService.update(999, updateValido()));
 
@@ -86,7 +86,7 @@ class HistoriaClinicaServiceImplTest {
     HistoriaClinica historia = new HistoriaClinica();
     historia.setIdHistoriaClinica(25);
     historia.setPaciente(paciente);
-    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    when(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(25, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(java.util.Optional.of(historia));
     HistoriaClinicaUpdateRequest futura = updateValido();
     futura.setFechaNacimiento(LocalDate.now(ZoneId.of("America/Lima")).plusDays(1));
     CreacionHistoriaClinicaException fechaInvalida = assertThrows(CreacionHistoriaClinicaException.class,
@@ -111,7 +111,7 @@ class HistoriaClinicaServiceImplTest {
     HistoriaClinica historia = new HistoriaClinica();
     historia.setIdHistoriaClinica(25);
     historia.setPaciente(paciente);
-    when(historiaClinicaRepository.findById(25)).thenReturn(java.util.Optional.of(historia));
+    when(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(25, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(java.util.Optional.of(historia));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
     when(antecedentesRepository.save(any(Antecedentes.class))).thenThrow(new RuntimeException("fallo simulado"));
 
@@ -213,6 +213,37 @@ class HistoriaClinicaServiceImplTest {
   }
 
   @Test
+  void noCreaHistoriaCuandoSoloExisteUnPacienteArchivado() {
+    // findByDniNormalizado consulta explícitamente solo ACTIVO; el archivado permanece en BD pero no es candidato.
+    when(pacienteRepository.findByDniNormalizado("12345678")).thenReturn(List.of());
+
+    CreacionHistoriaClinicaException error = assertThrows(CreacionHistoriaClinicaException.class,
+        () -> historiaClinicaService.save(requestValido("12345678")));
+
+    assertEquals("PACIENTE_NO_ENCONTRADO", error.getCodigo());
+    verify(historiaClinicaRepository, never()).save(any());
+  }
+
+  @Test
+  void unActivoYUnArchivadoConElMismoDniNoGeneranAmbiguedad() {
+    Paciente activo = new Paciente();
+    activo.setIdPaciente(10);
+    activo.setNumDocumento("12345678");
+    when(pacienteRepository.findByDniNormalizado("12345678")).thenReturn(List.of(activo));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+    when(historiaClinicaRepository.save(any(HistoriaClinica.class))).thenAnswer(invocation -> {
+      HistoriaClinica historia = invocation.getArgument(0);
+      historia.setIdHistoriaClinica(101);
+      return historia;
+    });
+
+    ResponseModelSet response = historiaClinicaService.save(requestValido("12345678"));
+
+    assertEquals(101, response.getIdGenerado());
+    verify(historiaClinicaRepository).save(any(HistoriaClinica.class));
+  }
+
+  @Test
   void rechazaDniAsociadoAVariosPacientesConConflict() {
     Paciente primero = new Paciente();
     Paciente segundo = new Paciente();
@@ -231,7 +262,7 @@ class HistoriaClinicaServiceImplTest {
   void listaTodasLasHistoriasDelPaciente() {
     HistoriaClinica primera = historia(15, 10, "12345678", "Ana", "Pérez");
     HistoriaClinica segunda = historia(16, 10, "12345678", "Ana", "Pérez");
-    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(10, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
         .thenReturn(List.of(primera, segunda));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
 
@@ -244,7 +275,7 @@ class HistoriaClinicaServiceImplTest {
     LocalDate nacimiento = LocalDate.now(ZoneId.of("America/Lima")).minusYears(30).minusDays(1);
     HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
     historia.getPaciente().setFechaNacimiento(java.sql.Date.valueOf(nacimiento));
-    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(10, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
         .thenReturn(List.of(historia));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
 
@@ -258,7 +289,7 @@ class HistoriaClinicaServiceImplTest {
     java.util.Date fechaNacimiento = java.util.Date.from(nacimiento.atTime(12, 0).atZone(lima).toInstant());
     HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
     historia.getPaciente().setFechaNacimiento(fechaNacimiento);
-    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(10, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
         .thenReturn(List.of(historia));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
 
@@ -269,7 +300,7 @@ class HistoriaClinicaServiceImplTest {
   void conservaEdadNulaCuandoNoExisteFechaDeNacimiento() {
     HistoriaClinica historia = historia(15, 10, "12345678", "Ana", "Pérez");
     historia.getPaciente().setFechaNacimiento(null);
-    when(historiaClinicaRepository.findAllByPacienteIdPacienteOrderByIdHistoriaClinicaAsc(10))
+    when(historiaClinicaRepository.findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(10, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
         .thenReturn(List.of(historia));
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
 

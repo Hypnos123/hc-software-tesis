@@ -28,6 +28,26 @@ public class Paciente {
   private Integer idPaciente;
   @Column(name = "fechacreacion", nullable = false, updatable = false)
   private LocalDateTime fechaCreacion;
+  @Column(name = "ultimaactualizacion", nullable = false)
+  private LocalDateTime ultimaActualizacion;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "estadoregistro", nullable = false, length = 20)
+  private EstadoRegistroPaciente estadoRegistro = EstadoRegistroPaciente.ACTIVO;
+  @Column(name = "fechaarchivado")
+  private LocalDateTime fechaArchivado;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "idusuarioarchivado")
+  private Usuario archivadoPor;
+  @Column(name = "motivoarchivado", length = 45)
+  private String motivoArchivado;
+  @Column(name = "detallemotivoarchivado", length = 500)
+  private String detalleMotivoArchivado;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "idpacienteprincipal")
+  private Paciente pacientePrincipal;
+  @Version
+  @Column(name = "version", nullable = false)
+  private Long version;
   private String nombres;
   private String apellidos;
   @Column(name = "fechaingreso")
@@ -50,8 +70,33 @@ public class Paciente {
 
   @PrePersist
   void asignarFechaCreacion() {
+    LocalDateTime ahora = LocalDateTime.now(ZONA_HORARIA_LIMA);
     if (fechaCreacion == null) {
-      fechaCreacion = LocalDateTime.now(ZONA_HORARIA_LIMA);
+      fechaCreacion = ahora;
+    }
+    ultimaActualizacion = ahora;
+    if (estadoRegistro == null) estadoRegistro = EstadoRegistroPaciente.ACTIVO;
+    validarEstadoRegistro();
+  }
+
+  @PreUpdate
+  void asignarFechaActualizacion() {
+    ultimaActualizacion = LocalDateTime.now(ZONA_HORARIA_LIMA);
+    validarEstadoRegistro();
+  }
+
+  private void validarEstadoRegistro() {
+    if (estadoRegistro == EstadoRegistroPaciente.ACTIVO) {
+      fechaArchivado = null;
+      archivadoPor = null;
+      motivoArchivado = null;
+      detalleMotivoArchivado = null;
+      pacientePrincipal = null;
+      return;
+    }
+    if (pacientePrincipal == this
+        || (idPaciente != null && pacientePrincipal != null && idPaciente.equals(pacientePrincipal.getIdPaciente()))) {
+      throw new IllegalStateException("El paciente principal debe ser distinto del paciente archivado.");
     }
   }
 
