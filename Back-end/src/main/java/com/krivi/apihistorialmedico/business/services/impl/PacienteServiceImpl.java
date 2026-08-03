@@ -5,6 +5,8 @@ import com.krivi.apihistorialmedico.business.exception.BusquedaPacienteException
 import com.krivi.apihistorialmedico.model.api.*;
 import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
+import com.krivi.apihistorialmedico.model.entity.Usuario;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.util.Constant;
@@ -13,6 +15,7 @@ import org.hibernate.annotations.Array;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,7 +50,7 @@ public class PacienteServiceImpl implements PacienteService {
   @Override
   public ResponseModelGet<PacienteResponse> getAllActive() {
     List<PacienteResponse> pacienteResponseList = new ArrayList<>();
-    pacienteRepository.findAll().forEach(paciente -> {
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(paciente -> {
 
       pacienteResponseList.add(PacienteResponse.builder()
           .idPaciente(paciente.getIdPaciente())
@@ -74,7 +77,13 @@ public class PacienteServiceImpl implements PacienteService {
   @Override
   public ResponseModelGet<PacienteResponse> findById(int idPaciente) {
     List<PacienteResponse> pacienteResponseList = new ArrayList<>();
-    Paciente paciente = pacienteRepository.findById(idPaciente).orElse(null);
+    Paciente paciente = pacienteRepository.findByIdPacienteAndEstadoRegistro(idPaciente, EstadoRegistroPaciente.ACTIVO).orElse(null);
+    if (paciente == null) {
+      ResponseModelGet<PacienteResponse> response = new ResponseModelGet<>();
+      response.setData(pacienteResponseList);
+      response.setMensaje(Constant.MENSAJE_CONSULTA_OK);
+      return response;
+    }
 
       pacienteResponseList.add(PacienteResponse.builder()
           .idPaciente(paciente.getIdPaciente())
@@ -147,15 +156,15 @@ public class PacienteServiceImpl implements PacienteService {
     LocalDateTime inicioHoy = LocalDate.now(ZONA_HORARIA_LIMA).atStartOfDay();
     LocalDateTime inicioManana = inicioHoy.plusDays(1);
     return EstadisticasPacientesResponse.builder()
-        .totalPacientes(pacienteRepository.count())
-        .registradosHoy(pacienteRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(inicioHoy, inicioManana))
+        .totalPacientes(pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO))
+        .registradosHoy(pacienteRepository.countByEstadoRegistroAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(EstadoRegistroPaciente.ACTIVO, inicioHoy, inicioManana))
         .build();
   }
 
   @Override
   public UltimosPacientesResponse obtenerUltimosParaIntegracion(Integer limite) {
     int limiteValidado = validarLimiteUltimos(limite);
-    List<PacienteRegistroResponse> pacientes = pacienteRepository.findTop10ByOrderByFechaCreacionDesc().stream()
+    List<PacienteRegistroResponse> pacientes = pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO).stream()
         .limit(limiteValidado)
         .map(this::toPacienteRegistroResponse)
         .toList();
@@ -167,7 +176,7 @@ public class PacienteServiceImpl implements PacienteService {
     LocalDate fechaHoy = LocalDate.now(ZONA_HORARIA_LIMA);
     LocalDateTime inicioHoy = fechaHoy.atStartOfDay();
     List<PacienteRegistroResponse> pacientes = pacienteRepository
-        .findByFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(inicioHoy, inicioHoy.plusDays(1))
+        .findByEstadoRegistroAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO, inicioHoy, inicioHoy.plusDays(1))
         .stream()
         .map(this::toPacienteRegistroResponse)
         .toList();
@@ -208,7 +217,7 @@ public class PacienteServiceImpl implements PacienteService {
   }
 
   private GrupoDuplicadoDniResponse toGrupoDuplicadoDniResponse(String dni) {
-    List<PacienteDuplicadoItemResponse> pacientes = pacienteRepository.findByNumDocumentoOrderByIdPacienteAsc(dni).stream()
+    List<PacienteDuplicadoItemResponse> pacientes = pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(dni, EstadoRegistroPaciente.ACTIVO).stream()
         .map(paciente -> PacienteDuplicadoItemResponse.builder()
             .idPaciente(paciente.getIdPaciente())
             .dni(paciente.getNumDocumento())
@@ -239,10 +248,10 @@ public class PacienteServiceImpl implements PacienteService {
 
   private List<Paciente> buscarPacientes(String criterio) {
     if (DNI_PATTERN.matcher(criterio).matches()) {
-      return pacienteRepository.findByNumDocumento(criterio).map(List::of).orElse(List.of());
+      return pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(criterio, EstadoRegistroPaciente.ACTIVO);
     }
     if (ID_PATTERN.matcher(criterio).matches()) {
-      return pacienteRepository.findById(Integer.parseInt(criterio)).map(List::of).orElse(List.of());
+      return pacienteRepository.findByIdPacienteAndEstadoRegistro(Integer.parseInt(criterio), EstadoRegistroPaciente.ACTIVO).map(List::of).orElse(List.of());
     }
 
     List<Paciente> resultados = pacienteRepository.searchByNombre(criterio, LIMITE_BUSQUEDA_INTEGRACION);
@@ -268,7 +277,7 @@ public class PacienteServiceImpl implements PacienteService {
   private List<Paciente> searchByApproximateName(String nombre, int limit) {
     String[] tokens = normalize(nombre).split(" ");
     List<Paciente> resultados = new ArrayList<>();
-    pacienteRepository.findAll().forEach(paciente -> {
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(paciente -> {
       String nombrePaciente = normalize((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
       long coincidencias = java.util.Arrays.stream(tokens)
           .filter(token -> token.length() >= 2 && nombrePaciente.contains(token))
@@ -365,6 +374,7 @@ public class PacienteServiceImpl implements PacienteService {
     try {
       validarFechaNacimiento(pacienteRequest.getFechaNacimiento());
       Paciente paciente = new Paciente();
+      paciente.setEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
       paciente.setNombres(pacienteRequest.getNombres());
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
@@ -393,8 +403,8 @@ public class PacienteServiceImpl implements PacienteService {
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
       validarFechaNacimiento(pacienteRequest.getFechaNacimiento());
-      Paciente paciente = new Paciente();
-      paciente.setIdPaciente(pacienteRequest.getIdPaciente());
+      Paciente paciente = pacienteRepository.findByIdPacienteAndEstadoRegistro(
+          pacienteRequest.getIdPaciente(), EstadoRegistroPaciente.ACTIVO).orElseThrow();
       paciente.setNombres(pacienteRequest.getNombres());
       paciente.setApellidos(pacienteRequest.getApellidos());
       paciente.setFechaIngreso(pacienteRequest.getFechaIngreso());
@@ -415,5 +425,38 @@ public class PacienteServiceImpl implements PacienteService {
       responseModelSet.setMensaje(MENSAJE_GUARDAR_ERROR);
       return responseModelSet;
     }
+  }
+
+  @Override
+  @Transactional
+  public Paciente archivarInternamente(int idPaciente, int idPacientePrincipal, int idUsuario,
+                                       String motivo, String detalleMotivo) {
+    if (idPaciente == idPacientePrincipal) {
+      throw new IllegalArgumentException("El paciente principal debe ser distinto del paciente archivado.");
+    }
+    Paciente paciente = pacienteRepository.findByIdPacienteAndEstadoRegistro(idPaciente, EstadoRegistroPaciente.ACTIVO)
+        .orElseThrow(() -> new IllegalArgumentException("El paciente a archivar no existe o no está activo."));
+    Paciente principal = pacienteRepository.findByIdPacienteAndEstadoRegistro(idPacientePrincipal, EstadoRegistroPaciente.ACTIVO)
+        .orElseThrow(() -> new IllegalArgumentException("El paciente principal no existe o no está activo."));
+    String dniPaciente = Optional.ofNullable(paciente.getNumDocumento()).map(String::trim).orElse("");
+    String dniPrincipal = Optional.ofNullable(principal.getNumDocumento()).map(String::trim).orElse("");
+    if (!DNI_PATTERN.matcher(dniPaciente).matches() || !dniPaciente.equals(dniPrincipal)) {
+      throw new IllegalArgumentException("Los pacientes deben corresponder al mismo DNI.");
+    }
+    if (motivo == null || motivo.trim().isEmpty()) {
+      throw new IllegalArgumentException("El motivo de archivado es obligatorio.");
+    }
+    if (motivo.trim().length() > 45 || (detalleMotivo != null && detalleMotivo.trim().length() > 500)) {
+      throw new IllegalArgumentException("El motivo o su detalle supera la longitud permitida.");
+    }
+    paciente.setEstadoRegistro(EstadoRegistroPaciente.ARCHIVADO);
+    LocalDateTime ahora = LocalDateTime.now(ZONA_HORARIA_LIMA);
+    paciente.setFechaArchivado(ahora);
+    paciente.setUltimaActualizacion(ahora);
+    paciente.setArchivadoPor(new Usuario(idUsuario));
+    paciente.setMotivoArchivado(motivo.trim());
+    paciente.setDetalleMotivoArchivado(detalleMotivo == null || detalleMotivo.isBlank() ? null : detalleMotivo.trim());
+    paciente.setPacientePrincipal(principal);
+    return pacienteRepository.save(paciente);
   }
 }
