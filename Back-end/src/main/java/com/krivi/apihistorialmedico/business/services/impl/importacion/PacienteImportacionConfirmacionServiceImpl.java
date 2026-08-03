@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -70,8 +71,12 @@ public class PacienteImportacionConfirmacionServiceImpl implements PacienteImpor
     for (PacienteImportacionFila fila : candidatas) {
       if (existentes.contains(fila.getPaciente().getDni())) {
         omitidos++;
-        resultados.add(resultadoError(fila, PacienteImportacionErrorCodigo.DNI_EXISTENTE_AL_CONFIRMAR,
-            "El DNI fue registrado después de generar la previsualización."));
+        boolean archivado = Optional.ofNullable(pacienteRepository.findDnisArchivados(
+            List.of(fila.getPaciente().getDni()))).orElse(Set.of()).contains(fila.getPaciente().getDni());
+        resultados.add(resultadoError(fila,
+            archivado ? PacienteImportacionErrorCodigo.DNI_ARCHIVADO_EXISTENTE_AL_CONFIRMAR : PacienteImportacionErrorCodigo.DNI_EXISTENTE_AL_CONFIRMAR,
+            archivado ? "El DNI pertenece a un paciente archivado y no puede registrarse nuevamente."
+                : "El DNI fue registrado después de generar la previsualización."));
         continue;
       }
       try {
