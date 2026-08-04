@@ -844,4 +844,71 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.length).toBe(2);
     expect(component.gestionDuplicadosActiva).toBeFalse();
   });
+
+  it('debe mantener solicitud, DNI, resultado y tarjetas en orden cronológico y anclar el resultado', () => {
+    const respuestaPendiente = new Subject<any>();
+    duplicadosService.analizar.and.returnValue(respuestaPendiente);
+    component.userMessage = 'Gestionar duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+    const tarjeta = component.gestionDuplicadosComponents.last;
+
+    tarjeta.dniInput = '01234567';
+    tarjeta.consultarDni();
+    fixture.detectChanges();
+
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const dniIndexAntes = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    expect(solicitudIndex).toBeLessThan(dniIndexAntes);
+    expect(duplicadosService.analizar).toHaveBeenCalledOnceWith('01234567');
+
+    respuestaPendiente.next({
+      dni: '01234567', cantidadPacientesActivos: 2, esDuplicado: true,
+      pacientes: [
+        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadAntecedentes: 1, cantidadCamposPersonalesCompletos: 8, cantidadGruposClinicosCompletos: 2, tieneInformacionClinicaRelevante: true },
+        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadAntecedentes: 0, cantidadCamposPersonalesCompletos: 5, cantidadGruposClinicosCompletos: 0, tieneInformacionClinicaRelevante: false }
+      ],
+      idPacienteRecomendado: 10, razonesRecomendacion: ['Tiene 2 consultas registradas'],
+      permitirArchivadoSimple: true, requiereRevision: false, resultado: 'DUPLICADOS_ENCONTRADOS',
+      mensaje: 'Se encontraron 2 pacientes activos con el mismo DNI.'
+    });
+    respuestaPendiente.complete();
+    fixture.detectChanges();
+
+    const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
+    const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
+    const mensajeResultado = component.messages[resultadoIndex];
+    expect(dniMensajes.length).toBe(1);
+    expect(dniIndexAntes).toBeLessThan(resultadoIndex);
+    expect(resultadoIndex).toBeLessThan(tarjetasIndex);
+    expect(fixture.nativeElement.textContent).toContain('Pacientes encontrados');
+    expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
+    expect(scrollBlockSpy).toHaveBeenCalledWith(mensajeResultado.id);
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el orden solicitud, DNI y mensaje cuando solo existe un paciente', () => {
+    duplicadosService.analizar.and.returnValue(of({
+      dni: '01234567', cantidadPacientesActivos: 1, esDuplicado: false, pacientes: [],
+      razonesRecomendacion: [], permitirArchivadoSimple: false, requiereRevision: false,
+      resultado: 'SIN_DUPLICADOS', mensaje: 'El DNI corresponde a un único paciente activo.'
+    } as any));
+    component.userMessage = 'Gestionar duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const tarjeta = component.gestionDuplicadosComponents.last;
+    tarjeta.dniInput = '01234567';
+    tarjeta.consultarDni();
+    fixture.detectChanges();
+
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const dniIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Solo existe un paciente activo con ese DNI. No hay duplicados para gestionar.');
+    expect(solicitudIndex).toBeLessThan(dniIndex);
+    expect(dniIndex).toBeLessThan(resultadoIndex);
+    expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567').length).toBe(1);
+  });
 });

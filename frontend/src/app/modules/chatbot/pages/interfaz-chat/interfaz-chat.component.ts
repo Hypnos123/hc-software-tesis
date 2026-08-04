@@ -243,6 +243,8 @@ export class InterfazChatComponent implements OnDestroy {
     const tarjetaActiva = this.messages.find(message => message.type === 'duplicate-management' && message.duplicados === state && message.duplicateActive);
     let vistaActualizada = false;
     if (evento.reemplazarVistaActiva && tarjetaActiva) {
+      const posicionTarjeta = this.messages.indexOf(tarjetaActiva);
+      if (posicionTarjeta >= 0) this.messages.splice(posicionTarjeta, 1);
       tarjetaActiva.duplicateView = evento.vistaSiguiente ?? tarjetaActiva.duplicateView;
       tarjetaActiva.duplicateActive = !['COMPLETADO', 'CANCELADO'].includes(state.estado);
       vistaActualizada = true;
@@ -250,6 +252,7 @@ export class InterfazChatComponent implements OnDestroy {
       tarjetaActiva.duplicateActive = false;
     }
     const mensaje = evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
+    if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
     if (evento.vistaSiguiente && !vistaActualizada) this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
     if (state.estado === 'COMPLETADO') this.addMenuBlock('duplicados-final');
     if (evento.volverPacientes) this.addMenuBlock('pacientes');

@@ -61,6 +61,23 @@ describe('GestionDuplicadosChatComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
   });
 
+  it('emite el DNI del usuario antes de iniciar la llamada HTTP', () => {
+    const eventos: string[] = [];
+    const pendiente = new Subject<PacienteDuplicadoAnalisisResponse>();
+    component.mensajeConversacional.subscribe(evento => eventos.push(evento.texto));
+    service.analizar.and.callFake(() => {
+      expect(eventos).toEqual(['01234567']);
+      return pendiente.asObservable();
+    });
+
+    component.dniInput = '01234567';
+    component.consultarDni();
+
+    expect(service.analizar).toHaveBeenCalledOnceWith('01234567');
+    expect(eventos.filter(texto => texto === '01234567').length).toBe(1);
+    pendiente.complete();
+  });
+
   it('informa correctamente cuando no hay pacientes o solo existe uno', () => {
     const eventos: string[] = [];
     component.mensajeConversacional.subscribe(evento => eventos.push(evento.texto));
