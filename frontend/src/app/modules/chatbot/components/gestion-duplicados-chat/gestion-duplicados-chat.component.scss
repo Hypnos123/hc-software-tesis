@@ -1,0 +1,35 @@
+:host { display: block; min-width: 0; }
+.duplicate-flow-card { width: 100%; box-sizing: border-box; color: #334155; font-size: 13px; }
+.flow-section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.step-label { align-self: flex-start; padding: 3px 8px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; }
+.inline-form, .password-field { display: flex; gap: 6px; min-width: 0; }
+.inline-form input, .password-field input { min-width: 0; flex: 1; border: 1px solid #94a3b8; border-radius: 8px; padding: 9px; font: inherit; }
+button { border: 0; border-radius: 8px; padding: 8px 10px; font: inherit; font-weight: 600; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 3px solid rgba(37, 99, 235, .3); outline-offset: 2px; }
+.primary-action { background: #2563eb; color: #fff; }
+.secondary-action { background: #e2e8f0; color: #334155; }
+.danger-action { background: #fee2e2; color: #b91c1c; }
+.link-action { align-self: flex-start; padding: 2px 0; background: transparent; color: #1d4ed8; }
+.loading-state { align-items: center; text-align: center; padding: 12px 4px; }
+.loading-state i { color: #2563eb; font-size: 20px; }
+.patient-card { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; overflow: hidden; }
+.patient-card.recommended { border: 2px solid #16a34a; background: #f0fdf4; }
+.recommended-badge { align-self: flex-start; border-radius: 999px; padding: 3px 7px; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; }
+dl { margin: 6px 0; display: grid; gap: 3px; }
+dl div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+dt { color: #64748b; } dd { margin: 0; text-align: right; font-weight: 600; }
+.archive-choice { margin-top: 4px; background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+.recommendation-reasons { padding: 10px; border-radius: 10px; background: #eff6ff; color: #1e40af; }
+.recommendation-reasons ul { margin: 6px 0 0; padding-left: 18px; }
+.confirmation-box { padding: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #cbd5e1; }
+.clinical-warning { padding: 10px; border-radius: 10px; background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; }
+.warning-action { background: #d97706; color: #fff; }
+.action-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.action-row button { flex: 1 1 110px; }
+.visibility-action { width: 38px; flex: 0 0 38px; background: #e2e8f0; color: #334155; padding: 8px; }
+.password-card p, .flow-section p { margin: 0; line-height: 1.4; }
+.inline-error { margin: 0; color: #b91c1c; font-weight: 600; }
+.success-card { padding: 10px; border: 1px solid #86efac; border-radius: 10px; background: #f0fdf4; color: #166534; }
+.neutral-card { color: #475569; }
+@media (max-width: 420px) { .action-row { flex-direction: column; } .action-row button { flex-basis: auto; width: 100%; } dl div { grid-template-columns: 1fr; } dd { text-align: left; } }

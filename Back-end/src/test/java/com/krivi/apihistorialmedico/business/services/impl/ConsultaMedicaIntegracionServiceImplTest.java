@@ -8,6 +8,7 @@ import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.entity.Empleado;
 import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -37,7 +38,7 @@ class ConsultaMedicaIntegracionServiceImplTest {
   @Test void buscaPorDniYDevuelveResumenAdministrativoSinDatosClinicos() {
     Paciente paciente = paciente(6, "78451268", "Patricia", "Cárdenas");
     Consulta consulta = consulta(10, paciente, "PENDIENTE");
-    when(pacienteRepository.findByNumDocumento("78451268")).thenReturn(Optional.of(paciente));
+    when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("78451268", EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.existsByPacienteIdPaciente(6)).thenReturn(true);
     when(consultaRepository.countByPacienteIdPaciente(6)).thenReturn(2L);
     when(consultaRepository.countByPacienteIdPacienteAndEstado(6, "PENDIENTE")).thenReturn(1L);
@@ -56,11 +57,11 @@ class ConsultaMedicaIntegracionServiceImplTest {
 
   @Test void buscaPorIdYFormatoPacienteId() {
     Paciente paciente = paciente(8, "12345678", "Ana", "Lima");
-    when(pacienteRepository.findById(8)).thenReturn(Optional.of(paciente));
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(8, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(paciente));
     prepararPacienteSinConsultas(paciente);
     assertTrue(service.buscar("8").isEncontrado());
     assertTrue(service.buscar("paciente:8").isEncontrado());
-    verify(pacienteRepository, times(2)).findById(8);
+    verify(pacienteRepository, times(2)).findByIdPacienteAndEstadoRegistro(8, EstadoRegistroPaciente.ACTIVO);
   }
 
   @Test void buscaPorNombreSimple() {
@@ -112,10 +113,10 @@ class ConsultaMedicaIntegracionServiceImplTest {
   }
 
   @Test void informaPacienteInexistenteYSinConsultas() {
-    when(pacienteRepository.findByNumDocumento("99999999")).thenReturn(Optional.empty());
+    when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc("99999999", EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of());
     assertFalse(service.buscar("99999999").isEncontrado());
     Paciente paciente = paciente(4, "44444444", "Luis", "Paz");
-    when(pacienteRepository.findById(4)).thenReturn(Optional.of(paciente)); prepararPacienteSinConsultas(paciente);
+    when(pacienteRepository.findByIdPacienteAndEstadoRegistro(4, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(paciente)); prepararPacienteSinConsultas(paciente);
     BusquedaConsultasMedicasResponse sinConsultas = service.buscar("4");
     assertEquals(0L, sinConsultas.getPacientes().getFirst().getTotalConsultas()); assertTrue(sinConsultas.getPacientes().getFirst().getConsultas().isEmpty());
   }

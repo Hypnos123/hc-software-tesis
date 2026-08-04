@@ -7,6 +7,7 @@ import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
 import com.krivi.apihistorialmedico.model.entity.Usuario;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,9 +36,9 @@ public class AsistenteServiceImpl implements AsistenteService {
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
-      if (contiene(q,"paciente") && contiene(q,"sin historia","no tienen historia")) return cantidad("PACIENTES_SIN_HISTORIA_CLINICA", pacienteRepository.count()-historiaClinicaRepository.count(), "Actualmente hay %d pacientes sin historia clínica.", p);
+      if (contiene(q,"paciente") && contiene(q,"sin historia","no tienen historia")) return cantidad("PACIENTES_SIN_HISTORIA_CLINICA", Math.max(0, pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)-historiaClinicaRepository.count()), "Actualmente hay %d pacientes sin historia clínica.", p);
       if (contiene(q,"paciente") && contiene(q,"con historia","tienen historia")) return cantidad("PACIENTES_CON_HISTORIA_CLINICA", historiaClinicaRepository.count(), "Actualmente hay %d pacientes con historia clínica.", p);
-      if (contiene(q,"paciente")) { long c=p.total()?pacienteRepository.count():pacienteRepository.countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant())); return cantidad("PACIENTES_REGISTRADOS", c, pref(p)+"hay %d pacientes registrados.", p); }
+      if (contiene(q,"paciente")) { long c=p.total()?pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO):pacienteRepository.countByEstadoRegistroAndFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(EstadoRegistroPaciente.ACTIVO, Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant())); return cantidad("PACIENTES_REGISTRADOS", c, pref(p)+"hay %d pacientes registrados.", p); }
       if (contiene(q,"historia")) { if (contiene(q,"incompleta")) return cantidad("HISTORIAS_CLINICAS_INCOMPLETAS",0,"No se encontraron historias clínicas incompletas según los campos obligatorios actuales.",p); long c=p.total()?historiaClinicaRepository.count():historiaClinicaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(),p.fin()); return cantidad("HISTORIAS_CLINICAS",c,pref(p)+"hay %d historias clínicas.",p); }
       if (contiene(q,"especialidad")) return ranking("ESPECIALIDADES_MAS_REQUERIDAS", p.total()?consultaRepository.rankingEspecialidades():consultaRepository.rankingEspecialidades(p.inicio(),p.fin()), "especialidades");
       if (contiene(q,"enfermedad")) return ranking("TIPOS_ENFERMEDAD_MAS_REGISTRADOS", p.total()?consultaRepository.rankingTiposEnfermedad():consultaRepository.rankingTiposEnfermedad(p.inicio(),p.fin()), "tipos de enfermedad");
@@ -118,11 +119,11 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private ResultadoBusquedaHistoria buscarPacienteParaHistoria(String q) {
     Matcher dniMatcher = DNI_PATTERN.matcher(q);
-    if (dniMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findByNumDocumento(dniMatcher.group()), List.of(), false);
+    if (dniMatcher.find()) return resultadoDniActivo(dniMatcher.group());
     Matcher idMatcher = Pattern.compile("\\b(?:id|codigo|cod)\\s*(\\d+)\\b").matcher(q);
-    if (idMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findById(Integer.valueOf(idMatcher.group(1))), List.of(), false);
+    if (idMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findByIdPacienteAndEstadoRegistro(Integer.valueOf(idMatcher.group(1)), EstadoRegistroPaciente.ACTIVO), List.of(), false);
     Matcher pacienteIdMatcher = Pattern.compile("\\bpaciente\\s+(\\d{1,7})\\b").matcher(q);
-    if (pacienteIdMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findById(Integer.valueOf(pacienteIdMatcher.group(1))), List.of(), false);
+    if (pacienteIdMatcher.find()) return new ResultadoBusquedaHistoria(pacienteRepository.findByIdPacienteAndEstadoRegistro(Integer.valueOf(pacienteIdMatcher.group(1)), EstadoRegistroPaciente.ACTIVO), List.of(), false);
 
     String nombre = extraerNombrePaciente(q);
     List<String> terminos = terminosNombre(nombre);
@@ -166,6 +167,13 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private record ResultadoBusquedaHistoria(Optional<Paciente> paciente, List<Paciente> similares, boolean requiereDatos) {}
 
+  private ResultadoBusquedaHistoria resultadoDniActivo(String dni) {
+    List<Paciente> pacientes = pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(dni, EstadoRegistroPaciente.ACTIVO);
+    return pacientes.size() == 1
+        ? new ResultadoBusquedaHistoria(Optional.of(pacientes.getFirst()), List.of(), false)
+        : new ResultadoBusquedaHistoria(Optional.empty(), pacientes, false);
+  }
+
   private String respuestaHistoriaClinicaExistente(HistoriaClinica historia, Paciente paciente) {
     return "Este paciente ya cuenta con una historia clínica registrada. No se recomienda crear una nueva. Abra la historia existente para registrar una nueva consulta.\n\n"
         + "ID historia clínica: " + historia.getIdHistoriaClinica()
@@ -194,7 +202,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (esEstadisticaEdad(q)) return estadisticaEdad(q);
     if (esBusquedaAvanzadaPaciente(q)) return busquedaAvanzadaPaciente(q);
     if (esConteoPacientes(q)) {
-      long c = p.total() ? pacienteRepository.count() : pacienteRepository.countByFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
+      long c = p.total() ? pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO) : pacienteRepository.countByEstadoRegistroAndFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(EstadoRegistroPaciente.ACTIVO, Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()), Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
       return cantidad("PACIENTES_REGISTRADOS", c, pref(p) + "hay %d pacientes registrados.", p);
     }
     return null;
@@ -220,7 +228,9 @@ public class AsistenteServiceImpl implements AsistenteService {
     Matcher dniMatcher = DNI_PATTERN.matcher(q);
     if (dniMatcher.find()) {
       String dni = dniMatcher.group();
-      return pacienteRepository.findByNumDocumento(dni)
+      List<Paciente> pacientes = activosPorDni(dni);
+      if (pacientes.size() > 1) return resp("BUSQUEDA_PACIENTE_DNI_AMBIGUO", respuestaPacientesSimilares(pacientes), Map.of("tipoBusqueda", "DNI", "resultados", pacientes.stream().map(this::pacienteMap).toList()));
+      return pacientes.stream().findFirst()
           .map(paciente -> resp("BUSQUEDA_PACIENTE_DNI", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
           .orElse(resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos.", Map.of("tipoBusqueda", "DNI", "dni", dni)));
     }
@@ -243,14 +253,14 @@ public class AsistenteServiceImpl implements AsistenteService {
 
 
   private AsistenteResponse buscarPacientePorId(Integer id) {
-    return pacienteRepository.findById(id)
+    return pacienteRepository.findByIdPacienteAndEstadoRegistro(id, EstadoRegistroPaciente.ACTIVO)
         .map(paciente -> resp("BUSQUEDA_PACIENTE_ID", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "ID", "paciente", pacienteMap(paciente))))
         .orElse(resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con ese ID.", Map.of("tipoBusqueda", "ID", "idPaciente", id)));
   }
 
   private AsistenteResponse ultimosPacientes() {
     List<Paciente> pacientes = new ArrayList<>();
-    pacienteRepository.findAll().forEach(pacientes::add);
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(pacientes::add);
     pacientes.sort(Comparator.comparing(Paciente::getFechaIngreso, Comparator.nullsLast(Date::compareTo)).reversed());
     List<Paciente> ultimos = pacientes.stream().limit(5).collect(Collectors.toList());
     if (ultimos.isEmpty()) return resp("ULTIMOS_PACIENTES", "No se encontraron pacientes registrados.", Map.of("resultados", List.of()));
@@ -259,7 +269,7 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private AsistenteResponse estadisticaEdad(String q) {
     List<Paciente> pacientes = new ArrayList<>();
-    pacienteRepository.findAll().forEach(pacientes::add);
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(pacientes::add);
     List<Integer> edades = pacientes.stream().map(this::edadPaciente).filter(Objects::nonNull).collect(Collectors.toList());
     if (edades.isEmpty()) return resp("ESTADISTICAS_EDAD_PACIENTES", "No hay fechas de nacimiento suficientes para calcular estadísticas de edad.", Map.of());
     Matcher mayores = Pattern.compile("mayores?\\s+de\\s+(\\d+)").matcher(q);
@@ -290,7 +300,9 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (!esConsultaDuplicadoPaciente(q)) return null;
     if (matcher.find()) {
       String dni = matcher.group();
-      return pacienteRepository.findByNumDocumento(dni)
+      List<Paciente> pacientes = activosPorDni(dni);
+      if (pacientes.size() > 1) return resp("BUSQUEDA_DUPLICADO_DNI_MULTIPLE", respuestaPacientesSimilares(pacientes), Map.of("tipoBusqueda", "DNI", "resultados", pacientes.stream().map(this::pacienteMap).toList()));
+      return pacientes.stream().findFirst()
           .map(paciente -> resp("BUSQUEDA_DUPLICADO_DNI", respuestaPacienteRegistrado(paciente), Map.of("tipoBusqueda", "DNI", "paciente", pacienteMap(paciente))))
           .orElse(resp("BUSQUEDA_DUPLICADO_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos. Puede continuar con el registro.", Map.of("tipoBusqueda", "DNI", "dni", dni)));
     }
@@ -311,7 +323,7 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private AsistenteResponse analizarDuplicadosPacientes() {
     Map<String, List<Paciente>> grupos = new LinkedHashMap<>();
-    pacienteRepository.findAll().forEach(paciente -> {
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(paciente -> {
       String dni = paciente.getNumDocumento() == null ? "" : paciente.getNumDocumento().trim();
       String nombre = normalizar(nombreCompleto(paciente));
       String key = !dni.isBlank() ? "DNI " + dni : nombre.isBlank() ? "" : "NOMBRE " + nombre;
@@ -329,7 +341,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   private List<Paciente> buscarPorNombreAproximado(String nombre, int limit) {
     String[] tokens = nombre.split(" ");
     List<Paciente> resultados = new ArrayList<>();
-    pacienteRepository.findAll().forEach(paciente -> {
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(paciente -> {
       String nombrePaciente = normalizar((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
       long coincidencias = Arrays.stream(tokens).filter(token -> token.length() >= 2 && nombrePaciente.contains(token)).count();
       if (coincidencias > 0) resultados.add(paciente);
@@ -399,6 +411,10 @@ public class AsistenteServiceImpl implements AsistenteService {
     map.put("numDocumento", paciente.getNumDocumento());
     map.put("fechaRegistro", paciente.getFechaIngreso());
     return map;
+  }
+
+  private List<Paciente> activosPorDni(String dni) {
+    return pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(dni, EstadoRegistroPaciente.ACTIVO);
   }
 
 

@@ -13,7 +13,8 @@ import { DropdownModule } from 'primeng/dropdown';
 import { ButtonModule } from 'primeng/button';
 import { InputTextareaModule } from 'primeng/inputtextarea';
 import { DialogModule } from 'primeng/dialog';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, tap } from 'rxjs/operators';
+import { IResponse } from '@app/global/response';
 import Swal from 'sweetalert2';
 
 export interface IOption {
@@ -466,12 +467,14 @@ export class MantenimientoPacienteComponent {
     const params = this.buildPacienteRequest();
 
     this.pacienteService.insert(params).pipe(
+      tap((response) => this.validarRespuestaGuardado(response)),
       switchMap((response) => {
         const idPaciente = response.idGenerado;
         if (!idPaciente) throw new Error('No se recibió el id del paciente generado.');
 
         return this.antecedentesService.insert(this.buildAntecedentesRequest(idPaciente));
-      })
+      }),
+      tap((response) => this.validarRespuestaGuardado(response))
     ).subscribe({
       next: (response) => {
         if (response) {
@@ -489,7 +492,9 @@ export class MantenimientoPacienteComponent {
     const params = this.buildPacienteRequest(this.pacienteId);
 
     this.pacienteService.update(this.pacienteId, params).pipe(
-      switchMap(() => this.guardarAntecedentes(this.pacienteId!))
+      tap((response) => this.validarRespuestaGuardado(response)),
+      switchMap(() => this.guardarAntecedentes(this.pacienteId!)),
+      tap((response) => this.validarRespuestaGuardado(response))
     ).subscribe({
       next: (response) => {
         if (response) {
@@ -529,6 +534,12 @@ export class MantenimientoPacienteComponent {
     return this.antecedenteId
       ? this.antecedentesService.update(this.antecedenteId, params)
       : this.antecedentesService.insert(params);
+  }
+
+  private validarRespuestaGuardado(response: IResponse): void {
+    if (!response || response.error || response.mensaje === '¡ERROR AL REGISTRAR LA INFORMACION!') {
+      throw new Error(response?.error || response?.mensaje || 'No se pudo guardar la información.');
+    }
   }
 
   private buildAntecedentesRequest(idPaciente: number, idAntecedentes?: number): IPaciente {
