@@ -16,4 +16,6 @@ public class GrupoDuplicadoHistoriaClinicaResponse {
   private String valorCoincidente;
   private int cantidad;
   private List<HistoriaClinicaIntegracionItemResponse> historiasClinicas;
+  private Integer idHistoriaClinicaRecomendada;
+  private String recomendacion;
 }

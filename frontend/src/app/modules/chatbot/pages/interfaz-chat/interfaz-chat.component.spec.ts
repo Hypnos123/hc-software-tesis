@@ -799,9 +799,12 @@ describe('InterfazChatComponent', () => {
 
   [
     'Eliminar paciente duplicado',
+    'Eliminar un paciente duplicado',
     'Archivar paciente duplicado',
-    'Hay un paciente repetido',
-    'Gestionar duplicados'
+    'Archivar un registro duplicado',
+    'Gestionar paciente duplicado',
+    'Gestionar duplicados',
+    'Decidir cuál paciente conservar'
   ].forEach(frase => {
     it(`debe iniciar localmente el flujo para la intención: ${frase}`, () => {
       component.userMessage = frase;
@@ -812,6 +815,60 @@ describe('InterfazChatComponent', () => {
       expect(component.messages.some(mensaje => mensaje.sender === 'user' && mensaje.text === frase)).toBeTrue();
       expect(asistenteService.preguntar).not.toHaveBeenCalled();
       expect(fixture.nativeElement.querySelector('app-gestion-duplicados-chat')).not.toBeNull();
+    });
+  });
+
+
+
+  [
+    '¿Existen pacientes duplicados?',
+    'Verifica si hay pacientes repetidos',
+    'Analiza posibles duplicados',
+    'Busca pacientes duplicados'
+  ].forEach(frase => {
+    it(`debe enviar al backend la consulta general de duplicados: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+        respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: 01234567 ID: 2 DNI: 01234567',
+        datos: { cantidad: 2, resultados: [] }
+      } as any));
+
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.some(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.')).toBeFalse();
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
+      expect(component.messages.at(-1)?.text).toContain('Se encontraron posibles pacientes duplicados');
+    });
+  });
+
+  [
+    '¿Existen historias clínicas duplicadas?',
+    'Busca historias clínicas repetidas',
+    'Revisa la duplicidad de historias clínicas',
+    'Detecta historias clínicas duplicadas',
+    'Busca pacientes con más de una historia clínica',
+    '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+    'Busca historias repetidas del DNI 01234567',
+    'Verifica historias clínicas del paciente con DNI 01234567'
+  ].forEach(frase => {
+    it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+        respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
+        datos: { hayDuplicados: true, duplicados: [] }
+      } as any));
+
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.at(-1)?.text).toContain('ID historia clínica: 12');
+      expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
     });
   });
 

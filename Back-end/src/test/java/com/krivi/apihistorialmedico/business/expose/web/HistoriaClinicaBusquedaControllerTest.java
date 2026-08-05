@@ -44,13 +44,30 @@ class HistoriaClinicaBusquedaControllerTest {
   @Test
   void exponeEstadisticasYDuplicados() throws Exception {
     when(historiaClinicaService.obtenerEstadisticasParaIntegracion()).thenReturn(EstadisticasHistoriasClinicasResponse.builder().totalHistoriasClinicas(10).creadasHoy(2).build());
-    when(historiaClinicaService.obtenerDuplicadosParaIntegracion()).thenReturn(DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(true).totalGrupos(1)
+    when(historiaClinicaService.obtenerDuplicadosParaIntegracion(null)).thenReturn(DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(true).totalGrupos(1)
         .duplicados(List.of(GrupoDuplicadoHistoriaClinicaResponse.builder().tipo("dni").valorCoincidente("72845292").cantidad(2).historiasClinicas(List.of()).build())).build());
 
     mockMvc.perform(get("/api/historias-clinicas/estadisticas")).andExpect(status().isOk())
         .andExpect(jsonPath("$.totalHistoriasClinicas").value(10)).andExpect(jsonPath("$.creadasHoy").value(2));
     mockMvc.perform(get("/api/historias-clinicas/duplicados")).andExpect(status().isOk())
         .andExpect(jsonPath("$.duplicados[0].tipo").value("dni"));
+  }
+
+  @Test
+  void permiteDetectarHistoriasDuplicadasPorDni() throws Exception {
+    when(historiaClinicaService.obtenerDuplicadosParaIntegracion("01234567"))
+        .thenReturn(DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(true).totalGrupos(1).dniConsultado("01234567")
+            .mensaje("Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.")
+            .duplicados(List.of(GrupoDuplicadoHistoriaClinicaResponse.builder().tipo("dni").valorCoincidente("01234567")
+                .cantidad(2).idHistoriaClinicaRecomendada(12).recomendacion("Se recomienda conservar la historia clínica ID 12.")
+                .historiasClinicas(List.of(HistoriaClinicaIntegracionItemResponse.builder().idHistoriaClinica(12)
+                    .idPaciente(4).dni("01234567").cantidadConsultas(3).estado("ACTIVA").build())).build())).build());
+
+    mockMvc.perform(get("/api/historias-clinicas/duplicados").param("dni", "01234567"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.dniConsultado").value("01234567"))
+        .andExpect(jsonPath("$.duplicados[0].historiasClinicas[0].idHistoriaClinica").value(12))
+        .andExpect(jsonPath("$.duplicados[0].historiasClinicas[0].cantidadConsultas").value(3))
+        .andExpect(jsonPath("$.duplicados[0].idHistoriaClinicaRecomendada").value(12));
   }
 
   @Test

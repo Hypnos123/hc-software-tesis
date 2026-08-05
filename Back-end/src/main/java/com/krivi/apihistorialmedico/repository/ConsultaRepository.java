@@ -13,6 +13,8 @@ import java.util.Collection;
 public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   @Query("select c.paciente.idPaciente, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.paciente.idPaciente in :idsPaciente group by c.paciente.idPaciente")
   List<Object[]> resumirPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
+  @Query("select c.historiaClinica.idHistoriaClinica, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.historiaClinica.idHistoriaClinica in :idsHistoria group by c.historiaClinica.idHistoriaClinica")
+  List<Object[]> resumirPorHistoriasClinicas(@Param("idsHistoria") Collection<Integer> idsHistoria);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
   List<Consulta> findByDoctorResponsableIdEmpleado(Integer idEmpleado);
   long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
