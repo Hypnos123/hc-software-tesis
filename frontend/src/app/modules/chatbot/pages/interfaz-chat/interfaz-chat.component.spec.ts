@@ -867,8 +867,8 @@ describe('InterfazChatComponent', () => {
     respuestaPendiente.next({
       dni: '01234567', cantidadPacientesActivos: 2, esDuplicado: true,
       pacientes: [
-        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadAntecedentes: 1, cantidadCamposPersonalesCompletos: 8, cantidadGruposClinicosCompletos: 2, tieneInformacionClinicaRelevante: true },
-        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadAntecedentes: 0, cantidadCamposPersonalesCompletos: 5, cantidadGruposClinicosCompletos: 0, tieneInformacionClinicaRelevante: false }
+        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadCamposPersonalesCompletos: 8, tieneInformacionClinicaRelevante: true },
+        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadCamposPersonalesCompletos: 5, tieneInformacionClinicaRelevante: false }
       ],
       idPacienteRecomendado: 10, razonesRecomendacion: ['Tiene 2 consultas registradas'],
       permitirArchivadoSimple: true, requiereRevision: false, resultado: 'DUPLICADOS_ENCONTRADOS',

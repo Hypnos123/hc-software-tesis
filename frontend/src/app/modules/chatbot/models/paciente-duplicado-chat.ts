@@ -22,9 +22,7 @@ export interface PacienteDuplicadoDetalle {
   estadoRegistro: 'ACTIVO' | 'ARCHIVADO';
   cantidadHistoriasClinicas: number;
   cantidadConsultas: number;
-  cantidadAntecedentes: number;
   cantidadCamposPersonalesCompletos: number;
-  cantidadGruposClinicosCompletos: number;
   ultimaActividadClinica?: string;
   tieneInformacionClinicaRelevante: boolean;
 }

@@ -4,7 +4,6 @@ import com.krivi.apihistorialmedico.business.exception.PacienteDuplicadoExceptio
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
-import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -32,14 +31,12 @@ class PacienteDuplicadoServiceImplTest {
   @Mock PacienteRepository pacienteRepository;
   @Mock HistoriaClinicaRepository historiaClinicaRepository;
   @Mock ConsultaRepository consultaRepository;
-  @Mock AntecedentesRepository antecedentesRepository;
   @InjectMocks PacienteDuplicadoServiceImpl service;
 
   @BeforeEach
   void prepararResumenesVacios() {
     lenient().when(historiaClinicaRepository.resumirPorPacientes(anyList())).thenReturn(List.of());
     lenient().when(consultaRepository.resumirPorPacientes(anyList())).thenReturn(List.of());
-    lenient().when(antecedentesRepository.resumirPorPacientes(anyList())).thenReturn(List.of());
   }
 
   @ParameterizedTest
@@ -51,7 +48,7 @@ class PacienteDuplicadoServiceImplTest {
 
     assertEquals("DNI_INVALIDO", error.getCodigo());
     assertEquals(400, error.getStatus().value());
-    verifyNoInteractions(pacienteRepository, historiaClinicaRepository, consultaRepository, antecedentesRepository);
+    verifyNoInteractions(pacienteRepository, historiaClinicaRepository, consultaRepository);
   }
 
   @Test
@@ -64,7 +61,7 @@ class PacienteDuplicadoServiceImplTest {
     assertEquals("SIN_PACIENTES", response.getResultado());
     assertEquals(0, response.getCantidadPacientesActivos());
     assertFalse(response.isEsDuplicado());
-    verifyNoInteractions(historiaClinicaRepository, consultaRepository, antecedentesRepository);
+    verifyNoInteractions(historiaClinicaRepository, consultaRepository);
   }
 
   @Test
@@ -118,14 +115,14 @@ class PacienteDuplicadoServiceImplTest {
   }
 
   @Test
-  void priorizaAntecedentesInformados() {
+  void noUsaAntecedentesNiGruposClinicosParaRecomendar() {
     prepararPacientes(paciente(1, 10, fecha(2024, 1, 1)), paciente(2, 2, fecha(2025, 1, 1)));
-    when(antecedentesRepository.resumirPorPacientes(anyList())).thenReturn(List.<Object[]>of(filaAntecedentes(2, 1, 3)));
 
     PacienteDuplicadoComparacionResponse response = service.compararPorDni(DNI);
 
-    assertEquals(2, response.getIdPacienteRecomendado());
-    assertTrue(response.getRazonesRecomendacion().contains("Posee 3 grupos de antecedentes informados."));
+    assertEquals(1, response.getIdPacienteRecomendado());
+    assertTrue(response.getRazonesRecomendacion().stream().noneMatch(razon ->
+        razon.toLowerCase().contains("antecedente") || razon.toLowerCase().contains("grupo")));
     assertTrue(response.isPermitirArchivadoSimple());
   }
 
@@ -210,11 +207,9 @@ class PacienteDuplicadoServiceImplTest {
 
     verify(historiaClinicaRepository, times(1)).resumirPorPacientes(List.of(1, 2));
     verify(consultaRepository, times(1)).resumirPorPacientes(List.of(1, 2));
-    verify(antecedentesRepository, times(1)).resumirPorPacientes(List.of(1, 2));
     verify(pacienteRepository, never()).save(any());
     verify(historiaClinicaRepository, never()).save(any());
     verify(consultaRepository, never()).save(any());
-    verify(antecedentesRepository, never()).save(any());
     assertEquals(EstadoRegistroPaciente.ACTIVO, primero.getEstadoRegistro());
     assertEquals(EstadoRegistroPaciente.ACTIVO, segundo.getEstadoRegistro());
   }
@@ -260,9 +255,6 @@ class PacienteDuplicadoServiceImplTest {
     return new Object[]{idPaciente, cantidad, ultimaActividad};
   }
 
-  private Object[] filaAntecedentes(int idPaciente, long cantidad, long grupos) {
-    return new Object[]{idPaciente, cantidad, grupos};
-  }
 
   private LocalDateTime fecha(int anio, int mes, int dia) {
     return LocalDateTime.of(anio, mes, dia, 10, 0);

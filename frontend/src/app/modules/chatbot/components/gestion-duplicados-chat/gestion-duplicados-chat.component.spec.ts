@@ -14,13 +14,13 @@ describe('GestionDuplicadosChatComponent', () => {
 
   const principal: PacienteDuplicadoDetalle = {
     idPaciente: 10, nombreCompleto: 'Patricia Cárdenas', dni: '12345678', estadoRegistro: 'ACTIVO',
-    cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadAntecedentes: 1,
-    cantidadCamposPersonalesCompletos: 8, cantidadGruposClinicosCompletos: 2,
+    cantidadHistoriasClinicas: 1, cantidadConsultas: 2,
+    cantidadCamposPersonalesCompletos: 8,
     tieneInformacionClinicaRelevante: true
   };
   const archivado: PacienteDuplicadoDetalle = {
     ...principal, idPaciente: 13, nombreCompleto: 'Miguel Torres', cantidadHistoriasClinicas: 0,
-    cantidadConsultas: 0, cantidadAntecedentes: 0, cantidadGruposClinicosCompletos: 0,
+    cantidadConsultas: 0,
     tieneInformacionClinicaRelevante: false
   };
 
@@ -59,6 +59,8 @@ describe('GestionDuplicadosChatComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.patient-card').length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Recomendado para conservar');
     expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
+    expect(fixture.nativeElement.textContent).not.toContain('Antecedentes');
+    expect(fixture.nativeElement.textContent).not.toContain('Grupos clínicos');
   });
 
   it('emite el DNI del usuario antes de iniciar la llamada HTTP', () => {

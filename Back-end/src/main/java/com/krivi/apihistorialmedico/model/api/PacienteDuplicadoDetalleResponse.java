@@ -24,9 +24,7 @@ public class PacienteDuplicadoDetalleResponse {
   private EstadoRegistroPaciente estadoRegistro;
   private long cantidadHistoriasClinicas;
   private long cantidadConsultas;
-  private long cantidadAntecedentes;
   private int cantidadCamposPersonalesCompletos;
-  private long cantidadGruposClinicosCompletos;
   private LocalDateTime ultimaActividadClinica;
   private boolean tieneInformacionClinicaRelevante;
 }

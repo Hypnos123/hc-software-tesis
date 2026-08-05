@@ -6,7 +6,6 @@ import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionRespon
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoDetalleResponse;
 import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
-import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -35,18 +34,15 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
   private final PacienteRepository pacienteRepository;
   private final HistoriaClinicaRepository historiaClinicaRepository;
   private final ConsultaRepository consultaRepository;
-  private final AntecedentesRepository antecedentesRepository;
 
   public PacienteDuplicadoServiceImpl(
       PacienteRepository pacienteRepository,
       HistoriaClinicaRepository historiaClinicaRepository,
-      ConsultaRepository consultaRepository,
-      AntecedentesRepository antecedentesRepository
+      ConsultaRepository consultaRepository
   ) {
     this.pacienteRepository = pacienteRepository;
     this.historiaClinicaRepository = historiaClinicaRepository;
     this.consultaRepository = consultaRepository;
-    this.antecedentesRepository = antecedentesRepository;
   }
 
   @Override
@@ -60,11 +56,9 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
     List<Integer> ids = pacientes.stream().map(Paciente::getIdPaciente).toList();
     Map<Integer, ResumenActividad> historias = resumenActividad(historiaClinicaRepository.resumirPorPacientes(ids));
     Map<Integer, ResumenActividad> consultas = resumenActividad(consultaRepository.resumirPorPacientes(ids));
-    Map<Integer, ResumenAntecedentes> antecedentes = resumenAntecedentes(antecedentesRepository.resumirPorPacientes(ids));
-
     List<PacienteDuplicadoDetalleResponse> detalles = pacientes.stream()
         .map(paciente -> detalle(paciente, historias.get(paciente.getIdPaciente()),
-            consultas.get(paciente.getIdPaciente()), antecedentes.get(paciente.getIdPaciente())))
+            consultas.get(paciente.getIdPaciente())))
         .toList();
 
     if (detalles.size() == 1) return respuestaSinDuplicados(dni, detalles);
@@ -98,14 +92,11 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
   private PacienteDuplicadoDetalleResponse detalle(
       Paciente paciente,
       ResumenActividad historia,
-      ResumenActividad consulta,
-      ResumenAntecedentes antecedente
+      ResumenActividad consulta
   ) {
     ResumenActividad resumenHistoria = historia == null ? ResumenActividad.VACIO : historia;
     ResumenActividad resumenConsulta = consulta == null ? ResumenActividad.VACIO : consulta;
-    ResumenAntecedentes resumenAntecedente = antecedente == null ? ResumenAntecedentes.VACIO : antecedente;
-    boolean relevante = resumenHistoria.cantidad() > 0 || resumenConsulta.cantidad() > 0
-        || resumenAntecedente.gruposCompletos() > 0;
+    boolean relevante = resumenHistoria.cantidad() > 0 || resumenConsulta.cantidad() > 0;
     return PacienteDuplicadoDetalleResponse.builder()
         .idPaciente(paciente.getIdPaciente())
         .nombres(paciente.getNombres())
@@ -118,9 +109,7 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
         .estadoRegistro(paciente.getEstadoRegistro())
         .cantidadHistoriasClinicas(resumenHistoria.cantidad())
         .cantidadConsultas(resumenConsulta.cantidad())
-        .cantidadAntecedentes(resumenAntecedente.cantidad())
         .cantidadCamposPersonalesCompletos(contarCamposPersonales(paciente))
-        .cantidadGruposClinicosCompletos(resumenAntecedente.gruposCompletos())
         .ultimaActividadClinica(fechaMasReciente(resumenHistoria.ultimaActividad(), resumenConsulta.ultimaActividad()))
         .tieneInformacionClinicaRelevante(relevante)
         .build();
@@ -131,15 +120,6 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
     if (filas == null) return resumen;
     for (Object[] fila : filas) {
       resumen.put(numero(fila[0]).intValue(), new ResumenActividad(numero(fila[1]).longValue(), (LocalDateTime) fila[2]));
-    }
-    return resumen;
-  }
-
-  private Map<Integer, ResumenAntecedentes> resumenAntecedentes(Collection<Object[]> filas) {
-    Map<Integer, ResumenAntecedentes> resumen = new HashMap<>();
-    if (filas == null) return resumen;
-    for (Object[] fila : filas) {
-      resumen.put(numero(fila[0]).intValue(), new ResumenAntecedentes(numero(fila[1]).longValue(), numero(fila[2]).longValue()));
     }
     return resumen;
   }
@@ -176,7 +156,6 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
     List<String> razones = new ArrayList<>();
     if (recomendado.getCantidadConsultas() > 0) razones.add("Tiene " + recomendado.getCantidadConsultas() + " consultas registradas.");
     if (recomendado.getCantidadHistoriasClinicas() > 0) razones.add("Tiene " + recomendado.getCantidadHistoriasClinicas() + " historias clínicas.");
-    if (recomendado.getCantidadGruposClinicosCompletos() > 0) razones.add("Posee " + recomendado.getCantidadGruposClinicosCompletos() + " grupos de antecedentes informados.");
     razones.add(razonDeterminante(recomendado, candidatos));
     return razones.stream().distinct().toList();
   }
@@ -189,10 +168,6 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
       return "Es el registro con mayor cantidad de consultas.";
     if (otros.stream().allMatch(item -> recomendado.getCantidadHistoriasClinicas() > item.getCantidadHistoriasClinicas()))
       return "Es el registro con mayor cantidad de historias clínicas.";
-    if (otros.stream().allMatch(item -> recomendado.getCantidadGruposClinicosCompletos() > item.getCantidadGruposClinicosCompletos()))
-      return "Es el registro con mayor información de antecedentes.";
-    if (otros.stream().allMatch(item -> recomendado.getCantidadAntecedentes() > item.getCantidadAntecedentes()))
-      return "Es el registro con mayor cantidad de antecedentes registrados.";
     if (otros.stream().allMatch(item -> recomendado.getCantidadCamposPersonalesCompletos() > item.getCantidadCamposPersonalesCompletos()))
       return "Es el registro con mayor completitud de datos personales.";
     if (recomendado.getUltimaActividadClinica() != null && otros.stream().allMatch(item ->
@@ -220,8 +195,6 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
   private static final Comparator<PacienteDuplicadoDetalleResponse> COMPARADOR_RECOMENDACION =
       Comparator.comparingLong(PacienteDuplicadoDetalleResponse::getCantidadConsultas).reversed()
           .thenComparing(Comparator.comparingLong(PacienteDuplicadoDetalleResponse::getCantidadHistoriasClinicas).reversed())
-          .thenComparing(Comparator.comparingLong(PacienteDuplicadoDetalleResponse::getCantidadGruposClinicosCompletos).reversed())
-          .thenComparing(Comparator.comparingLong(PacienteDuplicadoDetalleResponse::getCantidadAntecedentes).reversed())
           .thenComparing(Comparator.comparingInt(PacienteDuplicadoDetalleResponse::getCantidadCamposPersonalesCompletos).reversed())
           .thenComparing(PacienteDuplicadoDetalleResponse::getUltimaActividadClinica,
               Comparator.nullsLast(Comparator.reverseOrder()))
@@ -233,7 +206,4 @@ public class PacienteDuplicadoServiceImpl implements PacienteDuplicadoService {
     private static final ResumenActividad VACIO = new ResumenActividad(0, null);
   }
 
-  private record ResumenAntecedentes(long cantidad, long gruposCompletos) {
-    private static final ResumenAntecedentes VACIO = new ResumenAntecedentes(0, 0);
-  }
 }
