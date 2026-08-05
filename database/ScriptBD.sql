@@ -23,6 +23,14 @@ USE `historiaclinicadb` ;
 CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`paciente` (
   `idpaciente` INT NOT NULL AUTO_INCREMENT,
   `fechacreacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ultimaactualizacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `estadoregistro` VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+  `fechaarchivado` DATETIME NULL,
+  `idusuarioarchivado` INT NULL,
+  `motivoarchivado` VARCHAR(45) NULL,
+  `detallemotivoarchivado` VARCHAR(500) NULL,
+  `idpacienteprincipal` INT NULL,
+  `version` BIGINT NOT NULL DEFAULT 0,
   `nombres` VARCHAR(120) NULL,
   `apellidos` VARCHAR(120) NULL,
   `fechaingreso` DATE NULL,
@@ -34,7 +42,15 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`paciente` (
   `distrito` VARCHAR(45) NULL,
   `traidopor` VARCHAR(45) NULL,
   PRIMARY KEY (`idpaciente`),
-  INDEX `idx_paciente_fechacreacion` (`fechacreacion` ASC))
+  INDEX `idx_paciente_fechacreacion` (`fechacreacion` ASC),
+  INDEX `idx_paciente_estado_dni` (`estadoregistro` ASC, `numdocumento` ASC),
+  INDEX `idx_paciente_principal` (`idpacienteprincipal` ASC),
+  INDEX `idx_paciente_fechaarchivado` (`fechaarchivado` ASC),
+  CONSTRAINT `fk_paciente_principal`
+    FOREIGN KEY (`idpacienteprincipal`)
+    REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
@@ -128,6 +144,55 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`usuario` (
     REFERENCES `historiaclinicadb`.`empleado` (`idempleado`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+ALTER TABLE `historiaclinicadb`.`paciente`
+  ADD CONSTRAINT `fk_paciente_usuario_archivado`
+    FOREIGN KEY (`idusuarioarchivado`)
+    REFERENCES `historiaclinicadb`.`usuario` (`idusuario`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION;
+
+-- -----------------------------------------------------
+-- Table `historiaclinicadb`.`auditoriaarchivadopaciente`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`auditoriaarchivadopaciente` (
+  `idauditoria` INT NOT NULL AUTO_INCREMENT,
+  `idpacientearchivado` INT NOT NULL,
+  `idpacienteprincipal` INT NOT NULL,
+  `idusuario` INT NOT NULL,
+  `idempleado` INT NOT NULL,
+  `cargo` VARCHAR(65) NOT NULL,
+  `dni` VARCHAR(15) NOT NULL,
+  `motivo` VARCHAR(45) NOT NULL,
+  `detalle` VARCHAR(500) NULL,
+  `estadoanterior` VARCHAR(20) NOT NULL,
+  `estadonuevo` VARCHAR(20) NOT NULL,
+  `requiriorevisionclinica` TINYINT(1) NOT NULL DEFAULT 0,
+  `confirmorevisionclinica` TINYINT(1) NOT NULL DEFAULT 0,
+  `origen` VARCHAR(20) NOT NULL,
+  `fecha` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `nombrepacientearchivado` VARCHAR(250) NOT NULL,
+  `nombrepacienteprincipal` VARCHAR(250) NOT NULL,
+  `usuarioresponsable` VARCHAR(120) NOT NULL,
+  PRIMARY KEY (`idauditoria`),
+  INDEX `idx_auditoria_archivado_dni_fecha` (`dni` ASC, `fecha` DESC),
+  INDEX `idx_auditoria_archivado_paciente` (`idpacientearchivado` ASC),
+  INDEX `idx_auditoria_principal` (`idpacienteprincipal` ASC),
+  INDEX `idx_auditoria_usuario` (`idusuario` ASC),
+  INDEX `idx_auditoria_empleado` (`idempleado` ASC),
+  CONSTRAINT `fk_auditoria_paciente_archivado`
+    FOREIGN KEY (`idpacientearchivado`) REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `fk_auditoria_paciente_principal`
+    FOREIGN KEY (`idpacienteprincipal`) REFERENCES `historiaclinicadb`.`paciente` (`idpaciente`)
+    ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `fk_auditoria_usuario`
+    FOREIGN KEY (`idusuario`) REFERENCES `historiaclinicadb`.`usuario` (`idusuario`)
+    ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `fk_auditoria_empleado`
+    FOREIGN KEY (`idempleado`) REFERENCES `historiaclinicadb`.`empleado` (`idempleado`)
+    ON DELETE NO ACTION ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 

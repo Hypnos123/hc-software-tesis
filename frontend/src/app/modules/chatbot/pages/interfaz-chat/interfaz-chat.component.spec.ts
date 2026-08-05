@@ -13,6 +13,7 @@ import { InterfazChatComponent } from './interfaz-chat.component';
 import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
 import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
 import { ImportacionPacientesChatComponent } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
+import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-chat.service';
 
 describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
@@ -25,6 +26,8 @@ describe('InterfazChatComponent', () => {
   let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
   let importacionService: jasmine.SpyObj<PacienteImportacionService>;
+  let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
+  let authServiceMock: any;
   const paciente = {
     idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
     apellidos: 'Quispe Ramírez', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
@@ -42,6 +45,8 @@ describe('InterfazChatComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     router.navigate.and.returnValue(Promise.resolve(true));
     importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
+    duplicadosService = jasmine.createSpyObj('PacienteDuplicadoChatService', ['analizar', 'archivar']);
+    authServiceMock = { logout$: logoutSubject.asObservable(), usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' } };
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -51,8 +56,9 @@ describe('InterfazChatComponent', () => {
         { provide: AntecedentesService, useValue: antecedentesService },
         { provide: Router, useValue: router },
         { provide: PacienteImportacionService, useValue: importacionService },
+        { provide: PacienteDuplicadoChatService, useValue: duplicadosService },
         { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
-        { provide: AuthService, useValue: { logout$: logoutSubject.asObservable() } }
+        { provide: AuthService, useValue: authServiceMock }
       ]
     }).compileComponents();
 
@@ -765,5 +771,144 @@ describe('InterfazChatComponent', () => {
     expect(busquedaPendiente.observed).toBeFalse();
     expect(component.isLoading).toBeFalse();
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
+  });
+
+  it('debe mostrar Gestionar paciente duplicado para administrador y enfermería', () => {
+    expect(abrirMenuPacientes().options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeTrue();
+
+    fixture.destroy();
+    authServiceMock.usuario.cargo = ' ENFERMERA(O) ';
+    fixture = TestBed.createComponent(InterfazChatComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(abrirMenuPacientes().options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeTrue();
+  });
+
+  it('debe ocultar la opción al doctor y rechazar también la intención escrita', () => {
+    authServiceMock.usuario.cargo = 'MÉDICO';
+    const pacientes = abrirMenuPacientes();
+    expect(pacientes.options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeFalse();
+
+    component.userMessage = 'Quiero eliminar un paciente duplicado';
+    component.sendMessage();
+
+    expect(component.messages.at(-1)?.text).toBe('Tu cargo no tiene permiso para archivar pacientes.');
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  [
+    'Eliminar paciente duplicado',
+    'Archivar paciente duplicado',
+    'Hay un paciente repetido',
+    'Gestionar duplicados'
+  ].forEach(frase => {
+    it(`debe iniciar localmente el flujo para la intención: ${frase}`, () => {
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'dni')).toBeTrue();
+      expect(component.messages.some(mensaje => mensaje.sender === 'user' && mensaje.text === frase)).toBeTrue();
+      expect(asistenteService.preguntar).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.querySelector('app-gestion-duplicados-chat')).not.toBeNull();
+    });
+  });
+
+  it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {
+    const pacientes = abrirMenuPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar paciente duplicado');
+    component.selectHistoricalMenuOption(pacientes, opcion);
+    fixture.detectChanges();
+    expect(component.gestionDuplicadosActiva).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.menuId === 'pacientes')).toBeTrue();
+
+    component.cancelarGestionDuplicados();
+    fixture.detectChanges();
+
+    expect(component.gestionDuplicadosActiva).toBeFalse();
+    expect(component.messages.at(-1)?.menuId).toBe('pacientes');
+  });
+
+  it('debe limpiar la contraseña al minimizar y todo el flujo al cerrar', () => {
+    component.userMessage = 'Gestionar duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const tarjeta = component.gestionDuplicadosComponents.last;
+    tarjeta.password = 'sensible';
+    component.minimizeChat();
+    expect(tarjeta.password).toBe('');
+
+    component.openChat();
+    component.closeChat();
+    expect(component.messages.length).toBe(2);
+    expect(component.gestionDuplicadosActiva).toBeFalse();
+  });
+
+  it('debe mantener solicitud, DNI, resultado y tarjetas en orden cronológico y anclar el resultado', () => {
+    const respuestaPendiente = new Subject<any>();
+    duplicadosService.analizar.and.returnValue(respuestaPendiente);
+    component.userMessage = 'Gestionar duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+    const tarjeta = component.gestionDuplicadosComponents.last;
+
+    tarjeta.dniInput = '01234567';
+    tarjeta.consultarDni();
+    fixture.detectChanges();
+
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const dniIndexAntes = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    expect(solicitudIndex).toBeLessThan(dniIndexAntes);
+    expect(duplicadosService.analizar).toHaveBeenCalledOnceWith('01234567');
+
+    respuestaPendiente.next({
+      dni: '01234567', cantidadPacientesActivos: 2, esDuplicado: true,
+      pacientes: [
+        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadCamposPersonalesCompletos: 8, tieneInformacionClinicaRelevante: true },
+        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadCamposPersonalesCompletos: 5, tieneInformacionClinicaRelevante: false }
+      ],
+      idPacienteRecomendado: 10, razonesRecomendacion: ['Tiene 2 consultas registradas'],
+      permitirArchivadoSimple: true, requiereRevision: false, resultado: 'DUPLICADOS_ENCONTRADOS',
+      mensaje: 'Se encontraron 2 pacientes activos con el mismo DNI.'
+    });
+    respuestaPendiente.complete();
+    fixture.detectChanges();
+
+    const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
+    const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
+    const mensajeResultado = component.messages[resultadoIndex];
+    expect(dniMensajes.length).toBe(1);
+    expect(dniIndexAntes).toBeLessThan(resultadoIndex);
+    expect(resultadoIndex).toBeLessThan(tarjetasIndex);
+    expect(fixture.nativeElement.textContent).toContain('Pacientes encontrados');
+    expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
+    expect(scrollBlockSpy).toHaveBeenCalledWith(mensajeResultado.id);
+    expect(scrollBottomSpy).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el orden solicitud, DNI y mensaje cuando solo existe un paciente', () => {
+    duplicadosService.analizar.and.returnValue(of({
+      dni: '01234567', cantidadPacientesActivos: 1, esDuplicado: false, pacientes: [],
+      razonesRecomendacion: [], permitirArchivadoSimple: false, requiereRevision: false,
+      resultado: 'SIN_DUPLICADOS', mensaje: 'El DNI corresponde a un único paciente activo.'
+    } as any));
+    component.userMessage = 'Gestionar duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const tarjeta = component.gestionDuplicadosComponents.last;
+    tarjeta.dniInput = '01234567';
+    tarjeta.consultarDni();
+    fixture.detectChanges();
+
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const dniIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Solo existe un paciente activo con ese DNI. No hay duplicados para gestionar.');
+    expect(solicitudIndex).toBeLessThan(dniIndex);
+    expect(dniIndex).toBeLessThan(resultadoIndex);
+    expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567').length).toBe(1);
   });
 });
