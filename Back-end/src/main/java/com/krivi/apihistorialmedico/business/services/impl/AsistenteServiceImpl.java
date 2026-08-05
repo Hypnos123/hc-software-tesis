@@ -38,6 +38,7 @@ public class AsistenteServiceImpl implements AsistenteService {
       AsistenteResponse consultasPaciente = consultarConsultasMedicasPaciente(q); if (consultasPaciente != null) return consultasPaciente;
       AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q); if (historiasDuplicadas != null) return historiasDuplicadas;
       AsistenteResponse historiaPaciente = verificarHistoriaClinicaPaciente(q); if (historiaPaciente != null) return historiaPaciente;
+      AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadasPendientes(q); if (historiasDuplicadas != null) return historiasDuplicadas;
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
