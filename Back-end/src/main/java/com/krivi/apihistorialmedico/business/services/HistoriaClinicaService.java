@@ -18,4 +18,5 @@ public interface HistoriaClinicaService {
   BusquedaHistoriasClinicasResponse buscarParaIntegracion(String criterio);
   EstadisticasHistoriasClinicasResponse obtenerEstadisticasParaIntegracion();
   DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion();
+  DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion(String dni);
 }

@@ -844,21 +844,32 @@ describe('InterfazChatComponent', () => {
     });
   });
 
-  it('debe mantener separada la intención de historias clínicas duplicadas', () => {
-    asistenteService.preguntar.and.returnValue(of({
-      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS_PENDIENTE',
-      respuesta: 'La detección de historias clínicas duplicadas se encuentra pendiente de implementación.',
-      datos: {}
-    } as any));
+  [
+    '¿Existen historias clínicas duplicadas?',
+    'Busca historias clínicas repetidas',
+    'Revisa la duplicidad de historias clínicas',
+    'Detecta historias clínicas duplicadas',
+    'Busca pacientes con más de una historia clínica',
+    '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+    'Busca historias repetidas del DNI 01234567',
+    'Verifica historias clínicas del paciente con DNI 01234567'
+  ].forEach(frase => {
+    it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+        respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
+        datos: { hayDuplicados: true, duplicados: [] }
+      } as any));
 
-    component.userMessage = 'Revisa la duplicidad de historias clínicas';
-    component.sendMessage();
-    fixture.detectChanges();
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
 
-    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
-    expect(component.messages.at(-1)?.text).toBe('La detección de historias clínicas duplicadas se encuentra pendiente de implementación.');
-    expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
-    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('Revisa la duplicidad de historias clínicas');
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.at(-1)?.text).toContain('ID historia clínica: 12');
+      expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
+    });
   });
 
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {

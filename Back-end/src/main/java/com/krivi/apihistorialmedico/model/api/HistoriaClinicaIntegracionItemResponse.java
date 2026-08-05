@@ -17,4 +17,8 @@ public class HistoriaClinicaIntegracionItemResponse {
   private String dni;
   private String nombreCompleto;
   private LocalDateTime fechaCreacion;
+  private LocalDateTime ultimaActualizacion;
+  private long cantidadConsultas;
+  private LocalDateTime ultimaActividadClinica;
+  private String estado;
 }
