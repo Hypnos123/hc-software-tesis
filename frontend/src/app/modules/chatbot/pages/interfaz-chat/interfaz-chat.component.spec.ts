@@ -799,9 +799,12 @@ describe('InterfazChatComponent', () => {
 
   [
     'Eliminar paciente duplicado',
+    'Eliminar un paciente duplicado',
     'Archivar paciente duplicado',
-    'Hay un paciente repetido',
-    'Gestionar duplicados'
+    'Archivar un registro duplicado',
+    'Gestionar paciente duplicado',
+    'Gestionar duplicados',
+    'Decidir cuál paciente conservar'
   ].forEach(frase => {
     it(`debe iniciar localmente el flujo para la intención: ${frase}`, () => {
       component.userMessage = frase;
@@ -813,6 +816,49 @@ describe('InterfazChatComponent', () => {
       expect(asistenteService.preguntar).not.toHaveBeenCalled();
       expect(fixture.nativeElement.querySelector('app-gestion-duplicados-chat')).not.toBeNull();
     });
+  });
+
+
+
+  [
+    '¿Existen pacientes duplicados?',
+    'Verifica si hay pacientes repetidos',
+    'Analiza posibles duplicados',
+    'Busca pacientes duplicados'
+  ].forEach(frase => {
+    it(`debe enviar al backend la consulta general de duplicados: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+        respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: 01234567 ID: 2 DNI: 01234567',
+        datos: { cantidad: 2, resultados: [] }
+      } as any));
+
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.some(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.')).toBeFalse();
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
+      expect(component.messages.at(-1)?.text).toContain('Se encontraron posibles pacientes duplicados');
+    });
+  });
+
+  it('debe mantener separada la intención de historias clínicas duplicadas', () => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS_PENDIENTE',
+      respuesta: 'La detección de historias clínicas duplicadas se encuentra pendiente de implementación.',
+      datos: {}
+    } as any));
+
+    component.userMessage = 'Revisa la duplicidad de historias clínicas';
+    component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+    expect(component.messages.at(-1)?.text).toBe('La detección de historias clínicas duplicadas se encuentra pendiente de implementación.');
+    expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('Revisa la duplicidad de historias clínicas');
   });
 
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {

@@ -393,7 +393,10 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private esIntencionGestionDuplicados(texto: string): boolean {
     const normalizado = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    return /(duplicad|repetid)/.test(normalizado) && /(eliminar|archivar|gestionar|paciente|hay)/.test(normalizado);
+    if (/historias? clinicas?/.test(normalizado)) return false;
+    const mencionaObjetoGestionable = /(duplicad|repetid|paciente|registro)/.test(normalizado);
+    const accionGestion = /\b(gestionar|eliminar|archivar|decidir|conservar)\b/.test(normalizado);
+    return mencionaObjetoGestionable && accionGestion;
   }
   private puedeGestionarDuplicados(): boolean {
     const cargo = this.normalizarCargo(this.authService.usuario?.cargo);
