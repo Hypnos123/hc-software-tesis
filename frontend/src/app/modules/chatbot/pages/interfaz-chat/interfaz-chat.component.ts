@@ -142,15 +142,30 @@ export class InterfazChatComponent implements OnDestroy {
   private activeRequest?: Subscription;
   private clinicalHistoryRequest?: Subscription;
   private logoutSubscription: Subscription;
+  private sessionChangedSubscription: Subscription;
   private feedbackSubscription: Subscription;
   private readonly processedFeedbackIds = new Set<string>();
   private messageSequence = 0;
   private scrollPosition = 0;
+  private floatingMessageTimer?: ReturnType<typeof setTimeout>;
+  private floatingMessageIndex = 0;
+  private readonly floatingDismissedUntilKey = 'asistenteFloatingDismissedUntil';
+  private readonly floatingMessages = [
+    'Estoy aquí para ayudarte.',
+    'Puedes hacerme varias preguntas.',
+    'Puedo ayudarte a optimizar procesos.',
+    'Consulta pacientes, historias y duplicados.',
+    'Te guío paso a paso en el sistema.',
+    'Puedo ayudarte a verificar información.'
+  ];
+  mensajeFlotanteVisible = false;
+  mensajeFlotante = '';
   isOpen = false; userMessage = ''; isLoading = false;
   messages: ChatMessage[] = this.getInitialMessages();
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
   get gestionDuplicadosActiva(): boolean { return this.hayGestionDuplicadosActiva(); }
+  get autenticado(): boolean { return !!this.authService.usuario?.idUsuario; }
 
   constructor(
     private asistenteService: AsistenteService,
@@ -162,20 +177,23 @@ export class InterfazChatComponent implements OnDestroy {
     private feedbackService: ClinicalHistoryFlowFeedbackService
   ) {
     this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true));
+    this.sessionChangedSubscription = this.authService.sessionChanged$.subscribe(autenticado => this.handleSessionChange(autenticado));
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
+    if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
-  openChat(): void { this.isOpen = true; this.restoreScrollPosition(); }
-  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.isOpen = false; }
+  openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
+  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.isOpen = false; this.scheduleFloatingMessage(90_000); }
   closeChat(): void {
     this.importacionComponents?.forEach(component => component.limpiarFlujo());
     this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo());
     this.resetChat(true);
+    this.scheduleFloatingMessage(90_000);
   }
   sendMessage(): void {
     const pregunta = this.userMessage.trim();
-    if (this.isLoading) return;
+    if (!this.autenticado || this.isLoading) return;
     if (this.clinicalHistoryFlow.step === 'awaitingDni') {
       const dniMessage = pregunta ? this.addUserMessage(pregunta) : undefined;
       this.userMessage = '';
@@ -193,13 +211,13 @@ export class InterfazChatComponent implements OnDestroy {
   }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
-    if (this.isLoading) return;
+    if (!this.autenticado || this.isLoading) return;
     const selection = this.addUserMessage(option.label);
     this.removeMenuOption(menuMessage, option);
     this.executeMenuOption(option, selection.id);
   }
   quickAsk(text: string): void {
-    if (this.isLoading) return;
+    if (!this.autenticado || this.isLoading) return;
     if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
@@ -298,6 +316,56 @@ export class InterfazChatComponent implements OnDestroy {
   private scrollToNewBlock(blockId: string): void {
     requestAnimationFrame(() => this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
+  cerrarMensajeFlotante(): void {
+    this.clearFloatingMessageTimer();
+    this.hideFloatingMessage();
+    const bloqueadoHasta = Date.now() + 300_000;
+    sessionStorage.setItem(this.floatingDismissedUntilKey, String(bloqueadoHasta));
+    this.scheduleFloatingMessage(300_000);
+  }
+  private handleSessionChange(autenticado: boolean): void {
+    this.clearFloatingMessageTimer();
+    this.hideFloatingMessage();
+    if (!autenticado) return;
+    this.isOpen = false;
+    this.messages = this.getInitialMessages();
+    this.scheduleFloatingMessage(10_000);
+  }
+  private scheduleFloatingMessage(delay: number): void {
+    this.clearFloatingMessageTimer();
+    if (!this.autenticado || this.isOpen) return;
+    const bloqueoRestante = this.getFloatingDismissalRemaining();
+    this.floatingMessageTimer = setTimeout(() => this.tryShowFloatingMessage(), Math.max(delay, bloqueoRestante));
+  }
+  private tryShowFloatingMessage(): void {
+    this.floatingMessageTimer = undefined;
+    if (!this.canShowFloatingMessage()) {
+      if (this.autenticado && !this.isOpen) this.scheduleFloatingMessage(Math.max(1_000, this.getFloatingDismissalRemaining()));
+      return;
+    }
+    this.mensajeFlotante = this.floatingMessages[this.floatingMessageIndex];
+    this.floatingMessageIndex = (this.floatingMessageIndex + 1) % this.floatingMessages.length;
+    this.mensajeFlotanteVisible = true;
+    this.floatingMessageTimer = setTimeout(() => {
+      this.floatingMessageTimer = undefined;
+      this.hideFloatingMessage();
+      this.scheduleFloatingMessage(90_000);
+    }, 5_000);
+  }
+  private canShowFloatingMessage(): boolean {
+    return this.autenticado && !this.isOpen && !this.isLoading && !this.userMessage.trim()
+        && this.clinicalHistoryFlow.step === 'idle' && !this.hayGestionDuplicadosActiva()
+        && this.getFloatingDismissalRemaining() === 0;
+  }
+  private getFloatingDismissalRemaining(): number {
+    const bloqueadoHasta = Number(sessionStorage.getItem(this.floatingDismissedUntilKey) ?? 0);
+    return Math.max(0, bloqueadoHasta - Date.now());
+  }
+  private hideFloatingMessage(): void { this.mensajeFlotanteVisible = false; }
+  private clearFloatingMessageTimer(): void {
+    if (this.floatingMessageTimer !== undefined) clearTimeout(this.floatingMessageTimer);
+    this.floatingMessageTimer = undefined;
+  }
   private saveScrollPosition(): void { if (this.chatBody) this.scrollPosition = this.chatBody.nativeElement.scrollTop; }
   private restoreScrollPosition(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.scrollPosition; }); }
   private addUserMessage(text: string): ChatMessage { const message = this.createTextMessage('user', text); this.messages.push(message); return message; }
@@ -335,9 +403,15 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
-  private getInitialMessages(): ChatMessage[] { const welcome = this.createTextMessage('bot', this.initialMessage); return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }]; }
+  private getInitialMessages(): ChatMessage[] {
+    if (!this.autenticado) {
+      return [this.createTextMessage('bot', 'Hola, soy el Asistente IA del sistema.\nPara realizar consultas, verificar datos o ayudarte con los procesos, primero debes iniciar sesión.')];
+    }
+    const welcome = this.createTextMessage('bot', this.initialMessage);
+    return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }];
+  }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
   private createMenuOptions(menuId: string): MenuOption[] {
     return this.menus[menuId].options

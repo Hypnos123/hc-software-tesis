@@ -25,6 +25,7 @@ describe('InterfazChatComponent', () => {
   let transferService: ClinicalHistoryTransferService;
   let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
+  let sessionChangedSubject: Subject<boolean>;
   let importacionService: jasmine.SpyObj<PacienteImportacionService>;
   let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
   let authServiceMock: any;
@@ -35,6 +36,7 @@ describe('InterfazChatComponent', () => {
 
   beforeEach(async () => {
     logoutSubject = new Subject<void>();
+    sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
     historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update']);
@@ -46,7 +48,11 @@ describe('InterfazChatComponent', () => {
     router.navigate.and.returnValue(Promise.resolve(true));
     importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
     duplicadosService = jasmine.createSpyObj('PacienteDuplicadoChatService', ['analizar', 'archivar']);
-    authServiceMock = { logout$: logoutSubject.asObservable(), usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' } };
+    authServiceMock = {
+      logout$: logoutSubject.asObservable(),
+      sessionChanged$: sessionChangedSubject.asObservable(),
+      usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' }
+    };
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -70,7 +76,7 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => logoutSubject.complete());
+  afterEach(() => { logoutSubject.complete(); sessionChangedSubject.complete(); sessionStorage.removeItem('asistenteFloatingDismissedUntil'); });
 
   function abrirMenuHistorias(): any {
     const menuPrincipal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
@@ -114,6 +120,103 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'menu', menuId: 'principal' }));
     expect(component.messages[1].options?.length).toBe(4);
   });
+
+  it('debe mostrar solo el aviso informativo y bloquear consultas cuando no existe sesión', () => {
+    fixture.destroy();
+    authServiceMock.usuario = undefined;
+    fixture = TestBed.createComponent(InterfazChatComponent);
+    component = fixture.componentInstance;
+    component.openChat();
+    fixture.detectChanges();
+
+    expect(component.messages.length).toBe(1);
+    expect(component.messages[0].text).toBe('Hola, soy el Asistente IA del sistema.\nPara realizar consultas, verificar datos o ayudarte con los procesos, primero debes iniciar sesión.');
+    expect(fixture.nativeElement.querySelector('.navigation-options')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.chatbot-footer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.quick-questions')).toBeNull();
+
+    component.userMessage = '¿Existen pacientes duplicados?';
+    component.sendMessage();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar y ocultar el primer mensaje flotante según la temporización inicial', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(9_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    expect(component.mensajeFlotante).toBe('Estoy aquí para ayudarte.');
+
+    tick(5_000);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('no debe mostrar mensajes flotantes con el chatbot abierto', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    component.openChat();
+    tick(100_000);
+
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    expect((component as any).floatingMessageTimer).toBeUndefined();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe esperar 90 segundos después de minimizar el chatbot', fakeAsync(() => {
+    component.openChat();
+    component.minimizeChat();
+    tick(89_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe suspender mensajes durante cinco minutos después de cerrar la burbuja', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+
+    component.cerrarMensajeFlotante();
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    tick(299_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe ocultar mensajes y limpiar el único temporizador al cerrar sesión', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+
+    authServiceMock.usuario = undefined;
+    sessionChangedSubject.next(false);
+
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    expect((component as any).floatingMessageTimer).toBeUndefined();
+    tick(300_000);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('no debe crear temporizadores duplicados ante notificaciones repetidas de sesión', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    const primerTemporizador = (component as any).floatingMessageTimer;
+    (component as any).handleSessionChange(true);
+    const segundoTemporizador = (component as any).floatingMessageTimer;
+
+    expect(segundoTemporizador).not.toBe(primerTemporizador);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    expect((component as any).floatingMessageIndex).toBe(1);
+    (component as any).clearFloatingMessageTimer();
+  }));
 
   it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
     iniciarFlujoHistoriaClinica();
