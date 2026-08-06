@@ -14,6 +14,7 @@ import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
+import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,6 +40,7 @@ class HistoriaClinicaServiceImplTest {
   @Mock private HistoriaClinicaRepository historiaClinicaRepository;
   @Mock private PacienteRepository pacienteRepository;
   @Mock private AntecedentesRepository antecedentesRepository;
+  @Mock private ConsultaRepository consultaRepository;
   @InjectMocks private HistoriaClinicaServiceImpl historiaClinicaService;
 
   @Test
@@ -372,20 +374,73 @@ class HistoriaClinicaServiceImplTest {
   }
 
   @Test
-  void detectaDuplicadosPorDniNormalizadoYPorPacienteSinNombres() {
+  void consultaGeneralDetectaHistoriasDePacientesActivosConElMismoDni() {
     HistoriaClinica primera = historia(1, 10, " 72845292", "Mismo", "Nombre");
     HistoriaClinica segunda = historia(2, 11, "72845292 ", "Mismo", "Nombre");
-    when(historiaClinicaRepository.findIdsPacienteConHistoriasDuplicadas()).thenReturn(List.of(20));
-    when(historiaClinicaRepository.findForIntegracionByIdPaciente(20)).thenReturn(List.of(historia(3, 20, "11111111", "Otro", "Paciente"), historia(4, 20, "22222222", "Otro", "Paciente")));
-    when(historiaClinicaRepository.findDnisNormalizadosConHistoriasDuplicadas()).thenReturn(List.of("72845292"));
-    when(historiaClinicaRepository.findForIntegracionByDni("72845292")).thenReturn(List.of(primera, segunda));
+    when(historiaClinicaRepository.findAllForIntegracion()).thenReturn(List.of(primera, segunda));
 
     DuplicadosHistoriasClinicasResponse response = historiaClinicaService.obtenerDuplicadosParaIntegracion();
 
     assertTrue(response.isHayDuplicados());
-    assertEquals(2, response.getTotalGrupos());
-    assertEquals("idPaciente", response.getDuplicados().getFirst().getTipo());
-    assertEquals("dni", response.getDuplicados().get(1).getTipo());
+    assertEquals(1, response.getTotalGrupos());
+    assertEquals("dni", response.getDuplicados().getFirst().getTipo());
+    assertEquals(List.of(1, 2), response.getDuplicados().getFirst().getHistoriasClinicas().stream()
+        .map(item -> item.getIdHistoriaClinica()).toList());
+  }
+
+  @Test
+  void unaHistoriaPorPacienteNoSeConsideraDuplicadaPeroDosDelMismoPacienteSi() {
+    HistoriaClinica unica = historia(1, 10, "11111111", "Ana", "Lima");
+    when(historiaClinicaRepository.findAllForIntegracion()).thenReturn(List.of(unica));
+    assertFalse(historiaClinicaService.obtenerDuplicadosParaIntegracion().isHayDuplicados());
+
+    HistoriaClinica segunda = historia(2, 10, "11111111", "Ana", "Lima");
+    when(historiaClinicaRepository.findAllForIntegracion()).thenReturn(List.of(unica, segunda));
+    assertTrue(historiaClinicaService.obtenerDuplicadosParaIntegracion().isHayDuplicados());
+  }
+
+  @Test
+  void devuelveMensajesEspecificosParaDniInexistenteYUnaSolaHistoria() {
+    when(pacienteRepository.findByDniNormalizado("00000000")).thenReturn(List.of());
+    DuplicadosHistoriasClinicasResponse inexistente = historiaClinicaService.obtenerDuplicadosParaIntegracion("00000000");
+    assertEquals("No se encontró un paciente activo con el DNI ingresado.", inexistente.getMensaje());
+
+    Paciente paciente = new Paciente();
+    when(pacienteRepository.findByDniNormalizado("11111111")).thenReturn(List.of(paciente));
+    when(historiaClinicaRepository.findForIntegracionByDni("11111111"))
+        .thenReturn(List.of(historia(1, 10, "11111111", "Ana", "Lima")));
+    DuplicadosHistoriasClinicasResponse unica = historiaClinicaService.obtenerDuplicadosParaIntegracion("11111111");
+    assertFalse(unica.isHayDuplicados());
+    assertTrue(unica.getMensaje().contains("tiene una sola historia clínica"));
+  }
+
+  @Test
+  void recomendacionPriorizaConsultasActividadAntiguedadEId() {
+    assertEquals(2, recomendada("10000001", historia(1, 1, "10000001", "Ana", "Lima"),
+        historia(2, 1, "10000001", "Ana", "Lima"), new Object[]{1, 1L, null}, new Object[]{2, 2L, null}));
+
+    LocalDateTime anterior = LocalDateTime.of(2026, 1, 1, 10, 0);
+    LocalDateTime reciente = LocalDateTime.of(2026, 2, 1, 10, 0);
+    assertEquals(4, recomendada("10000002", historia(3, 2, "10000002", "Beto", "Lima"),
+        historia(4, 2, "10000002", "Beto", "Lima"), new Object[]{3, 2L, anterior}, new Object[]{4, 2L, reciente}));
+
+    HistoriaClinica antigua = historia(5, 3, "10000003", "Cora", "Lima");
+    HistoriaClinica nueva = historia(6, 3, "10000003", "Cora", "Lima");
+    antigua.setFechaCreacion(LocalDateTime.of(2025, 1, 1, 10, 0));
+    nueva.setFechaCreacion(LocalDateTime.of(2026, 1, 1, 10, 0));
+    assertEquals(5, recomendada("10000003", antigua, nueva, new Object[]{5, 0L, null}, new Object[]{6, 0L, null}));
+
+    HistoriaClinica idMayor = historia(8, 4, "10000004", "Dora", "Lima");
+    HistoriaClinica idMenor = historia(7, 4, "10000004", "Dora", "Lima");
+    assertEquals(7, recomendada("10000004", idMayor, idMenor, new Object[]{8, 0L, null}, new Object[]{7, 0L, null}));
+  }
+
+  private Integer recomendada(String dni, HistoriaClinica primera, HistoriaClinica segunda, Object[] primerResumen, Object[] segundoResumen) {
+    when(pacienteRepository.findByDniNormalizado(dni)).thenReturn(List.of(primera.getPaciente()));
+    when(historiaClinicaRepository.findForIntegracionByDni(dni)).thenReturn(List.of(primera, segunda));
+    when(consultaRepository.resumirPorHistoriasClinicas(List.of(primera.getIdHistoriaClinica(), segunda.getIdHistoriaClinica())))
+        .thenReturn(List.of(primerResumen, segundoResumen));
+    return historiaClinicaService.obtenerDuplicadosParaIntegracion(dni).getDuplicados().getFirst().getIdHistoriaClinicaRecomendada();
   }
 
   private HistoriaClinica historia(int idHistoria, int idPaciente, String dni, String nombres, String apellidos) {

@@ -36,8 +36,8 @@ public class HistoriaClinicaBusquedaController {
   }
 
   @GetMapping("/duplicados")
-  public ResponseEntity<DuplicadosHistoriasClinicasResponse> duplicados() {
-    return ResponseEntity.ok(historiaClinicaService.obtenerDuplicadosParaIntegracion());
+  public ResponseEntity<DuplicadosHistoriasClinicasResponse> duplicados(@RequestParam(required = false) String dni) {
+    return ResponseEntity.ok(historiaClinicaService.obtenerDuplicadosParaIntegracion(dni));
   }
 
   @ExceptionHandler(BusquedaHistoriaClinicaException.class)

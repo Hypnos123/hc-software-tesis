@@ -15,4 +15,6 @@ public class DuplicadosHistoriasClinicasResponse {
   private boolean hayDuplicados;
   private int totalGrupos;
   private List<GrupoDuplicadoHistoriaClinicaResponse> duplicados;
+  private String dniConsultado;
+  private String mensaje;
 }

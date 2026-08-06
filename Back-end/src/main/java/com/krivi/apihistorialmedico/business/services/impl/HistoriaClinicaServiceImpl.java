@@ -31,6 +31,7 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   @Autowired HistoriaClinicaRepository historiaClinicaRepository;
   @Autowired PacienteRepository pacienteRepository;
   @Autowired AntecedentesRepository antecedentesRepository;
+  @Autowired ConsultaRepository consultaRepository;
 
   public ResponseModelGet<HistoriaClinicaResponse> getAll() {
     List<HistoriaClinicaResponse> data = new ArrayList<>();
@@ -222,13 +223,56 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
 
   @Override
   public DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion() {
-    List<GrupoDuplicadoHistoriaClinicaResponse> grupos = new ArrayList<>();
-    historiaClinicaRepository.findIdsPacienteConHistoriasDuplicadas().forEach(idPaciente ->
-        grupos.add(toGrupoDuplicado("idPaciente", String.valueOf(idPaciente), historiaClinicaRepository.findForIntegracionByIdPaciente(idPaciente))));
-    historiaClinicaRepository.findDnisNormalizadosConHistoriasDuplicadas().forEach(dni ->
-        grupos.add(toGrupoDuplicado("dni", dni, historiaClinicaRepository.findForIntegracionByDni(dni))));
-    return DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(!grupos.isEmpty())
-        .totalGrupos(grupos.size()).duplicados(grupos).build();
+    return obtenerDuplicadosParaIntegracion(null);
+  }
+
+  @Override
+  public DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion(String dni) {
+    String dniNormalizado = dni == null ? null : dni.trim();
+    if (dniNormalizado != null && !DNI_PATTERN.matcher(dniNormalizado).matches()) {
+      throw new BusquedaHistoriaClinicaException("DNI_INVALIDO", "El DNI debe contener exactamente ocho dígitos.", HttpStatus.BAD_REQUEST);
+    }
+
+    List<HistoriaClinica> historias;
+    if (dniNormalizado == null) {
+      historias = historiaClinicaRepository.findAllForIntegracion();
+    } else {
+      if (pacienteRepository.findByDniNormalizado(dniNormalizado).isEmpty()) {
+        return respuestaDuplicados(false, dniNormalizado, List.of(), "No se encontró un paciente activo con el DNI ingresado.");
+      }
+      historias = historiaClinicaRepository.findForIntegracionByDni(dniNormalizado);
+    }
+
+    Map<String, List<HistoriaClinica>> candidatos = new LinkedHashMap<>();
+    historias.forEach(historia -> {
+      String historiaDni = normalizarDni(historia.getPaciente().getNumDocumento());
+      String clave = historiaDni == null ? "PACIENTE:" + historia.getPaciente().getIdPaciente() : "DNI:" + historiaDni;
+      candidatos.computeIfAbsent(clave, ignored -> new ArrayList<>()).add(historia);
+    });
+
+    List<GrupoDuplicadoHistoriaClinicaResponse> grupos = candidatos.entrySet().stream()
+        .filter(entry -> entry.getValue().size() >= 2)
+        .map(entry -> toGrupoDuplicado(entry.getKey().startsWith("DNI:") ? "dni" : "idPaciente",
+            entry.getKey().substring(entry.getKey().indexOf(':') + 1), entry.getValue()))
+        .toList();
+
+    if (!grupos.isEmpty()) {
+      int cantidad = grupos.stream().mapToInt(GrupoDuplicadoHistoriaClinicaResponse::getCantidad).sum();
+      String mensaje = dniNormalizado == null
+          ? "Se encontraron " + grupos.size() + " grupos de posibles historias clínicas duplicadas."
+          : "Se encontraron " + cantidad + " posibles historias clínicas duplicadas para el DNI " + dniNormalizado + ".";
+      return respuestaDuplicados(true, dniNormalizado, grupos, mensaje);
+    }
+    String mensaje = dniNormalizado == null
+        ? "No se encontraron historias clínicas duplicadas. Cada paciente activo tiene una sola historia clínica."
+        : "El paciente con DNI " + dniNormalizado + " tiene una sola historia clínica. No se detectó duplicidad.";
+    return respuestaDuplicados(false, dniNormalizado, List.of(), mensaje);
+  }
+
+  private DuplicadosHistoriasClinicasResponse respuestaDuplicados(boolean hayDuplicados, String dni,
+      List<GrupoDuplicadoHistoriaClinicaResponse> grupos, String mensaje) {
+    return DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(hayDuplicados).totalGrupos(grupos.size())
+        .duplicados(grupos).dniConsultado(dni).mensaje(mensaje).build();
   }
 
   private List<HistoriaClinica> buscarHistorias(CriterioBusqueda criterio) {
@@ -293,16 +337,62 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   }
 
   private GrupoDuplicadoHistoriaClinicaResponse toGrupoDuplicado(String tipo, String valor, List<HistoriaClinica> historias) {
-    List<HistoriaClinicaIntegracionItemResponse> items = historias.stream().map(this::toIntegracionResponse).toList();
-    return GrupoDuplicadoHistoriaClinicaResponse.builder().tipo(tipo).valorCoincidente(valor).cantidad(items.size()).historiasClinicas(items).build();
+    Map<Integer, ResumenConsultasHistoria> resumenes = resumenesConsultas(historias);
+    List<HistoriaClinicaIntegracionItemResponse> items = historias.stream()
+        .map(historia -> toIntegracionResponse(historia, resumenes.getOrDefault(historia.getIdHistoriaClinica(), ResumenConsultasHistoria.VACIO)))
+        .sorted(comparadorRecomendacion()).toList();
+    HistoriaClinicaIntegracionItemResponse recomendada = items.getFirst();
+    String explicacion = explicarRecomendacion(recomendada, items.size() > 1 ? items.get(1) : null);
+    return GrupoDuplicadoHistoriaClinicaResponse.builder().tipo(tipo).valorCoincidente(valor).cantidad(items.size())
+        .historiasClinicas(items).idHistoriaClinicaRecomendada(recomendada.getIdHistoriaClinica()).recomendacion(explicacion).build();
   }
 
   private HistoriaClinicaIntegracionItemResponse toIntegracionResponse(HistoriaClinica historia) {
+    return toIntegracionResponse(historia, ResumenConsultasHistoria.VACIO);
+  }
+
+  private HistoriaClinicaIntegracionItemResponse toIntegracionResponse(HistoriaClinica historia, ResumenConsultasHistoria resumen) {
     Paciente paciente = historia.getPaciente();
     return HistoriaClinicaIntegracionItemResponse.builder().idHistoriaClinica(historia.getIdHistoriaClinica())
         .idPaciente(paciente.getIdPaciente()).dni(normalizarDni(paciente.getNumDocumento()))
         .nombreCompleto(String.join(" ", Optional.ofNullable(paciente.getNombres()).orElse(""), Optional.ofNullable(paciente.getApellidos()).orElse("")).trim())
-        .fechaCreacion(historia.getFechaCreacion()).build();
+        .fechaCreacion(historia.getFechaCreacion()).ultimaActualizacion(historia.getUltimaActualizacion())
+        .cantidadConsultas(resumen.cantidad()).ultimaActividadClinica(resumen.ultimaActividad()).estado("ACTIVA").build();
+  }
+
+  private Map<Integer, ResumenConsultasHistoria> resumenesConsultas(List<HistoriaClinica> historias) {
+    List<Integer> ids = historias.stream().map(HistoriaClinica::getIdHistoriaClinica).toList();
+    if (ids.isEmpty()) return Map.of();
+    Map<Integer, ResumenConsultasHistoria> resumenes = new HashMap<>();
+    consultaRepository.resumirPorHistoriasClinicas(ids).forEach(fila -> resumenes.put(((Number) fila[0]).intValue(),
+        new ResumenConsultasHistoria(((Number) fila[1]).longValue(), (LocalDateTime) fila[2])));
+    return resumenes;
+  }
+
+  private Comparator<HistoriaClinicaIntegracionItemResponse> comparadorRecomendacion() {
+    return Comparator.comparingLong(HistoriaClinicaIntegracionItemResponse::getCantidadConsultas).reversed()
+        .thenComparing(HistoriaClinicaIntegracionItemResponse::getUltimaActividadClinica, Comparator.nullsLast(Comparator.reverseOrder()))
+        .thenComparing(HistoriaClinicaIntegracionItemResponse::getFechaCreacion, Comparator.nullsLast(Comparator.naturalOrder()))
+        .thenComparing(HistoriaClinicaIntegracionItemResponse::getIdHistoriaClinica);
+  }
+
+  private String explicarRecomendacion(HistoriaClinicaIntegracionItemResponse recomendada,
+      HistoriaClinicaIntegracionItemResponse alternativa) {
+    String razon;
+    if (alternativa == null || recomendada.getCantidadConsultas() != alternativa.getCantidadConsultas()) {
+      razon = "contiene " + recomendada.getCantidadConsultas() + " consultas";
+    } else if (!Objects.equals(recomendada.getUltimaActividadClinica(), alternativa.getUltimaActividadClinica())) {
+      razon = "registra la actividad clínica más reciente";
+    } else if (!Objects.equals(recomendada.getFechaCreacion(), alternativa.getFechaCreacion())) {
+      razon = "fue creada antes que la historia clínica ID " + alternativa.getIdHistoriaClinica();
+    } else {
+      razon = "tiene el ID menor como criterio final de desempate";
+    }
+    return "Se recomienda conservar la historia clínica ID " + recomendada.getIdHistoriaClinica() + " porque " + razon + ".";
+  }
+
+  private record ResumenConsultasHistoria(long cantidad, LocalDateTime ultimaActividad) {
+    private static final ResumenConsultasHistoria VACIO = new ResumenConsultasHistoria(0, null);
   }
 
   private String normalizarDni(String dni) {

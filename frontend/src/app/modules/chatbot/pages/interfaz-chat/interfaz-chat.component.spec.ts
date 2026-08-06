@@ -25,6 +25,7 @@ describe('InterfazChatComponent', () => {
   let transferService: ClinicalHistoryTransferService;
   let feedbackService: ClinicalHistoryFlowFeedbackService;
   let logoutSubject: Subject<void>;
+  let sessionChangedSubject: Subject<boolean>;
   let importacionService: jasmine.SpyObj<PacienteImportacionService>;
   let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
   let authServiceMock: any;
@@ -35,6 +36,7 @@ describe('InterfazChatComponent', () => {
 
   beforeEach(async () => {
     logoutSubject = new Subject<void>();
+    sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
     historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update']);
@@ -46,7 +48,11 @@ describe('InterfazChatComponent', () => {
     router.navigate.and.returnValue(Promise.resolve(true));
     importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
     duplicadosService = jasmine.createSpyObj('PacienteDuplicadoChatService', ['analizar', 'archivar']);
-    authServiceMock = { logout$: logoutSubject.asObservable(), usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' } };
+    authServiceMock = {
+      logout$: logoutSubject.asObservable(),
+      sessionChanged$: sessionChangedSubject.asObservable(),
+      usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' }
+    };
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -70,7 +76,7 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => logoutSubject.complete());
+  afterEach(() => { logoutSubject.complete(); sessionChangedSubject.complete(); sessionStorage.removeItem('asistenteFloatingDismissedUntil'); });
 
   function abrirMenuHistorias(): any {
     const menuPrincipal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
@@ -114,6 +120,103 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'menu', menuId: 'principal' }));
     expect(component.messages[1].options?.length).toBe(4);
   });
+
+  it('debe mostrar solo el aviso informativo y bloquear consultas cuando no existe sesión', () => {
+    fixture.destroy();
+    authServiceMock.usuario = undefined;
+    fixture = TestBed.createComponent(InterfazChatComponent);
+    component = fixture.componentInstance;
+    component.openChat();
+    fixture.detectChanges();
+
+    expect(component.messages.length).toBe(1);
+    expect(component.messages[0].text).toBe('Hola, soy el Asistente IA del sistema.\nPara realizar consultas, verificar datos o ayudarte con los procesos, primero debes iniciar sesión.');
+    expect(fixture.nativeElement.querySelector('.navigation-options')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.chatbot-footer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.quick-questions')).toBeNull();
+
+    component.userMessage = '¿Existen pacientes duplicados?';
+    component.sendMessage();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar y ocultar el primer mensaje flotante según la temporización inicial', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(9_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    expect(component.mensajeFlotante).toBe('Estoy aquí para ayudarte.');
+
+    tick(5_000);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('no debe mostrar mensajes flotantes con el chatbot abierto', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    component.openChat();
+    tick(100_000);
+
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    expect((component as any).floatingMessageTimer).toBeUndefined();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe esperar 90 segundos después de minimizar el chatbot', fakeAsync(() => {
+    component.openChat();
+    component.minimizeChat();
+    tick(89_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe suspender mensajes durante cinco minutos después de cerrar la burbuja', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+
+    component.cerrarMensajeFlotante();
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    tick(299_999);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+
+    tick(1);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('debe ocultar mensajes y limpiar el único temporizador al cerrar sesión', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+
+    authServiceMock.usuario = undefined;
+    sessionChangedSubject.next(false);
+
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    expect((component as any).floatingMessageTimer).toBeUndefined();
+    tick(300_000);
+    expect(component.mensajeFlotanteVisible).toBeFalse();
+    (component as any).clearFloatingMessageTimer();
+  }));
+
+  it('no debe crear temporizadores duplicados ante notificaciones repetidas de sesión', fakeAsync(() => {
+    (component as any).handleSessionChange(true);
+    const primerTemporizador = (component as any).floatingMessageTimer;
+    (component as any).handleSessionChange(true);
+    const segundoTemporizador = (component as any).floatingMessageTimer;
+
+    expect(segundoTemporizador).not.toBe(primerTemporizador);
+    tick(10_000);
+    expect(component.mensajeFlotanteVisible).toBeTrue();
+    expect((component as any).floatingMessageIndex).toBe(1);
+    (component as any).clearFloatingMessageTimer();
+  }));
 
   it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
     iniciarFlujoHistoriaClinica();
@@ -799,9 +902,12 @@ describe('InterfazChatComponent', () => {
 
   [
     'Eliminar paciente duplicado',
+    'Eliminar un paciente duplicado',
     'Archivar paciente duplicado',
-    'Hay un paciente repetido',
-    'Gestionar duplicados'
+    'Archivar un registro duplicado',
+    'Gestionar paciente duplicado',
+    'Gestionar duplicados',
+    'Decidir cuál paciente conservar'
   ].forEach(frase => {
     it(`debe iniciar localmente el flujo para la intención: ${frase}`, () => {
       component.userMessage = frase;
@@ -813,6 +919,144 @@ describe('InterfazChatComponent', () => {
       expect(asistenteService.preguntar).not.toHaveBeenCalled();
       expect(fixture.nativeElement.querySelector('app-gestion-duplicados-chat')).not.toBeNull();
     });
+  });
+
+
+
+  [
+    '¿Existen pacientes duplicados?',
+    'Verifica si hay pacientes repetidos',
+    'Analiza posibles duplicados',
+    'Busca pacientes duplicados'
+  ].forEach(frase => {
+    it(`debe enviar al backend la consulta general de duplicados: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+        respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: 01234567 ID: 2 DNI: 01234567',
+        datos: { cantidad: 2, resultados: [] }
+      } as any));
+
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.some(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.')).toBeFalse();
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
+      expect(component.messages.at(-1)?.text).toContain('Se encontraron posibles pacientes duplicados');
+    });
+  });
+
+  [
+    '¿Existen historias clínicas duplicadas?',
+    'Busca historias clínicas repetidas',
+    'Revisa la duplicidad de historias clínicas',
+    'Detecta historias clínicas duplicadas',
+    'Busca pacientes con más de una historia clínica',
+    '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+    'Busca historias repetidas del DNI 01234567',
+    'Verifica historias clínicas del paciente con DNI 01234567'
+  ].forEach(frase => {
+    it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+        respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
+        datos: { hayDuplicados: true, duplicados: [] }
+      } as any));
+
+      component.userMessage = frase;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+      expect(component.messages.at(-1)?.text).toContain('ID historia clínica: 12');
+      expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
+      expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
+    });
+  });
+
+  [
+    {
+      nombre: 'pacientes duplicados generales',
+      pregunta: '¿Existen pacientes duplicados?',
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+      datos: { cantidad: 2, resultados: [{}, {}] },
+      respuesta: 'Se encontraron posibles pacientes duplicados:\n\nID paciente: 1\n\nID paciente: 2'
+    },
+    {
+      nombre: 'pacientes duplicados por DNI',
+      pregunta: 'Busca pacientes duplicados con DNI 01234567',
+      intencion: 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE',
+      datos: { tipoBusqueda: 'DNI', resultados: [{}, {}] },
+      respuesta: 'Se encontraron posibles pacientes duplicados para el DNI 01234567:\n\nID paciente: 1\n\nID paciente: 2'
+    },
+    {
+      nombre: 'historias clínicas duplicadas generales',
+      pregunta: '¿Existen historias clínicas duplicadas?',
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+      datos: { hayDuplicados: true, duplicados: [{}, {}] },
+      respuesta: 'Se encontraron posibles historias clínicas duplicadas:\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
+    },
+    {
+      nombre: 'historias clínicas duplicadas por DNI',
+      pregunta: '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+      datos: { hayDuplicados: true, dniConsultado: '01234567', duplicados: [{}] },
+      respuesta: 'Se encontraron posibles historias clínicas duplicadas para el DNI 01234567:\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
+    }
+  ].forEach(caso => {
+    it(`debe anclar el inicio del resultado sin saltar al final para ${caso.nombre}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: caso.intencion,
+        respuesta: caso.respuesta,
+        datos: caso.datos
+      } as any));
+      const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+      const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+      component.userMessage = caso.pregunta;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      const preguntaIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === caso.pregunta);
+      const resultadoIndex = component.messages.findIndex(mensaje => mensaje.sender === 'bot' && mensaje.text === caso.respuesta);
+      const resultado = component.messages[resultadoIndex];
+      expect(preguntaIndex).toBeGreaterThanOrEqual(0);
+      expect(resultadoIndex).toBe(preguntaIndex + 1);
+      expect(scrollBlockSpy).toHaveBeenCalledOnceWith(resultado.id);
+      expect(scrollBottomSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('debe usar scrollIntoView sobre el inicio del mensaje de resultado', fakeAsync(() => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+      respuesta: 'Se encontraron posibles pacientes duplicados:\n\nPrimer registro\n\nÚltimo registro',
+      datos: { cantidad: 2, resultados: [{}, {}] }
+    } as any));
+
+    component.userMessage = 'Analiza posibles duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const resultado = component.messages.at(-1)!;
+    const elemento = fixture.nativeElement.querySelector(`[data-block-id="${resultado.id}"]`);
+    elemento.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(elemento.scrollIntoView).toHaveBeenCalledOnceWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe conservar el scroll normal hacia abajo para respuestas cortas', () => {
+    asistenteService.preguntar.and.returnValue(of({ intencion: 'AYUDA_USO_SISTEMA', respuesta: 'Respuesta corta.' } as any));
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.userMessage = '¿Qué preguntas puedo hacer?';
+    component.sendMessage();
+
+    expect(scrollBottomSpy).toHaveBeenCalledTimes(1);
+    expect(scrollBlockSpy).not.toHaveBeenCalled();
   });
 
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {

@@ -1,8 +1,12 @@
 package com.krivi.apihistorialmedico.business.services.impl;
 
 import com.krivi.apihistorialmedico.business.services.AsistenteService;
+import com.krivi.apihistorialmedico.business.services.HistoriaClinicaService;
 import com.krivi.apihistorialmedico.model.api.AsistenteRequest;
 import com.krivi.apihistorialmedico.model.api.AsistenteResponse;
+import com.krivi.apihistorialmedico.model.api.DuplicadosHistoriasClinicasResponse;
+import com.krivi.apihistorialmedico.model.api.GrupoDuplicadoHistoriaClinicaResponse;
+import com.krivi.apihistorialmedico.model.api.HistoriaClinicaIntegracionItemResponse;
 import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
@@ -24,7 +28,7 @@ import java.util.stream.Collectors;
 public class AsistenteServiceImpl implements AsistenteService {
   private static final Pattern DNI_PATTERN = Pattern.compile("\\b\\d{8}\\b");
 
-  @Autowired PacienteRepository pacienteRepository; @Autowired HistoriaClinicaRepository historiaClinicaRepository; @Autowired ConsultaRepository consultaRepository; @Autowired UsuarioRepository usuarioRepository;
+  @Autowired PacienteRepository pacienteRepository; @Autowired HistoriaClinicaRepository historiaClinicaRepository; @Autowired ConsultaRepository consultaRepository; @Autowired UsuarioRepository usuarioRepository; @Autowired HistoriaClinicaService historiaClinicaService;
   @Override public AsistenteResponse preguntar(AsistenteRequest request, Integer idUsuario) {
     String q = normalizar(request == null ? null : request.getPregunta());
     if (q.isBlank()) return resp("PREGUNTA_VACIA", "Escribe una pregunta para poder ayudarte.", Map.of());
@@ -32,6 +36,7 @@ public class AsistenteServiceImpl implements AsistenteService {
       Periodo p = periodo(q); Usuario u = idUsuario == null ? null : usuarioRepository.findById(idUsuario).orElse(null); Integer idEmpleado = u != null && u.getEmpleado() != null ? u.getEmpleado().getIdEmpleado() : null;
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
       AsistenteResponse consultasPaciente = consultarConsultasMedicasPaciente(q); if (consultasPaciente != null) return consultasPaciente;
+      AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q); if (historiasDuplicadas != null) return historiasDuplicadas;
       AsistenteResponse historiaPaciente = verificarHistoriaClinicaPaciente(q); if (historiaPaciente != null) return historiaPaciente;
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
       AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
@@ -318,23 +323,62 @@ public class AsistenteServiceImpl implements AsistenteService {
 
 
   private boolean esAnalisisDuplicados(String q) {
-    return contiene(q, "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad");
+    return !esConsultaDuplicidadHistoriasClinicas(q)
+        && contiene(q, "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "duplicidad");
+  }
+
+  private AsistenteResponse responderHistoriasClinicasDuplicadas(String q) {
+    if (!esConsultaDuplicidadHistoriasClinicas(q)) return null;
+    Matcher matcher = DNI_PATTERN.matcher(q);
+    String dni = matcher.find() ? matcher.group() : null;
+    DuplicadosHistoriasClinicasResponse resultado = historiaClinicaService.obtenerDuplicadosParaIntegracion(dni);
+    String detalle = resultado.getDuplicados().stream().map(this::detalleGrupoHistoriasDuplicadas).collect(Collectors.joining("\n\n"));
+    String respuesta = detalle.isBlank() ? resultado.getMensaje() : resultado.getMensaje() + "\n\n" + detalle;
+    return resp("HISTORIAS_CLINICAS_DUPLICADAS", respuesta, Map.of(
+        "hayDuplicados", resultado.isHayDuplicados(),
+        "totalGrupos", resultado.getTotalGrupos(),
+        "dniConsultado", Optional.ofNullable(resultado.getDniConsultado()).orElse(""),
+        "duplicados", resultado.getDuplicados()));
+  }
+
+  private boolean esConsultaDuplicidadHistoriasClinicas(String q) {
+    boolean duplicidadExplicita = contiene(q, "duplicado", "duplicados", "duplicada", "duplicadas", "repetido", "repetidos", "repetida", "repetidas", "duplicidad", "mas de una historia");
+    boolean mencionaHistorias = contiene(q, "historia clinica", "historias clinicas")
+        || (contiene(q, "historia", "historias") && duplicidadExplicita);
+    boolean verificacionPluralPorDni = contiene(q, "historias clinicas") && contiene(q, "dni") && contiene(q, "verifica", "verificar", "busca", "buscar");
+    return mencionaHistorias && (duplicidadExplicita || verificacionPluralPorDni);
+  }
+
+  private String detalleGrupoHistoriasDuplicadas(GrupoDuplicadoHistoriaClinicaResponse grupo) {
+    String encabezado = "DNI: " + grupo.getHistoriasClinicas().stream().map(HistoriaClinicaIntegracionItemResponse::getDni)
+        .filter(Objects::nonNull).findFirst().orElse("Sin DNI") + " (" + grupo.getCantidad() + " historias)";
+    String historias = grupo.getHistoriasClinicas().stream().map(this::detalleHistoriaDuplicada).collect(Collectors.joining("\n\n"));
+    return encabezado + "\n" + historias + "\n\n" + grupo.getRecomendacion();
+  }
+
+  private String detalleHistoriaDuplicada(HistoriaClinicaIntegracionItemResponse historia) {
+    return "ID historia clínica: " + historia.getIdHistoriaClinica()
+        + "\nID paciente: " + historia.getIdPaciente()
+        + "\nPaciente: " + historia.getNombreCompleto()
+        + "\nDNI: " + valorSeguro(historia.getDni())
+        + "\nFecha de creación: " + fechaHistoria(historia.getFechaCreacion())
+        + "\nÚltima actualización: " + fechaHistoria(historia.getUltimaActualizacion())
+        + "\nConsultas asociadas: " + historia.getCantidadConsultas()
+        + "\nEstado de la historia: " + historia.getEstado();
   }
 
   private AsistenteResponse analizarDuplicadosPacientes() {
     Map<String, List<Paciente>> grupos = new LinkedHashMap<>();
     pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(paciente -> {
       String dni = paciente.getNumDocumento() == null ? "" : paciente.getNumDocumento().trim();
-      String nombre = normalizar(nombreCompleto(paciente));
-      String key = !dni.isBlank() ? "DNI " + dni : nombre.isBlank() ? "" : "NOMBRE " + nombre;
-      if (!key.isBlank()) grupos.computeIfAbsent(key, ignored -> new ArrayList<>()).add(paciente);
+      if (!dni.isBlank()) grupos.computeIfAbsent("DNI " + dni, ignored -> new ArrayList<>()).add(paciente);
     });
     List<Paciente> duplicados = grupos.values().stream()
         .filter(lista -> lista.size() > 1)
         .flatMap(List::stream)
         .limit(10)
         .collect(Collectors.toList());
-    if (duplicados.isEmpty()) return resp("ANALISIS_DUPLICADOS_SIN_RESULTADOS", "No se encontraron pacientes duplicados evidentes por DNI o nombre completo.", Map.of("cantidad", 0));
+    if (duplicados.isEmpty()) return resp("ANALISIS_DUPLICADOS_SIN_RESULTADOS", "No se encontraron pacientes duplicados activos por DNI.", Map.of("cantidad", 0));
     return resp("ANALISIS_DUPLICADOS_PACIENTES", "Se encontraron posibles pacientes duplicados:\n" + duplicados.stream().map(this::detallePaciente).collect(Collectors.joining("\n\n")) + "\n\nRevise la información antes de crear una nueva historia clínica.", Map.of("cantidad", duplicados.size(), "resultados", duplicados.stream().map(this::pacienteMap).collect(Collectors.toList())));
   }
 

@@ -16,6 +16,8 @@ export class AuthService {
   private _auth: IAuthSuccess | undefined;
   private logoutSubject = new Subject<void>();
   logout$ = this.logoutSubject.asObservable();
+  private sessionChangedSubject = new Subject<boolean>();
+  sessionChanged$ = this.sessionChangedSubject.asObservable();
 
   constructor(private http: HttpClient, private storageService: StorageService) { }
 
@@ -59,6 +61,7 @@ export class AuthService {
           if (auth?.usuario) {
             this._auth = auth;
             this.storageService.setItem('token', auth, true);
+            this.sessionChangedSubject.next(true);
           }
         }),
       );
@@ -69,6 +72,8 @@ export class AuthService {
     this.storageService.removeItem('token');
     localStorage.removeItem('asistenteChatState');
     sessionStorage.removeItem('asistenteChatState');
+    sessionStorage.removeItem('asistenteFloatingDismissedUntil');
+    this.sessionChangedSubject.next(false);
     this.logoutSubject.next();
   }
 

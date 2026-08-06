@@ -1,4 +1,8 @@
 <button class="chatbot-floating-btn" type="button" title="Abrir Asistente IA" aria-label="Abrir Asistente IA" (click)="toggleChat()"><i class="pi pi-comments"></i></button>
+<aside *ngIf="autenticado && !isOpen" class="chatbot-floating-message" [class.visible]="mensajeFlotanteVisible" aria-live="polite">
+  <span>{{ mensajeFlotante }}</span>
+  <button type="button" title="Cerrar mensaje" aria-label="Cerrar mensaje del asistente" (click)="cerrarMensajeFlotante()">×</button>
+</aside>
 
 <div class="chatbot-window" *ngIf="isOpen">
   <div class="chatbot-header">
@@ -28,7 +32,7 @@
     </ng-container>
   </div>
 
-  <div class="quick-questions" aria-label="Preguntas rápidas">
+  <div *ngIf="autenticado" class="quick-questions" aria-label="Preguntas rápidas">
     <button *ngFor="let question of quickQuestions" type="button" (click)="quickAsk(question)" [disabled]="isLoading || gestionDuplicadosActiva" [title]="question">{{ question }}</button>
   </div>
 
@@ -41,7 +45,7 @@
     <button type="button" class="cancel-action" (click)="cancelarGestionDuplicados()" title="Cancelar gestión de paciente duplicado">Cancelar</button>
   </div>
 
-  <div class="chatbot-footer">
+  <div *ngIf="autenticado" class="chatbot-footer">
     <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading || gestionDuplicadosActiva" />
     <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || !userMessage.trim()">Enviar</button>
   </div>
