@@ -318,9 +318,22 @@ export class InterfazChatComponent implements OnDestroy {
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
     this.isLoading = true; this.addBotMessage('Escribiendo...');
     this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
-      next: (response) => { this.removeTypingMessage(); this.addBotMessage(this.formatResponse(response)); if (scrollAfterResponse) this.scrollToBottom(); },
+      next: (response) => {
+        this.removeTypingMessage();
+        const resultado = this.addBotMessage(this.formatResponse(response));
+        if (this.esResultadoDuplicadoExtenso(response)) {
+          this.scrollToNewBlock(resultado.id);
+        } else if (scrollAfterResponse) {
+          this.scrollToBottom();
+        }
+      },
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
+  }
+  private esResultadoDuplicadoExtenso(response: IAsistenteResponse): boolean {
+    if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES' || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') return true;
+    if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
+    return response.datos?.['hayDuplicados'] === true;
   }
   private resetChat(clearStorage: boolean): void { this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }

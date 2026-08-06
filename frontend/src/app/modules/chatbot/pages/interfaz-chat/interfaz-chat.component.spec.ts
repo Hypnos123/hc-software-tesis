@@ -872,6 +872,90 @@ describe('InterfazChatComponent', () => {
     });
   });
 
+  [
+    {
+      nombre: 'pacientes duplicados generales',
+      pregunta: '¿Existen pacientes duplicados?',
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+      datos: { cantidad: 2, resultados: [{}, {}] },
+      respuesta: 'Se encontraron posibles pacientes duplicados:\n\nID paciente: 1\n\nID paciente: 2'
+    },
+    {
+      nombre: 'pacientes duplicados por DNI',
+      pregunta: 'Busca pacientes duplicados con DNI 01234567',
+      intencion: 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE',
+      datos: { tipoBusqueda: 'DNI', resultados: [{}, {}] },
+      respuesta: 'Se encontraron posibles pacientes duplicados para el DNI 01234567:\n\nID paciente: 1\n\nID paciente: 2'
+    },
+    {
+      nombre: 'historias clínicas duplicadas generales',
+      pregunta: '¿Existen historias clínicas duplicadas?',
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+      datos: { hayDuplicados: true, duplicados: [{}, {}] },
+      respuesta: 'Se encontraron posibles historias clínicas duplicadas:\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
+    },
+    {
+      nombre: 'historias clínicas duplicadas por DNI',
+      pregunta: '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
+      datos: { hayDuplicados: true, dniConsultado: '01234567', duplicados: [{}] },
+      respuesta: 'Se encontraron posibles historias clínicas duplicadas para el DNI 01234567:\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
+    }
+  ].forEach(caso => {
+    it(`debe anclar el inicio del resultado sin saltar al final para ${caso.nombre}`, () => {
+      asistenteService.preguntar.and.returnValue(of({
+        intencion: caso.intencion,
+        respuesta: caso.respuesta,
+        datos: caso.datos
+      } as any));
+      const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+      const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+      component.userMessage = caso.pregunta;
+      component.sendMessage();
+      fixture.detectChanges();
+
+      const preguntaIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === caso.pregunta);
+      const resultadoIndex = component.messages.findIndex(mensaje => mensaje.sender === 'bot' && mensaje.text === caso.respuesta);
+      const resultado = component.messages[resultadoIndex];
+      expect(preguntaIndex).toBeGreaterThanOrEqual(0);
+      expect(resultadoIndex).toBe(preguntaIndex + 1);
+      expect(scrollBlockSpy).toHaveBeenCalledOnceWith(resultado.id);
+      expect(scrollBottomSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('debe usar scrollIntoView sobre el inicio del mensaje de resultado', fakeAsync(() => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
+      respuesta: 'Se encontraron posibles pacientes duplicados:\n\nPrimer registro\n\nÚltimo registro',
+      datos: { cantidad: 2, resultados: [{}, {}] }
+    } as any));
+
+    component.userMessage = 'Analiza posibles duplicados';
+    component.sendMessage();
+    fixture.detectChanges();
+    const resultado = component.messages.at(-1)!;
+    const elemento = fixture.nativeElement.querySelector(`[data-block-id="${resultado.id}"]`);
+    elemento.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(elemento.scrollIntoView).toHaveBeenCalledOnceWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe conservar el scroll normal hacia abajo para respuestas cortas', () => {
+    asistenteService.preguntar.and.returnValue(of({ intencion: 'AYUDA_USO_SISTEMA', respuesta: 'Respuesta corta.' } as any));
+    const scrollBottomSpy = spyOn(component, 'scrollToBottom');
+    const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.userMessage = '¿Qué preguntas puedo hacer?';
+    component.sendMessage();
+
+    expect(scrollBottomSpy).toHaveBeenCalledTimes(1);
+    expect(scrollBlockSpy).not.toHaveBeenCalled();
+  });
+
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {
     const pacientes = abrirMenuPacientes();
     const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar paciente duplicado');
