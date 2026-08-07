@@ -122,11 +122,25 @@ export class InterfazChatComponent implements OnDestroy {
       { label: 'Detectar posibles pacientes duplicados', action: 'prompt', text: 'Puedes usar estas preguntas:\n- ¿Existen pacientes duplicados?\n- Verifica si hay pacientes repetidos.\n- Analiza posibles duplicados.\n- Busca pacientes duplicados.' },
       { label: 'Detectar historias clínicas duplicadas', action: 'prompt', text: 'Puedes buscar en general o por DNI.\n\nEjemplos:\n- ¿Existen historias clínicas duplicadas?\n- Revisa la duplicidad de historias clínicas.\n- ¿El DNI 01234567 tiene historias clínicas duplicadas?' }
     ] },
-    manejo: { question: 'Selecciona una pregunta sobre el manejo del sistema:', options: [
-      { label: '¿Cómo registro un paciente?', action: 'request' }, { label: '¿Cómo edito un paciente?', action: 'request' },
-      { label: '¿Cómo creo una historia clínica?', action: 'request' }, { label: '¿Cómo agrego una consulta médica?', action: 'request' },
-      { label: '¿Cómo atiendo una consulta médica?', action: 'request' }, { label: '¿Cómo gestiono empleados?', action: 'request' },
-      { label: '¿Cómo gestiono usuarios y permisos?', action: 'request' }
+    manejo: { question: '¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.', options: [
+      { label: 'Pacientes', icon: 'pi pi-users', action: 'menu', target: 'manejo-pacientes' },
+      { label: 'Historias clínicas', icon: 'pi pi-folder-open', action: 'menu', target: 'manejo-historias' },
+      { label: 'Consultas médicas', icon: 'pi pi-calendar', action: 'menu', target: 'manejo-consultas' }
+    ] },
+    'manejo-pacientes': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de pacientes.', options: [
+      { label: '¿Cómo registro un paciente?', action: 'request' },
+      { label: '¿Cómo edito los datos de un paciente?', action: 'request' },
+      { label: '¿Cómo visualizo los datos de un paciente?', action: 'request' }
+    ] },
+    'manejo-historias': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de historias clínicas.', options: [
+      { label: '¿Cómo creo una historia clínica?', action: 'request' },
+      { label: '¿Cómo edito una historia clínica?', action: 'request' },
+      { label: '¿Cómo visualizo una historia clínica?', action: 'request' }
+    ] },
+    'manejo-consultas': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de consultas médicas.', options: [
+      { label: '¿Cómo agrego una consulta médica?', action: 'request' },
+      { label: '¿Cómo comienzo la atención de una consulta médica?', action: 'request' },
+      { label: '¿Cómo visualizo una consulta médica antes de atenderla?', action: 'request' }
     ] },
     ayuda: { question: 'Selecciona una opción de soporte y ayuda:', options: [
       { label: '¿Qué preguntas puedo hacer?', action: 'request' }, { label: 'Mostrar consultas disponibles', action: 'request' },
