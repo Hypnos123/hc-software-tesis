@@ -289,6 +289,57 @@ describe('InterfazChatComponent', () => {
     expect(scrollNewBlockSpy).toHaveBeenCalledWith(jasmine.any(String));
   });
 
+  it('debe organizar Manejo del sistema por procesos sin mostrar opciones administrativas', () => {
+    const menuPrincipal = component.messages[1];
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options![0]);
+
+    const menuManejo = component.messages.at(-1)!;
+    expect(component.messages.at(-2)?.text).toBe('¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.');
+    expect(menuManejo.menuId).toBe('manejo');
+    expect(menuManejo.options?.map(opcion => opcion.label)).toEqual(['Pacientes', 'Historias clínicas', 'Consultas médicas']);
+    expect(JSON.stringify(component.messages)).not.toContain('¿Cómo gestiono empleados?');
+    expect(JSON.stringify(component.messages)).not.toContain('¿Cómo gestiono usuarios y permisos?');
+  });
+
+  it('debe mostrar solo las preguntas del proceso seleccionado y conservar los menús históricos', () => {
+    const menuPrincipal = component.messages[1];
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options![0]);
+    const menuManejo = component.messages.at(-1)!;
+    const opcionPacientes = menuManejo.options![0];
+
+    component.selectHistoricalMenuOption(menuManejo, opcionPacientes);
+
+    const menuPacientes = component.messages.at(-1)!;
+    expect(component.messages.at(-2)?.text).toBe('Selecciona una opción o escribe tu pregunta sobre la gestión de pacientes.');
+    expect(menuPacientes.menuId).toBe('manejo-pacientes');
+    expect(menuPacientes.options?.map(opcion => opcion.label)).toEqual([
+      '¿Cómo registro un paciente?',
+      '¿Cómo edito los datos de un paciente?',
+      '¿Cómo visualizo los datos de un paciente?'
+    ]);
+    expect(component.messages).toContain(menuManejo);
+    expect(menuManejo.options?.map(opcion => opcion.label)).toEqual(['Historias clínicas', 'Consultas médicas']);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mantener separadas las preguntas de historias clínicas y consultas médicas', () => {
+    const menus = (component as any).menus;
+
+    expect(menus['manejo-historias'].options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cómo creo una historia clínica?',
+      '¿Cómo edito una historia clínica?',
+      '¿Cómo visualizo una historia clínica?'
+    ]);
+    expect(menus['manejo-consultas'].options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cómo agrego una consulta médica?',
+      '¿Cómo comienzo la atención de una consulta médica?',
+      '¿Cómo visualizo una consulta médica antes de atenderla?'
+    ]);
+    expect(JSON.stringify(menus['manejo'])).not.toContain('empleados');
+    expect(JSON.stringify(menus['manejo'])).not.toContain('usuarios');
+    expect(JSON.stringify(menus['manejo'])).not.toContain('permisos');
+  });
+
   it('debe mostrar localmente las instrucciones de una opción prompt', () => {
     component.quickAsk('Buscar paciente por DNI');
 
