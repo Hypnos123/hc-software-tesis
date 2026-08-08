@@ -17,6 +17,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AsistenteServiceImplHistoriasDuplicadasTest {
+  private static final String DNI_PRUEBA = "0".repeat(8);
   @Mock private PacienteRepository pacienteRepository;
   @Mock private HistoriaClinicaRepository historiaClinicaRepository;
   @Mock private ConsultaRepository consultaRepository;
@@ -41,9 +42,9 @@ class AsistenteServiceImplHistoriasDuplicadasTest {
 
   @Test
   void reconoceConsultasPorDniYDevuelveDetalleSinAccionesDestructivas() {
-    when(historiaClinicaService.obtenerDuplicadosParaIntegracion("01234567")).thenReturn(resultadoDuplicado());
-    List<String> frases = List.of("¿El DNI 01234567 tiene historias clínicas duplicadas?",
-        "Busca historias repetidas del DNI 01234567", "Verifica historias clínicas del paciente con DNI 01234567");
+    when(historiaClinicaService.obtenerDuplicadosParaIntegracion(DNI_PRUEBA)).thenReturn(resultadoDuplicado());
+    List<String> frases = List.of("¿El DNI " + DNI_PRUEBA + " tiene historias clínicas duplicadas?",
+        "Busca historias repetidas del DNI " + DNI_PRUEBA, "Verifica historias clínicas del paciente con DNI " + DNI_PRUEBA);
 
     frases.forEach(frase -> {
       AsistenteResponse response = asistenteService.preguntar(request(frase), null);
@@ -52,7 +53,7 @@ class AsistenteServiceImplHistoriasDuplicadasTest {
       assertFalse(response.getRespuesta().toLowerCase().contains("contraseña"));
       assertFalse(response.getRespuesta().toLowerCase().contains("archivar"));
     });
-    verify(historiaClinicaService, times(3)).obtenerDuplicadosParaIntegracion("01234567");
+    verify(historiaClinicaService, times(3)).obtenerDuplicadosParaIntegracion(DNI_PRUEBA);
   }
 
   private AsistenteRequest request(String pregunta) {
@@ -63,15 +64,15 @@ class AsistenteServiceImplHistoriasDuplicadasTest {
 
   private DuplicadosHistoriasClinicasResponse resultadoDuplicado() {
     HistoriaClinicaIntegracionItemResponse historia = HistoriaClinicaIntegracionItemResponse.builder()
-        .idHistoriaClinica(12).idPaciente(4).nombreCompleto("Ana Lima").dni("01234567")
+        .idHistoriaClinica(12).idPaciente(4).nombreCompleto("PACIENTE PRUEBA UNO").dni(DNI_PRUEBA)
         .fechaCreacion(LocalDateTime.of(2025, 1, 1, 9, 0)).ultimaActualizacion(LocalDateTime.of(2026, 1, 1, 9, 0))
         .cantidadConsultas(3).estado("ACTIVA").build();
     GrupoDuplicadoHistoriaClinicaResponse grupo = GrupoDuplicadoHistoriaClinicaResponse.builder()
-        .tipo("dni").valorCoincidente("01234567").cantidad(2).historiasClinicas(List.of(historia))
+        .tipo("dni").valorCoincidente(DNI_PRUEBA).cantidad(2).historiasClinicas(List.of(historia))
         .idHistoriaClinicaRecomendada(12)
         .recomendacion("Se recomienda conservar la historia clínica ID 12 porque contiene 3 consultas.").build();
-    return DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(true).totalGrupos(1).dniConsultado("01234567")
-        .mensaje("Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.")
+    return DuplicadosHistoriasClinicasResponse.builder().hayDuplicados(true).totalGrupos(1).dniConsultado(DNI_PRUEBA)
+        .mensaje("Se encontraron 2 posibles historias clínicas duplicadas para el DNI de prueba.")
         .duplicados(List.of(grupo)).build();
   }
 }

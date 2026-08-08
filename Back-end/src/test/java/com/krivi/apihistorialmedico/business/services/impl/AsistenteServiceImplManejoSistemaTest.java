@@ -17,6 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 class AsistenteServiceImplManejoSistemaTest {
@@ -51,6 +53,33 @@ class AsistenteServiceImplManejoSistemaTest {
   void noExponeAyudaDeFuncionesAdministrativas() {
     assertEquals("NO_RECONOCIDA", asistenteService.preguntar(request("¿Cómo gestiono empleados?"), null).getIntencion());
     assertEquals("NO_RECONOCIDA", asistenteService.preguntar(request("¿Cómo gestiono usuarios y permisos?"), null).getIntencion());
+  }
+
+  @Test
+  void muestraAyudaConMarcadoresGenericosSinPromoverBusquedaPorId() {
+    AsistenteResponse response = asistenteService.preguntar(request("¿Qué preguntas puedo hacer?"), null);
+
+    assertEquals("AYUDA_USO_SISTEMA", response.getIntencion());
+    assertTrue(response.getRespuesta().contains("(PONER DNI)"));
+    assertTrue(response.getRespuesta().contains("(AGREGAR NOMBRE Y DOS APELLIDOS)"));
+    assertFalse(response.getRespuesta().matches("(?s).*\\b\\d{8}\\b.*"));
+    assertFalse(response.getRespuesta().matches("(?is).*\\bID\\s*\\d+\\b.*"));
+  }
+
+  @Test
+  void solicitaDatosDelPacienteSinPromoverId() {
+    AsistenteResponse consultas = asistenteService.preguntar(request("¿El paciente tiene consultas médicas?"), null);
+    AsistenteResponse historia = asistenteService.preguntar(request("¿El paciente tiene historia clínica?"), null);
+    AsistenteResponse busquedaDni = asistenteService.preguntar(request("Buscar paciente por DNI"), null);
+    AsistenteResponse busquedaNombre = asistenteService.preguntar(request("Buscar paciente por nombre"), null);
+
+    assertEquals("CONSULTAS_MEDICAS_REQUIERE_PACIENTE", consultas.getIntencion());
+    assertEquals("HISTORIA_CLINICA_REQUIERE_PACIENTE", historia.getIntencion());
+    assertFalse(consultas.getRespuesta().toLowerCase().contains(" id"));
+    assertFalse(historia.getRespuesta().toLowerCase().contains(" id"));
+    assertTrue(busquedaDni.getRespuesta().contains("(PONER DNI)"));
+    assertFalse(busquedaDni.getRespuesta().matches("(?s).*\\b\\d{8}\\b.*"));
+    assertEquals("Ingresa el nombre y los dos apellidos del paciente.", busquedaNombre.getRespuesta());
   }
 
   private AsistenteRequest request(String pregunta) {

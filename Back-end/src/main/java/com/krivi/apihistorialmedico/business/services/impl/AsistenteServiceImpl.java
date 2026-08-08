@@ -58,7 +58,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   private AsistenteResponse consultarConsultasMedicasPaciente(String q) {
     if (!esConsultaMedicaPaciente(q)) return null;
     ResultadoBusquedaHistoria resultado = buscarPacienteParaHistoria(q);
-    if (resultado.requiereDatos()) return resp("CONSULTAS_MEDICAS_REQUIERE_PACIENTE", "Indica el DNI, ID o nombre completo del paciente para consultar sus consultas médicas.", Map.of());
+    if (resultado.requiereDatos()) return resp("CONSULTAS_MEDICAS_REQUIERE_PACIENTE", "Escribe el DNI o el nombre y los dos apellidos del paciente para consultar sus consultas médicas.", Map.of());
     if (resultado.paciente().isEmpty()) {
       if (!resultado.similares().isEmpty()) return resp("CONSULTAS_MEDICAS_PACIENTE_AMBIGUO", respuestaPacienteAmbiguoConsultas(resultado.similares()), Map.of("resultados", resultado.similares().stream().map(this::pacienteMap).collect(Collectors.toList())));
       return resp("CONSULTAS_MEDICAS_PACIENTE_NO_ENCONTRADO", "No se encontró un paciente registrado con esos datos.", Map.of());
@@ -89,7 +89,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   private List<Consulta> filtrarEstado(List<Consulta> consultas, String estado) { return consultas.stream().filter(c -> estado.equalsIgnoreCase(Optional.ofNullable(c.getEstado()).orElse(""))).collect(Collectors.toList()); }
   private LocalDateTime fechaOrdenConsulta(Consulta c) { if (c.getFechaConsulta() != null) return c.getFechaConsulta().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); return c.getFechaCreacion(); }
   private String sufijoEstado(String q) { if (contiene(q, "pendiente", "pendientes", "por atender")) return " pendientes"; if (contiene(q, "atendida", "atendidas", "atendio")) return " atendidas"; return " registradas"; }
-  private String respuestaPacienteAmbiguoConsultas(List<Paciente> pacientes) { return "Se encontraron varias coincidencias para el paciente. Indica el DNI o ID para consultar las consultas médicas de forma exacta:\n" + pacientes.stream().map(p -> "- ID: " + p.getIdPaciente() + ", Paciente: " + nombreCompleto(p) + ", DNI: " + valorSeguro(p.getNumDocumento())).collect(Collectors.joining("\n")); }
+  private String respuestaPacienteAmbiguoConsultas(List<Paciente> pacientes) { return "Se encontraron varias coincidencias para el paciente. Ingresa el DNI de 8 dígitos del paciente para realizar una búsqueda exacta:\n" + pacientes.stream().map(p -> "- ID: " + p.getIdPaciente() + ", Paciente: " + nombreCompleto(p) + ", DNI: " + valorSeguro(p.getNumDocumento())).collect(Collectors.joining("\n")); }
   private String detalleConsultaMedica(Consulta c, Paciente p) { return "ID de consulta médica: " + c.getIdConsulta() + "\nID de historia clínica: " + (c.getHistoriaClinica()==null?"Sin historia":c.getHistoriaClinica().getIdHistoriaClinica()) + "\nPaciente: " + nombreCompleto(p) + "\nDNI: " + valorSeguro(p.getNumDocumento()) + "\nFecha: " + fechaConsulta(c) + "\nEspecialidad: " + valorSeguro(c.getEspecialidadRequerida()) + "\nEstado: " + estado(c.getEstado()) + "\nDoctor responsable: " + doctorConsulta(c); }
   private Map<String,Object> consultaMedicaMap(Consulta c, Paciente p) { Map<String,Object> m=new LinkedHashMap<>(); m.put("idConsultaMedica", c.getIdConsulta()); m.put("idHistoriaClinica", c.getHistoriaClinica()==null?null:c.getHistoriaClinica().getIdHistoriaClinica()); m.put("paciente", nombreCompleto(p)); m.put("dni", p.getNumDocumento()); m.put("fecha", c.getFechaConsulta()); m.put("especialidad", c.getEspecialidadRequerida()); m.put("estado", estado(c.getEstado())); m.put("doctorResponsable", doctorConsulta(c)); return m; }
   private String fechaConsulta(Consulta c) { if (c.getFechaConsulta() != null) return new SimpleDateFormat("dd/MM/yyyy").format(c.getFechaConsulta()); return c.getFechaCreacion()==null?"Sin fecha registrada":c.getFechaCreacion().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")); }
@@ -100,7 +100,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (!esConsultaHistoriaClinicaPaciente(q)) return null;
     ResultadoBusquedaHistoria resultado = buscarPacienteParaHistoria(q);
     if (resultado.requiereDatos()) {
-      return resp("HISTORIA_CLINICA_REQUIERE_PACIENTE", "Indica el DNI, ID o nombre completo del paciente para verificar si tiene historia clínica.", Map.of());
+      return resp("HISTORIA_CLINICA_REQUIERE_PACIENTE", "Escribe el DNI o el nombre y los dos apellidos del paciente para verificar si tiene historia clínica.", Map.of());
     }
     if (resultado.paciente().isEmpty()) {
       if (!resultado.similares().isEmpty()) {
@@ -167,7 +167,7 @@ public class AsistenteServiceImpl implements AsistenteService {
     return "No se encontró un paciente registrado con ese nombre.\n"
         + "Se encontraron posibles coincidencias:\n"
         + resultados
-        + "\n\nIndique el DNI o ID del paciente para realizar una búsqueda exacta.";
+        + "\n\nIngrese el DNI de 8 dígitos del paciente para realizar una búsqueda exacta.";
   }
 
   private record ResultadoBusquedaHistoria(Optional<Paciente> paciente, List<Paciente> similares, boolean requiereDatos) {}
@@ -247,9 +247,9 @@ public class AsistenteServiceImpl implements AsistenteService {
     if (pacienteIdMatcher.find()) {
       return buscarPacientePorId(Integer.valueOf(pacienteIdMatcher.group(1)));
     }
-    if (contiene(q, "dni")) return resp("BUSQUEDA_PACIENTE_REQUIERE_DNI", "Indica el DNI de 8 dígitos para buscar al paciente. Ejemplo: Buscar paciente por DNI 45678912", Map.of("tipoBusqueda", "DNI"));
+    if (contiene(q, "dni")) return resp("BUSQUEDA_PACIENTE_REQUIERE_DNI", "Ingresa el DNI de 8 dígitos del paciente. Ejemplo: Buscar paciente por DNI (PONER DNI)", Map.of("tipoBusqueda", "DNI"));
     String nombre = extraerNombrePaciente(q);
-    if (nombre.length() < 3 || contiene(nombre, "nombre")) return resp("BUSQUEDA_PACIENTE_REQUIERE_NOMBRE", "Indica nombres y/o apellidos para buscar posibles coincidencias del paciente.", Map.of("tipoBusqueda", "NOMBRE"));
+    if (nombre.length() < 3 || contiene(nombre, "nombre")) return resp("BUSQUEDA_PACIENTE_REQUIERE_NOMBRE", "Ingresa el nombre y los dos apellidos del paciente.", Map.of("tipoBusqueda", "NOMBRE"));
     List<Paciente> coincidencias = pacienteRepository.searchByNombre(nombre, 5);
     if (coincidencias.isEmpty()) coincidencias = buscarPorNombreAproximado(nombre, 5);
     if (coincidencias.isEmpty()) return resp("BUSQUEDA_PACIENTE_SIN_RESULTADOS", "No se encontró un paciente registrado con esos datos.", Map.of("tipoBusqueda", "NOMBRE", "nombre", nombre));
@@ -470,22 +470,18 @@ public class AsistenteServiceImpl implements AsistenteService {
         + "- Muéstrame los últimos pacientes registrados.\n"
         + "- ¿Cuáles son los pacientes más recientes?\n\n"
         + "BÚSQUEDA DE PACIENTES\n"
-        + "- Busca un paciente por DNI 72845292.\n"
-        + "- Consulta el paciente ID 4.\n"
-        + "- Buscar paciente por nombre Rafael Velásquez.\n"
-        + "- Verifica si existe un paciente con DNI 72845292.\n\n"
+        + "- Buscar paciente por DNI (PONER DNI).\n"
+        + "- Buscar paciente por nombre (AGREGAR NOMBRE Y DOS APELLIDOS).\n"
+        + "- Verifica si existe el paciente con DNI (PONER DNI).\n\n"
         + "CONSULTAS MÉDICAS POR PACIENTE\n"
-        + "- ¿El paciente con DNI 72845292 tiene consultas médicas?\n"
-        + "- ¿Cuántas consultas médicas tiene el paciente con DNI 72845292?\n"
-        + "- Muéstrame las consultas médicas del paciente ID 4.\n"
-        + "- ¿Cuál fue la última consulta médica del paciente con DNI 72845292?\n"
-        + "- ¿El paciente ID 4 tiene consultas médicas pendientes?\n"
-        + "- ¿Cuántas consultas médicas atendidas tiene Rafael Velásquez?\n\n"
+        + "- ¿El paciente con DNI (PONER DNI) tiene consultas médicas?\n"
+        + "- ¿El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene consultas médicas?\n"
+        + "- ¿Cuál fue la última consulta médica del paciente con DNI (PONER DNI)?\n"
+        + "- ¿El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene consultas médicas pendientes?\n\n"
         + "HISTORIAS CLÍNICAS POR PACIENTE\n"
-        + "- ¿El paciente con DNI 72845292 ya tiene historia clínica?\n"
-        + "- Consulta si el paciente ID 4 tiene historia clínica.\n"
-        + "- ¿Existe una historia clínica para Rafael Velásquez Morales?\n"
-        + "- Busca la historia clínica del paciente con DNI 72845292.\n\n"
+        + "- ¿El paciente con DNI (PONER DNI) tiene historia clínica?\n"
+        + "- ¿El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene historia clínica?\n"
+        + "- Busca la historia clínica del paciente con DNI (PONER DNI).\n\n"
         + "DUPLICADOS\n"
         + "- ¿Existen pacientes duplicados?\n"
         + "- Busca pacientes duplicados.\n"
