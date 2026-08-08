@@ -34,6 +34,17 @@ interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
+
+const VERIFY_CLINICAL_HISTORY_OPTION: MenuOption = {
+  label: 'Verificar si un paciente tiene historia clínica',
+  action: 'prompt',
+  text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene historia clínica?\n- Consulta si el paciente ID 4 tiene historia clínica.\n- ¿Existe una historia clínica para Rafael Velásquez Morales?'
+};
+const VERIFY_PATIENT_CONSULTATIONS_OPTION: MenuOption = {
+  label: 'Verificar consultas médicas de un paciente',
+  action: 'prompt',
+  text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene consultas médicas?\n- Muéstrame las consultas médicas del paciente ID 4.\n- ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?'
+};
 export interface PatientClinicalHistorySummary {
   idPaciente: number;
   nombreCompleto: string;
@@ -117,8 +128,8 @@ export class InterfazChatComponent implements OnDestroy {
     ] },
     verificar: { question: 'Selecciona qué información deseas verificar:', options: [
       { label: 'Verificar si un paciente existe', action: 'prompt', text: 'Puedes verificarlo por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿Existe un paciente con DNI 72845292?\n- Consulta el paciente ID 4\n- Verifica si Rafael Velásquez Morales está registrado.' },
-      { label: 'Verificar si un paciente tiene historia clínica', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene historia clínica?\n- Consulta si el paciente ID 4 tiene historia clínica.\n- ¿Existe una historia clínica para Rafael Velásquez Morales?' },
-      { label: 'Verificar consultas médicas de un paciente', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene consultas médicas?\n- Muéstrame las consultas médicas del paciente ID 4.\n- ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?' },
+      VERIFY_CLINICAL_HISTORY_OPTION,
+      VERIFY_PATIENT_CONSULTATIONS_OPTION,
       { label: 'Detectar posibles pacientes duplicados', action: 'prompt', text: 'Puedes usar estas preguntas:\n- ¿Existen pacientes duplicados?\n- Verifica si hay pacientes repetidos.\n- Analiza posibles duplicados.\n- Busca pacientes duplicados.' },
       { label: 'Detectar historias clínicas duplicadas', action: 'prompt', text: 'Puedes buscar en general o por DNI.\n\nEjemplos:\n- ¿Existen historias clínicas duplicadas?\n- Revisa la duplicidad de historias clínicas.\n- ¿El DNI 01234567 tiene historias clínicas duplicadas?' }
     ] },
@@ -178,6 +189,10 @@ export class InterfazChatComponent implements OnDestroy {
   messages: ChatMessage[] = this.getInitialMessages();
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
+  private readonly quickQuestionOptions: Record<string, MenuOption> = {
+    'Verificar historia clínica': VERIFY_CLINICAL_HISTORY_OPTION,
+    'Consultas médicas de un paciente': VERIFY_PATIENT_CONSULTATIONS_OPTION
+  };
   get gestionDuplicadosActiva(): boolean { return this.hayGestionDuplicadosActiva(); }
   get autenticado(): boolean { return !!this.authService.usuario?.idUsuario; }
 
@@ -235,11 +250,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
-      : text === 'Verificar historia clínica'
-        ? this.menus['verificar'].options[1]
-        : text === 'Consultas médicas de un paciente'
-          ? this.menus['verificar'].options[2]
-          : { label: text, action: 'request' as MenuAction };
+      : this.quickQuestionOptions[text] ?? { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
     this.executeMenuOption(quickOption, selection.id);
   }

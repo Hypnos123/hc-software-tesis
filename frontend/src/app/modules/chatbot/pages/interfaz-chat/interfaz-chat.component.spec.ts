@@ -121,6 +121,45 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1].options?.length).toBe(4);
   });
 
+  it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
+    component.openChat();
+    fixture.detectChanges();
+
+    const botones = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('.quick-questions button'));
+    expect(botones.map(boton => boton.textContent?.trim())).toEqual([
+      'Menú principal',
+      '¿Qué preguntas puedo hacer?',
+      'Buscar paciente por DNI',
+      'Verificar historia clínica',
+      'Consultas médicas de un paciente'
+    ]);
+  });
+
+  it('debe mantener temporalmente la categoría Verificar datos', () => {
+    expect(component.messages[1].options?.some(opcion => opcion.label === 'Verificar datos')).toBeTrue();
+    expect((component as any).menus['verificar']).toBeDefined();
+  });
+
+  it('debe ejecutar las verificaciones rápidas sin depender del menú verificar', () => {
+    const cantidadInicial = component.messages.length;
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    delete (component as any).menus['verificar'];
+
+    component.quickAsk('Verificar historia clínica');
+    component.quickAsk('Consultas médicas de un paciente');
+
+    const mensajesNuevos = component.messages.slice(cantidadInicial);
+    expect(mensajesNuevos.map(mensaje => mensaje.sender)).toEqual(['user', 'bot', 'user', 'bot']);
+    expect(mensajesNuevos[0].text).toBe('Verificar si un paciente tiene historia clínica');
+    expect(mensajesNuevos[1].text).toContain('Puedes consultar por DNI, ID o nombre completo.');
+    expect(mensajesNuevos[2].text).toBe('Verificar consultas médicas de un paciente');
+    expect(mensajesNuevos[3].text).toContain('Puedes consultar por DNI, ID o nombre completo.');
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[0].text).length).toBe(1);
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[2].text).length).toBe(1);
+    expect(scrollSpy.calls.allArgs()).toEqual([[mensajesNuevos[0].id], [mensajesNuevos[2].id]]);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
   it('debe mostrar solo el aviso informativo y bloquear consultas cuando no existe sesión', () => {
     fixture.destroy();
     authServiceMock.usuario = undefined;
