@@ -38,6 +38,7 @@ class AsistenteServiceImplHistoriasDuplicadasTest {
       assertTrue(response.getRespuesta().contains("ID historia clínica: 12"));
       assertFalse(response.getRespuesta().contains("posibles pacientes duplicados"));
     });
+    verifyNoInteractions(pacienteRepository);
   }
 
   @Test

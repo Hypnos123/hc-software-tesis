@@ -35,11 +35,10 @@ public class AsistenteServiceImpl implements AsistenteService {
     try {
       Periodo p = periodo(q); Usuario u = idUsuario == null ? null : usuarioRepository.findById(idUsuario).orElse(null); Integer idEmpleado = u != null && u.getEmpleado() != null ? u.getEmpleado().getIdEmpleado() : null;
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
+      AsistenteResponse consultaGeneral = responderConsultaGeneral(q, p); if (consultaGeneral != null) return consultaGeneral;
       AsistenteResponse consultasPaciente = consultarConsultasMedicasPaciente(q); if (consultasPaciente != null) return consultasPaciente;
-      AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q); if (historiasDuplicadas != null) return historiasDuplicadas;
       AsistenteResponse historiaPaciente = verificarHistoriaClinicaPaciente(q); if (historiaPaciente != null) return historiaPaciente;
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
-      AsistenteResponse duplicado = buscarPacienteDuplicado(q); if (duplicado != null) return duplicado;
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
       if (contiene(q,"paciente") && contiene(q,"sin historia","no tienen historia")) return cantidad("PACIENTES_SIN_HISTORIA_CLINICA", Math.max(0, pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)-historiaClinicaRepository.count()), "Actualmente hay %d pacientes sin historia clínica.", p);
       if (contiene(q,"paciente") && contiene(q,"con historia","tienen historia")) return cantidad("PACIENTES_CON_HISTORIA_CLINICA", historiaClinicaRepository.count(), "Actualmente hay %d pacientes con historia clínica.", p);
@@ -51,6 +50,63 @@ public class AsistenteServiceImpl implements AsistenteService {
       if (contiene(q,"consulta medica","consultas medicas","atencion medica","atenciones medicas","consulta","atencion","atenciones")) { if (contiene(q,"incompleta","todavia no","faltan")) return incompletas(); if (contiene(q,"pendiente","por atender","faltan")) return cantidad("CONSULTAS_MEDICAS_PENDIENTES", p.total()?consultaRepository.countByEstado("PENDIENTE"):consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("PENDIENTE",p.inicio(),p.fin()), pref(p)+"hay %d consultas médicas por atender.", p); if (contiene(q,"atendida","atendidas","atendio")) return cantidad("CONSULTAS_MEDICAS_ATENDIDAS", p.total()?consultaRepository.countByEstado("ATENDIDO"):consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("ATENDIDO",p.inicio(),p.fin()), pref(p)+"hay %d consultas médicas atendidas.", p); long c=p.total()?consultaRepository.count():consultaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(),p.fin()); return cantidad("CONSULTAS_MEDICAS_REGISTRADAS",c,pref(p)+"hay %d consultas médicas registradas.",p); }
     } catch (Exception e) { return resp("ERROR_INTERNO", "No pude obtener la información en este momento. Inténtalo nuevamente.", Map.of()); }
     return resp("NO_RECONOCIDA", mensajeConsultaNoReconocida(), Map.of());
+  }
+
+  private AsistenteResponse responderConsultaGeneral(String q, Periodo p) {
+    if (esUltimosPacientes(q)) return ultimosPacientes();
+    if (esEstadisticaEdad(q)) return estadisticaEdad(q);
+    if (esConteoPacientes(q)) {
+      long cantidad = p.total()
+          ? pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)
+          : pacienteRepository.countByEstadoRegistroAndFechaIngresoGreaterThanEqualAndFechaIngresoLessThan(
+              EstadoRegistroPaciente.ACTIVO,
+              Date.from(p.inicio().atZone(ZoneId.systemDefault()).toInstant()),
+              Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
+      return cantidad("PACIENTES_REGISTRADOS", cantidad, pref(p) + "hay %d pacientes registrados.", p);
+    }
+    AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q);
+    if (historiasDuplicadas != null) return historiasDuplicadas;
+    AsistenteResponse pacientesDuplicados = buscarPacienteDuplicado(q);
+    if (pacientesDuplicados != null && esAnalisisDuplicados(q)) return pacientesDuplicados;
+    if (esConsultaGeneralHistoriasClinicas(q)) {
+      long cantidad = p.total()
+          ? historiaClinicaRepository.count()
+          : historiaClinicaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(), p.fin());
+      return cantidad("HISTORIAS_CLINICAS", cantidad, pref(p) + "hay %d historias clínicas.", p);
+    }
+    if (esConsultaGeneralConsultasMedicas(q)) {
+      if (contiene(q, "atendida", "atendidas", "atendio")) {
+        long cantidad = p.total()
+            ? consultaRepository.countByEstado("ATENDIDO")
+            : consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("ATENDIDO", p.inicio(), p.fin());
+        return cantidad("CONSULTAS_MEDICAS_ATENDIDAS", cantidad, pref(p) + "hay %d consultas médicas atendidas.", p);
+      }
+      long cantidad = p.total()
+          ? consultaRepository.count()
+          : consultaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(), p.fin());
+      return cantidad("CONSULTAS_MEDICAS_REGISTRADAS", cantidad, pref(p) + "hay %d consultas médicas registradas.", p);
+    }
+    return null;
+  }
+
+  private boolean esConsultaGeneralHistoriasClinicas(String q) {
+    boolean mencionaHistorias = contiene(q, "historia clinica", "historias clinicas");
+    boolean intencionGeneral = contiene(q, "cuantas", "cuantos", "cantidad", "total", "registradas", "creadas", "creados");
+    return mencionaHistorias && intencionGeneral && !referenciaPacienteExplicita(q);
+  }
+
+  private boolean esConsultaGeneralConsultasMedicas(String q) {
+    boolean mencionaConsultas = contiene(q, "consulta medica", "consultas medicas", "atencion medica", "atenciones medicas");
+    boolean totalRegistradas = contiene(q, "cuantas", "cuantos", "cantidad", "total", "registradas")
+        && !contiene(q, "pendiente", "pendientes", "por atender");
+    boolean atendidasDelPeriodo = contiene(q, "atendida", "atendidas", "atendio") && contiene(q, "hoy", "actualmente", "registradas");
+    return mencionaConsultas && (totalRegistradas || atendidasDelPeriodo) && !referenciaPacienteExplicita(q);
+  }
+
+  private boolean referenciaPacienteExplicita(String q) {
+    return contiene(q, "paciente", "dni", " id ")
+        || DNI_PATTERN.matcher(q).find()
+        || Pattern.compile("\\b(?:id|codigo|cod)\\s*\\d+\\b").matcher(q).find();
   }
 
 
@@ -81,6 +137,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConsultaMedicaPaciente(String q) {
+    if (esConsultaGeneralConsultasMedicas(q)) return false;
     boolean mencionaConsultas = contiene(q, "consulta medica", "consultas medicas", "atencion medica", "atenciones medicas");
     boolean identificaPaciente = contiene(q, "paciente", "dni", " id ") || DNI_PATTERN.matcher(q).find() || Pattern.compile("\\b(?:id|codigo|cod)\\s*\\d+\\b").matcher(q).find() || terminosNombre(extraerNombrePaciente(q)).size() >= 2;
     return mencionaConsultas && identificaPaciente;
@@ -115,6 +172,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConsultaHistoriaClinicaPaciente(String q) {
+    if (esConsultaGeneralHistoriasClinicas(q)) return false;
     boolean mencionaHistoria = contiene(q, "historia clinica", "historias clinicas");
     boolean consultaPaciente = contiene(q, "paciente", "dni", " id ", "para ", "este paciente");
     boolean accion = contiene(q, "tiene", "cuenta", "existe", "consulta", "consultar", "verifica", "verificar", "busca", "buscar", "ya tiene", "ya cuenta");
@@ -214,7 +272,10 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConteoPacientes(String q) {
-    return contiene(q, "paciente") && contiene(q, "cuantos", "cuantas", "cantidad", "total", "actuales", "actualmente", "registrados", "registradas", "hay", "existen");
+    boolean mencionaPacientes = contiene(q, "paciente");
+    boolean solicitaConteo = contiene(q, "cuantos", "cuantas", "cantidad", "total", "actuales", "actualmente", "registrados", "registradas", "hay", "existen");
+    boolean mencionaOtraEntidad = contiene(q, "consulta medica", "consultas medicas", "historia clinica", "historias clinicas");
+    return mencionaPacientes && solicitaConteo && !mencionaOtraEntidad;
   }
 
   private boolean esUltimosPacientes(String q) {
