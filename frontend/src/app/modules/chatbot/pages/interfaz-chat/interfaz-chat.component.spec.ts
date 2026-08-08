@@ -121,6 +121,45 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1].options?.length).toBe(4);
   });
 
+  it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
+    component.openChat();
+    fixture.detectChanges();
+
+    const botones = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('.quick-questions button'));
+    expect(botones.map(boton => boton.textContent?.trim())).toEqual([
+      'Menú principal',
+      '¿Qué preguntas puedo hacer?',
+      'Buscar paciente por DNI',
+      'Verificar historia clínica',
+      'Consultas médicas de un paciente'
+    ]);
+  });
+
+  it('debe mantener temporalmente la categoría Verificar datos', () => {
+    expect(component.messages[1].options?.some(opcion => opcion.label === 'Verificar datos')).toBeTrue();
+    expect((component as any).menus['verificar']).toBeDefined();
+  });
+
+  it('debe ejecutar las verificaciones rápidas sin depender del menú verificar', () => {
+    const cantidadInicial = component.messages.length;
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    delete (component as any).menus['verificar'];
+
+    component.quickAsk('Verificar historia clínica');
+    component.quickAsk('Consultas médicas de un paciente');
+
+    const mensajesNuevos = component.messages.slice(cantidadInicial);
+    expect(mensajesNuevos.map(mensaje => mensaje.sender)).toEqual(['user', 'bot', 'user', 'bot']);
+    expect(mensajesNuevos[0].text).toBe('Verificar si un paciente tiene historia clínica');
+    expect(mensajesNuevos[1].text).toContain('Puedes consultar por DNI, ID o nombre completo.');
+    expect(mensajesNuevos[2].text).toBe('Verificar consultas médicas de un paciente');
+    expect(mensajesNuevos[3].text).toContain('Puedes consultar por DNI, ID o nombre completo.');
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[0].text).length).toBe(1);
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[2].text).length).toBe(1);
+    expect(scrollSpy.calls.allArgs()).toEqual([[mensajesNuevos[0].id], [mensajesNuevos[2].id]]);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
   it('debe mostrar solo el aviso informativo y bloquear consultas cuando no existe sesión', () => {
     fixture.destroy();
     authServiceMock.usuario = undefined;
@@ -287,6 +326,57 @@ describe('InterfazChatComponent', () => {
     expect(menuPrincipal.options?.some(opcion => opcion.label === 'Manejo del sistema')).toBeFalse();
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(scrollNewBlockSpy).toHaveBeenCalledWith(jasmine.any(String));
+  });
+
+  it('debe organizar Manejo del sistema por procesos sin mostrar opciones administrativas', () => {
+    const menuPrincipal = component.messages[1];
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options![0]);
+
+    const menuManejo = component.messages.at(-1)!;
+    expect(component.messages.at(-2)?.text).toBe('¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.');
+    expect(menuManejo.menuId).toBe('manejo');
+    expect(menuManejo.options?.map(opcion => opcion.label)).toEqual(['Pacientes', 'Historias clínicas', 'Consultas médicas']);
+    expect(JSON.stringify(component.messages)).not.toContain('¿Cómo gestiono empleados?');
+    expect(JSON.stringify(component.messages)).not.toContain('¿Cómo gestiono usuarios y permisos?');
+  });
+
+  it('debe mostrar solo las preguntas del proceso seleccionado y conservar los menús históricos', () => {
+    const menuPrincipal = component.messages[1];
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options![0]);
+    const menuManejo = component.messages.at(-1)!;
+    const opcionPacientes = menuManejo.options![0];
+
+    component.selectHistoricalMenuOption(menuManejo, opcionPacientes);
+
+    const menuPacientes = component.messages.at(-1)!;
+    expect(component.messages.at(-2)?.text).toBe('Selecciona una opción o escribe tu pregunta sobre la gestión de pacientes.');
+    expect(menuPacientes.menuId).toBe('manejo-pacientes');
+    expect(menuPacientes.options?.map(opcion => opcion.label)).toEqual([
+      '¿Cómo registro un paciente?',
+      '¿Cómo edito los datos de un paciente?',
+      '¿Cómo visualizo los datos de un paciente?'
+    ]);
+    expect(component.messages).toContain(menuManejo);
+    expect(menuManejo.options?.map(opcion => opcion.label)).toEqual(['Historias clínicas', 'Consultas médicas']);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mantener separadas las preguntas de historias clínicas y consultas médicas', () => {
+    const menus = (component as any).menus;
+
+    expect(menus['manejo-historias'].options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cómo creo una historia clínica?',
+      '¿Cómo edito una historia clínica?',
+      '¿Cómo visualizo una historia clínica?'
+    ]);
+    expect(menus['manejo-consultas'].options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cómo agrego una consulta médica?',
+      '¿Cómo comienzo la atención de una consulta médica?',
+      '¿Cómo visualizo una consulta médica antes de atenderla?'
+    ]);
+    expect(JSON.stringify(menus['manejo'])).not.toContain('empleados');
+    expect(JSON.stringify(menus['manejo'])).not.toContain('usuarios');
+    expect(JSON.stringify(menus['manejo'])).not.toContain('permisos');
   });
 
   it('debe mostrar localmente las instrucciones de una opción prompt', () => {
