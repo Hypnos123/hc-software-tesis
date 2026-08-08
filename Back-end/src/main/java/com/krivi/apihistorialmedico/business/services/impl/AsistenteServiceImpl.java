@@ -37,6 +37,7 @@ public class AsistenteServiceImpl implements AsistenteService {
       String ayuda = ayuda(q); if (ayuda != null) return resp("AYUDA_USO_SISTEMA", ayuda, Map.of());
       AsistenteResponse consultaGeneral = responderConsultaGeneral(q, p); if (consultaGeneral != null) return consultaGeneral;
       AsistenteResponse consultasPaciente = consultarConsultasMedicasPaciente(q); if (consultasPaciente != null) return consultasPaciente;
+      AsistenteResponse consultasGenerales = responderConsultasMedicasGenerales(q, p); if (consultasGenerales != null) return consultasGenerales;
       AsistenteResponse historiaPaciente = verificarHistoriaClinicaPaciente(q); if (historiaPaciente != null) return historiaPaciente;
       AsistenteResponse pacientes = intencionPacientes(q, p); if (pacientes != null) return pacientes;
       if (contiene(q,"doctor autenticado","mis consultas","asignadas al doctor","consultas asignadas")) { if (idEmpleado == null) return sinPermiso(); if (contiene(q,"atendio","atendidas")) return cantidad("CONSULTAS_ATENDIDAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleadoAndEstado(idEmpleado,"ATENDIDO"), "El doctor autenticado atendió %d consultas.", p); return cantidad("CONSULTAS_ASIGNADAS_DOCTOR", consultaRepository.countByDoctorResponsableIdEmpleado(idEmpleado), "El doctor autenticado tiene %d consultas asignadas.", p); }
@@ -74,19 +75,28 @@ public class AsistenteServiceImpl implements AsistenteService {
           : historiaClinicaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(), p.fin());
       return cantidad("HISTORIAS_CLINICAS", cantidad, pref(p) + "hay %d historias clínicas.", p);
     }
-    if (esConsultaGeneralConsultasMedicas(q)) {
-      if (contiene(q, "atendida", "atendidas", "atendio")) {
-        long cantidad = p.total()
-            ? consultaRepository.countByEstado("ATENDIDO")
-            : consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("ATENDIDO", p.inicio(), p.fin());
-        return cantidad("CONSULTAS_MEDICAS_ATENDIDAS", cantidad, pref(p) + "hay %d consultas médicas atendidas.", p);
-      }
-      long cantidad = p.total()
-          ? consultaRepository.count()
-          : consultaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(), p.fin());
-      return cantidad("CONSULTAS_MEDICAS_REGISTRADAS", cantidad, pref(p) + "hay %d consultas médicas registradas.", p);
+    if (esConsultasAtendidasHoy(q)) {
+      long cantidad = consultaRepository.countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan("ATENDIDO", p.inicio(), p.fin());
+      String respuesta = cantidad == 0
+          ? "Actualmente no hay consultas médicas atendidas el día de hoy."
+          : "Actualmente hay " + cantidad + " consultas médicas atendidas el día de hoy.";
+      return resp("CONSULTAS_MEDICAS_ATENDIDAS", respuesta, Map.of("cantidad", cantidad, "periodo", p.nombre()));
     }
     return null;
+  }
+
+  private AsistenteResponse responderConsultasMedicasGenerales(String q, Periodo p) {
+    if (esConsultasPendientesGenerales(q)) {
+      long cantidad = p.total()
+          ? consultaRepository.countByEstado("PENDIENTE")
+          : consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan("PENDIENTE", p.inicio(), p.fin());
+      return cantidad("CONSULTAS_MEDICAS_PENDIENTES", cantidad, pref(p) + "hay %d consultas médicas por atender.", p);
+    }
+    if (!esConsultaGeneralConsultasMedicas(q)) return null;
+    long cantidad = p.total()
+        ? consultaRepository.count()
+        : consultaRepository.countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(p.inicio(), p.fin());
+    return cantidad("CONSULTAS_MEDICAS_REGISTRADAS", cantidad, pref(p) + "hay %d consultas médicas registradas.", p);
   }
 
   private boolean esConsultaGeneralHistoriasClinicas(String q) {
@@ -96,11 +106,41 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean esConsultaGeneralConsultasMedicas(String q) {
-    boolean mencionaConsultas = contiene(q, "consulta medica", "consultas medicas", "atencion medica", "atenciones medicas");
+    boolean mencionaConsultas = mencionaConsultas(q);
     boolean totalRegistradas = contiene(q, "cuantas", "cuantos", "cantidad", "total", "registradas")
         && !contiene(q, "pendiente", "pendientes", "por atender");
-    boolean atendidasDelPeriodo = contiene(q, "atendida", "atendidas", "atendio") && contiene(q, "hoy", "actualmente", "registradas");
-    return mencionaConsultas && (totalRegistradas || atendidasDelPeriodo) && !referenciaPacienteExplicita(q);
+    return mencionaConsultas && totalRegistradas && !referenciaPacienteExplicita(q);
+  }
+
+  private boolean esConsultasAtendidasHoy(String q) {
+    return mencionaConsultas(q)
+        && contiene(q, "atendida", "atendidas", "atendio", "atendieron")
+        && contiene(q, "hoy", "dia de hoy")
+        && !referenciaPacienteExplicita(q);
+  }
+
+  private boolean esUltimaConsultaPaciente(String q) {
+    return contiene(q, "consulta", "consultas") && contiene(q, "ultima", "ultimo", "reciente");
+  }
+
+  private boolean esConsultasPendientesPaciente(String q) {
+    if (!contiene(q, "consulta", "consultas") || !contiene(q, "pendiente", "pendientes", "por atender")) return false;
+    return referenciaPacienteExplicita(q) || tieneNombrePacienteEnConsulta(q) || contiene(q, "tiene consultas", "consultas del paciente");
+  }
+
+  private boolean esConsultasPendientesGenerales(String q) {
+    return mencionaConsultas(q)
+        && contiene(q, "pendiente", "pendientes", "por atender")
+        && !referenciaPacienteExplicita(q)
+        && !tieneNombrePacienteEnConsulta(q);
+  }
+
+  private boolean mencionaConsultas(String q) {
+    return contiene(q, "consulta", "consultas", "consulta medica", "consultas medicas", "atencion medica", "atenciones medicas");
+  }
+
+  private boolean tieneNombrePacienteEnConsulta(String q) {
+    return terminosNombre(extraerNombrePaciente(q)).size() >= 2;
   }
 
   private boolean referenciaPacienteExplicita(String q) {
@@ -113,6 +153,8 @@ public class AsistenteServiceImpl implements AsistenteService {
 
   private AsistenteResponse consultarConsultasMedicasPaciente(String q) {
     if (!esConsultaMedicaPaciente(q)) return null;
+    boolean ultimaConsulta = esUltimaConsultaPaciente(q);
+    boolean consultasPendientes = esConsultasPendientesPaciente(q);
     ResultadoBusquedaHistoria resultado = buscarPacienteParaHistoria(q);
     if (resultado.requiereDatos()) return resp("CONSULTAS_MEDICAS_REQUIERE_PACIENTE", "Escribe el DNI o el nombre y los dos apellidos del paciente para consultar sus consultas médicas.", Map.of());
     if (resultado.paciente().isEmpty()) {
@@ -121,7 +163,22 @@ public class AsistenteServiceImpl implements AsistenteService {
     }
     Paciente paciente = resultado.paciente().get();
     Optional<HistoriaClinica> historia = historiaClinicaRepository.findByPacienteIdPaciente(paciente.getIdPaciente());
-    if (historia.isEmpty()) return resp("CONSULTAS_MEDICAS_SIN_HISTORIA_CLINICA", "El paciente está registrado, pero no cuenta con una historia clínica. Por lo tanto, no tiene consultas médicas registradas.", Map.of("paciente", pacienteMap(paciente)));
+    if (historia.isEmpty()) {
+      String respuesta = consultasPendientes
+          ? "El paciente está registrado, pero no cuenta con una historia clínica. Por lo tanto, no tiene consultas médicas pendientes."
+          : "El paciente está registrado, pero no cuenta con una historia clínica. Por lo tanto, no tiene consultas médicas registradas.";
+      return resp("CONSULTAS_MEDICAS_SIN_HISTORIA_CLINICA", respuesta, Map.of("paciente", pacienteMap(paciente)));
+    }
+    if (ultimaConsulta) {
+      return consultaRepository.findUltimaByHistoriaClinica(historia.get().getIdHistoriaClinica())
+          .map(consulta -> resp("CONSULTAS_MEDICAS_PACIENTE_ULTIMA", "Última consulta médica del paciente:\n" + detalleConsultaMedica(consulta, paciente), Map.of("resultados", List.of(consultaMedicaMap(consulta, paciente)), "cantidad", 1)))
+          .orElse(resp("CONSULTAS_MEDICAS_SIN_REGISTROS", "El paciente no tiene consultas médicas registradas.", Map.of("resultados", List.of(), "paciente", pacienteMap(paciente))));
+    }
+    if (consultasPendientes) {
+      List<Consulta> pendientes = consultaRepository.findByHistoriaClinicaIdHistoriaClinicaAndEstadoIgnoreCaseOrderByFechaCreacionAsc(historia.get().getIdHistoriaClinica(), "PENDIENTE");
+      if (pendientes.isEmpty()) return resp("CONSULTAS_MEDICAS_PACIENTE_PENDIENTES", "El paciente no tiene consultas médicas pendientes.", Map.of("resultados", List.of(), "cantidad", 0, "paciente", pacienteMap(paciente)));
+      return resp("CONSULTAS_MEDICAS_PACIENTE_PENDIENTES", "Consultas médicas pendientes del paciente:\n" + pendientes.stream().limit(5).map(c -> detalleConsultaMedica(c, paciente)).collect(Collectors.joining("\n\n")), Map.of("resultados", pendientes.stream().limit(5).map(c -> consultaMedicaMap(c, paciente)).collect(Collectors.toList()), "cantidad", pendientes.size()));
+    }
     List<Consulta> consultas = new ArrayList<>(consultaRepository.findByHistoriaClinicaIdHistoriaClinica(historia.get().getIdHistoriaClinica()));
     consultas.sort(Comparator.comparing(this::fechaOrdenConsulta, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
     if (consultas.isEmpty()) return resp("CONSULTAS_MEDICAS_SIN_REGISTROS", "La historia clínica del paciente no cuenta con consultas médicas registradas.", Map.of("paciente", pacienteMap(paciente), "historiaClinica", historiaMap(historia.get(), paciente)));
@@ -130,13 +187,13 @@ public class AsistenteServiceImpl implements AsistenteService {
     String titulo = "Consultas médicas recientes del paciente";
     if (contiene(q, "pendiente", "pendientes", "por atender")) { filtradas = filtrarEstado(consultas, "PENDIENTE"); intencion = "CONSULTAS_MEDICAS_PACIENTE_PENDIENTES"; titulo = "Consultas médicas pendientes del paciente"; }
     else if (contiene(q, "atendida", "atendidas", "atendio")) { filtradas = filtrarEstado(consultas, "ATENDIDO"); intencion = "CONSULTAS_MEDICAS_PACIENTE_ATENDIDAS"; titulo = "Consultas médicas atendidas del paciente"; }
-    else if (contiene(q, "ultima", "ultimo", "reciente")) { filtradas = consultas.stream().limit(1).collect(Collectors.toList()); intencion = "CONSULTAS_MEDICAS_PACIENTE_ULTIMA"; titulo = "Última consulta médica del paciente"; }
     if (contiene(q, "cuantas", "cuantos", "cantidad")) return resp(intencion + "_CANTIDAD", "El paciente " + nombreCompleto(paciente) + " tiene " + filtradas.size() + " consultas médicas" + sufijoEstado(q) + ".", Map.of("cantidad", filtradas.size(), "paciente", pacienteMap(paciente), "historiaClinica", historiaMap(historia.get(), paciente)));
     if (filtradas.isEmpty()) return resp(intencion, "No se encontraron consultas médicas" + sufijoEstado(q) + " para este paciente.", Map.of("resultados", List.of(), "paciente", pacienteMap(paciente)));
     return resp(intencion, titulo + ":\n" + filtradas.stream().limit(5).map(c -> detalleConsultaMedica(c, paciente)).collect(Collectors.joining("\n\n")), Map.of("resultados", filtradas.stream().limit(5).map(c -> consultaMedicaMap(c, paciente)).collect(Collectors.toList()), "cantidad", filtradas.size()));
   }
 
   private boolean esConsultaMedicaPaciente(String q) {
+    if (esUltimaConsultaPaciente(q) || esConsultasPendientesPaciente(q)) return true;
     if (esConsultaGeneralConsultasMedicas(q)) return false;
     boolean mencionaConsultas = contiene(q, "consulta medica", "consultas medicas", "atencion medica", "atenciones medicas");
     boolean identificaPaciente = contiene(q, "paciente", "dni", " id ") || DNI_PATTERN.matcher(q).find() || Pattern.compile("\\b(?:id|codigo|cod)\\s*\\d+\\b").matcher(q).find() || terminosNombre(extraerNombrePaciente(q)).size() >= 2;
@@ -148,7 +205,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   private String sufijoEstado(String q) { if (contiene(q, "pendiente", "pendientes", "por atender")) return " pendientes"; if (contiene(q, "atendida", "atendidas", "atendio")) return " atendidas"; return " registradas"; }
   private String respuestaPacienteAmbiguoConsultas(List<Paciente> pacientes) { return "Se encontraron varias coincidencias para el paciente. Ingresa el DNI de 8 dígitos del paciente para realizar una búsqueda exacta:\n" + pacientes.stream().map(p -> "- ID: " + p.getIdPaciente() + ", Paciente: " + nombreCompleto(p) + ", DNI: " + valorSeguro(p.getNumDocumento())).collect(Collectors.joining("\n")); }
   private String detalleConsultaMedica(Consulta c, Paciente p) { return "ID de consulta médica: " + c.getIdConsulta() + "\nID de historia clínica: " + (c.getHistoriaClinica()==null?"Sin historia":c.getHistoriaClinica().getIdHistoriaClinica()) + "\nPaciente: " + nombreCompleto(p) + "\nDNI: " + valorSeguro(p.getNumDocumento()) + "\nFecha: " + fechaConsulta(c) + "\nEspecialidad: " + valorSeguro(c.getEspecialidadRequerida()) + "\nEstado: " + estado(c.getEstado()) + "\nDoctor responsable: " + doctorConsulta(c); }
-  private Map<String,Object> consultaMedicaMap(Consulta c, Paciente p) { Map<String,Object> m=new LinkedHashMap<>(); m.put("idConsultaMedica", c.getIdConsulta()); m.put("idHistoriaClinica", c.getHistoriaClinica()==null?null:c.getHistoriaClinica().getIdHistoriaClinica()); m.put("paciente", nombreCompleto(p)); m.put("dni", p.getNumDocumento()); m.put("fecha", c.getFechaConsulta()); m.put("especialidad", c.getEspecialidadRequerida()); m.put("estado", estado(c.getEstado())); m.put("doctorResponsable", doctorConsulta(c)); return m; }
+  private Map<String,Object> consultaMedicaMap(Consulta c, Paciente p) { Map<String,Object> m=new LinkedHashMap<>(); m.put("idConsultaMedica", c.getIdConsulta()); m.put("idHistoriaClinica", c.getHistoriaClinica()==null?null:c.getHistoriaClinica().getIdHistoriaClinica()); m.put("paciente", nombreCompleto(p)); m.put("dni", p.getNumDocumento()); m.put("fecha", c.getFechaConsulta()==null?c.getFechaCreacion():c.getFechaConsulta()); m.put("especialidad", c.getEspecialidadRequerida()); m.put("estado", estado(c.getEstado())); m.put("doctorResponsable", doctorConsulta(c)); return m; }
   private String fechaConsulta(Consulta c) { if (c.getFechaConsulta() != null) return new SimpleDateFormat("dd/MM/yyyy").format(c.getFechaConsulta()); return c.getFechaCreacion()==null?"Sin fecha registrada":c.getFechaCreacion().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")); }
   private String doctorConsulta(Consulta c) { return c.getDoctorResponsable()==null?"Sin doctor asignado":String.join(" ", Optional.ofNullable(c.getDoctorResponsable().getNombres()).orElse(""), Optional.ofNullable(c.getDoctorResponsable().getApellidos()).orElse("")).trim(); }
 
@@ -469,7 +526,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private String extraerNombrePaciente(String q) {
-    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|consultas|muestrame|mostrar|cuantas|cuantos|cantidad|ultima|ultimo|atencion|atenciones|medica|medicas|pendiente|pendientes|atendida|atendidas|atendio|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad|tiene|cuenta|contiene|asociada|asociado|del|este|esa|ese)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
+    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|consultas|muestrame|mostrar|cuantas|cuantos|cantidad|cual|fue|ultima|ultimo|atencion|atenciones|medica|medicas|pendiente|pendientes|atendida|atendidas|atendio|atendieron|atender|estan|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|de|del|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad|tiene|cuenta|contiene|asociada|asociado|este|esa|ese)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
   }
 
 

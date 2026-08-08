@@ -75,14 +75,14 @@ class AsistenteServiceImplClasificacionGeneralTest {
   }
 
   @Test
-  void clasificaConsultasAtendidasHoyComoConsultaGeneralSinCambiarSuFechaActual() {
-    when(consultaRepository.countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(eq("ATENDIDO"), any(), any())).thenReturn(4L);
+  void clasificaConsultasAtendidasHoyComoConsultaGeneral() {
+    when(consultaRepository.countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(eq("ATENDIDO"), any(), any())).thenReturn(4L);
 
     AsistenteResponse response = preguntar("Consultas médicas atendidas hoy");
 
     assertEquals("CONSULTAS_MEDICAS_ATENDIDAS", response.getIntencion());
     assertEquals(4L, response.getDatos().get("cantidad"));
-    verify(consultaRepository).countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(eq("ATENDIDO"), any(), any());
+    verify(consultaRepository).countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(eq("ATENDIDO"), any(), any());
     verifyNoInteractions(pacienteRepository);
   }
 
@@ -170,7 +170,7 @@ class AsistenteServiceImplClasificacionGeneralTest {
     HistoriaClinica historia = historia(paciente);
     when(pacienteRepository.searchByNombre("prueba uno", 10)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.findByPacienteIdPaciente(paciente.getIdPaciente())).thenReturn(Optional.of(historia));
-    when(consultaRepository.findByHistoriaClinicaIdHistoriaClinica(historia.getIdHistoriaClinica())).thenReturn(List.of(consulta(historia, "PENDIENTE")));
+    when(consultaRepository.findByHistoriaClinicaIdHistoriaClinicaAndEstadoIgnoreCaseOrderByFechaCreacionAsc(historia.getIdHistoriaClinica(), "PENDIENTE")).thenReturn(List.of(consulta(historia, "PENDIENTE")));
 
     AsistenteResponse response = preguntar("¿El paciente PRUEBA UNO tiene consultas médicas pendientes?");
 
