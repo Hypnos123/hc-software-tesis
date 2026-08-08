@@ -31,7 +31,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AsistenteServiceImplConsultasMedicasTest {
   private static final String DNI_PRUEBA = "0".repeat(8);
-  private static final String NOMBRE_BUSQUEDA = "prueba uno dos";
 
   @Mock private PacienteRepository pacienteRepository;
   @Mock private HistoriaClinicaRepository historiaClinicaRepository;
@@ -99,7 +98,7 @@ class AsistenteServiceImplConsultasMedicasTest {
     AsistenteResponse response = preguntar("¿Cuál fue la última consulta de PACIENTE PRUEBA UNO DOS?");
 
     assertEquals("CONSULTAS_MEDICAS_PACIENTE_ULTIMA", response.getIntencion());
-    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
     verify(consultaRepository, never()).count();
     verify(historiaClinicaRepository, never()).count();
   }
@@ -150,7 +149,7 @@ class AsistenteServiceImplConsultasMedicasTest {
 
     assertEquals(2, response.getDatos().get("cantidad"));
     assertFalse(response.getRespuesta().contains("Estado: Atendido"));
-    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
   }
 
   @Test
@@ -218,7 +217,7 @@ class AsistenteServiceImplConsultasMedicasTest {
     AsistenteResponse response = preguntar("¿Cuántas consultas médicas tiene PACIENTE PRUEBA UNO DOS?");
 
     assertEquals("El paciente tiene 4 consultas médicas registradas.", response.getRespuesta());
-    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
     verify(consultaRepository).countByHistoriaClinicaIdHistoriaClinica(8);
   }
 
@@ -271,7 +270,7 @@ class AsistenteServiceImplConsultasMedicasTest {
     AsistenteResponse response = preguntar("¿Qué consultas médicas tiene PACIENTE PRUEBA UNO DOS?");
 
     assertEquals(1, response.getDatos().get("cantidad"));
-    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
     verify(consultaRepository).findByHistoriaClinicaOrdenadasPorFecha(8);
     verify(consultaRepository, never()).findByHistoriaClinicaOrdenadasPorFecha(99);
   }
@@ -342,7 +341,7 @@ class AsistenteServiceImplConsultasMedicasTest {
 
   private void prepararPacientePorNombreConHistoria() {
     Paciente paciente = paciente();
-    when(pacienteRepository.searchByNombre(NOMBRE_BUSQUEDA, 10)).thenReturn(List.of(paciente));
+    when(pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.findByPacienteIdPaciente(5)).thenReturn(Optional.of(historia(paciente)));
   }
 

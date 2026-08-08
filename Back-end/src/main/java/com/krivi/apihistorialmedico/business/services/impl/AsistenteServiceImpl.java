@@ -162,7 +162,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean tieneNombrePacienteEnConsulta(String q) {
-    return terminosNombre(extraerNombrePaciente(q)).size() >= 2;
+    return !terminosNombre(extraerNombrePaciente(q)).isEmpty();
   }
 
   private boolean referenciaPacienteExplicita(String q) {
@@ -287,19 +287,17 @@ public class AsistenteServiceImpl implements AsistenteService {
 
     String nombre = extraerNombrePaciente(q);
     List<String> terminos = terminosNombre(nombre);
-    if (terminos.size() < 2) {
-      List<Paciente> similares = nombre.length() < 3 ? List.of() : buscarPorNombreAproximado(nombre, 5);
-      return new ResultadoBusquedaHistoria(Optional.empty(), similares, nombre.length() < 3);
-    }
+    if (terminos.isEmpty()) return new ResultadoBusquedaHistoria(Optional.empty(), List.of(), true);
 
-    List<Paciente> candidatos = pacienteRepository.searchByNombre(nombre, 10);
-    if (candidatos.isEmpty()) candidatos = buscarPorNombreAproximado(nombre, 10);
-    List<Paciente> coincidenciasEstrictas = candidatos.stream()
+    List<Paciente> coincidenciasEstrictas = new ArrayList<>();
+    pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO).forEach(coincidenciasEstrictas::add);
+    coincidenciasEstrictas = coincidenciasEstrictas.stream()
         .filter(paciente -> nombrePacienteContieneTerminos(paciente, terminos))
+        .limit(10)
         .collect(Collectors.toList());
     if (coincidenciasEstrictas.size() == 1) return new ResultadoBusquedaHistoria(Optional.of(coincidenciasEstrictas.get(0)), List.of(), false);
     if (coincidenciasEstrictas.size() > 1) return new ResultadoBusquedaHistoria(Optional.empty(), coincidenciasEstrictas, false);
-    return new ResultadoBusquedaHistoria(Optional.empty(), candidatos.stream().limit(5).collect(Collectors.toList()), false);
+    return new ResultadoBusquedaHistoria(Optional.empty(), List.of(), false);
   }
 
   private List<String> terminosNombre(String nombre) {
@@ -311,8 +309,14 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private boolean nombrePacienteContieneTerminos(Paciente paciente, List<String> terminos) {
-    String nombrePaciente = normalizar((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos()));
-    return terminos.stream().allMatch(nombrePaciente::contains);
+    Set<String> tokensPaciente = new LinkedHashSet<>(terminosNombre((paciente.getNombres() == null ? "" : paciente.getNombres()) + " " + (paciente.getApellidos() == null ? "" : paciente.getApellidos())));
+    return terminos.stream().allMatch(termino -> tokensPaciente.stream().anyMatch(token -> tokensNombreEquivalentes(termino, token)));
+  }
+
+  private boolean tokensNombreEquivalentes(String consultado, String registrado) {
+    if (consultado.equals(registrado)) return true;
+    if (consultado.length() < 5 || registrado.length() < 5) return false;
+    return (consultado + "s").equals(registrado) || (registrado + "s").equals(consultado);
   }
 
   private String respuestaPacienteNoEncontradoConSimilares(List<Paciente> similares) {
@@ -566,7 +570,7 @@ public class AsistenteServiceImpl implements AsistenteService {
   }
 
   private String extraerNombrePaciente(String q) {
-    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|consultas|muestrame|mostrar|lista|listar|ver|cuantas|cuantos|cantidad|total|cual|que|fue|ultima|ultimo|atencion|atenciones|medica|medicas|pendiente|pendientes|atendida|atendidas|atendio|atendieron|atender|estan|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|de|del|el|la|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad|tiene|cuenta|contiene|asociada|asociado|este|esa|ese)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
+    return q.replaceAll("\\b(busca|buscar|verifica|verificar|consultar|consulta|consultas|muestra|muestrame|mostrar|lista|listar|ver|todas|todos|cuantas|cuantos|cantidad|total|cual|que|fue|ultima|ultimo|atencion|atenciones|medico|medicos|medica|medicas|pendiente|pendientes|atendida|atendidas|atendio|atendieron|atender|hoy|estan|por|nombre|si|existe|existen|ya|esta|registrado|registrada|paciente|pacientes|con|dni|id|codigo|cod|historia|historias|clinica|clinicas|para|de|del|el|la|los|las|un|una|por|favor|datos|duplicado|duplicados|duplicada|duplicadas|repetido|repetidos|duplicidad|tiene|cuenta|contiene|asociada|asociado|este|esta|estas|estos|esa|ese)\\b", " ").replaceAll("\\d+", " ").replaceAll("\\s+", " ").trim();
   }
 
 

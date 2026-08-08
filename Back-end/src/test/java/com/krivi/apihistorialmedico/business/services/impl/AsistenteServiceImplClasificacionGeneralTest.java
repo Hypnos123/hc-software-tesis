@@ -168,14 +168,14 @@ class AsistenteServiceImplClasificacionGeneralTest {
   void mantieneConsultasPendientesPorPacienteConNombre() {
     Paciente paciente = paciente();
     HistoriaClinica historia = historia(paciente);
-    when(pacienteRepository.searchByNombre("prueba uno", 10)).thenReturn(List.of(paciente));
+    when(pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.findByPacienteIdPaciente(paciente.getIdPaciente())).thenReturn(Optional.of(historia));
     when(consultaRepository.findByHistoriaClinicaIdHistoriaClinicaAndEstadoIgnoreCaseOrderByFechaCreacionAsc(historia.getIdHistoriaClinica(), "PENDIENTE")).thenReturn(List.of(consulta(historia, "PENDIENTE")));
 
     AsistenteResponse response = preguntar("¿El paciente PRUEBA UNO tiene consultas médicas pendientes?");
 
     assertEquals("CONSULTAS_MEDICAS_PACIENTE_PENDIENTES", response.getIntencion());
-    verify(pacienteRepository).searchByNombre("prueba uno", 10);
+    verify(pacienteRepository).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
     verify(consultaRepository, never()).countByEstado("PENDIENTE");
   }
 
