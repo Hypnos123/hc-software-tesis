@@ -34,6 +34,17 @@ interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
+
+const VERIFY_CLINICAL_HISTORY_OPTION: MenuOption = {
+  label: 'Verificar si un paciente tiene historia clínica',
+  action: 'prompt',
+  text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- El paciente con DNI (PONER DNI) tiene historia clínica\n- El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene historia clínica'
+};
+const VERIFY_PATIENT_CONSULTATIONS_OPTION: MenuOption = {
+  label: 'Verificar consultas médicas de un paciente',
+  action: 'prompt',
+  text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- El paciente con DNI (PONER DNI) tiene consultas médicas\n- El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene consultas médicas'
+};
 export interface PatientClinicalHistorySummary {
   idPaciente: number;
   nombreCompleto: string;
@@ -79,8 +90,7 @@ export class InterfazChatComponent implements OnDestroy {
       options: [
         { label: 'Manejo del sistema', description: 'Aprende a utilizar las funciones principales.', icon: 'pi pi-cog', action: 'menu', target: 'manejo' },
         { label: 'Consultar información', description: 'Consulta datos registrados en el sistema.', icon: 'pi pi-search', action: 'menu', target: 'consultar' },
-        { label: 'Verificar datos', description: 'Confirma si la información ya existe antes de registrar.', icon: 'pi pi-check-circle', action: 'menu', target: 'verificar' },
-        { label: 'Soporte y ayuda', description: 'Revisa preguntas disponibles y ayuda del asistente.', icon: 'pi pi-question-circle', action: 'menu', target: 'ayuda' }
+        { label: 'Asistencia guiada', description: 'Realiza procesos del sistema con la guía paso a paso del asistente.', icon: 'pi pi-compass', action: 'menu', target: 'asistencia' }
       ]
     },
     consultar: { question: '¿Sobre qué sección deseas consultar información?', options: [
@@ -91,50 +101,58 @@ export class InterfazChatComponent implements OnDestroy {
     pacientes: { question: 'Puedes realizar estas consultas sobre pacientes:', options: [
       { label: '¿Cuántos pacientes hay registrados?', action: 'request' },
       { label: 'Muéstrame los últimos pacientes registrados', action: 'request' },
-      { label: 'Buscar paciente por DNI', action: 'prompt', text: 'Escribe el DNI de 8 dígitos del paciente.\nEjemplo: Buscar paciente por DNI 72845292' },
-      { label: 'Buscar paciente por nombre', action: 'prompt', text: 'Escribe los nombres y apellidos del paciente.\nEjemplo: Buscar paciente por nombre Rafael Velásquez Morales' },
-      { label: 'Consulta el paciente por ID', action: 'prompt', text: 'Escribe el ID del paciente.\nEjemplo: Consulta el paciente ID 4' },
+      { label: 'Buscar paciente por DNI', action: 'prompt', text: 'Escribe el DNI del paciente.\nEjemplo: Buscar paciente por DNI (PONER DNI)' },
+      { label: 'Buscar paciente por nombre', action: 'prompt', text: 'Escribe el nombre y los dos apellidos del paciente.\nEjemplo: Buscar paciente por nombre (AGREGAR NOMBRE Y DOS APELLIDOS)' },
       { label: '¿Cuál es la edad promedio de los pacientes?', action: 'request' },
-      { label: 'Registrar pacientes de forma masiva', description: 'Importa pacientes mediante la plantilla oficial Excel.', icon: 'pi pi-file-excel', action: 'patient-import-flow' },
-      { label: 'Gestionar paciente duplicado', description: 'Compara y archiva de forma segura un registro repetido.', icon: 'pi pi-clone', action: 'patient-duplicate-flow' }
+      { label: 'Detectar posibles pacientes duplicados', action: 'request' }
     ] },
     historias: { question: 'Puedes realizar estas consultas sobre historias clínicas:', options: [
-      { label: 'Crear historia clínica', description: 'Completa una nueva historia usando los datos de un paciente existente.', action: 'clinical-history-flow' },
       { label: '¿Cuántas historias clínicas hay registradas?', action: 'request' },
-      { label: '¿El paciente con DNI 72845292 tiene historia clínica?', action: 'request' },
-      { label: 'Consulta si el paciente ID 4 tiene historia clínica', action: 'request' },
-      { label: 'Busca la historia clínica de un paciente por nombre', action: 'prompt', text: 'Escribe el nombre completo del paciente.\nEjemplo: ¿Existe una historia clínica para Rafael Velásquez Morales?' },
+      { label: 'Buscar si un paciente tiene historia clínica', action: 'prompt', text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- El paciente con DNI (PONER DNI) tiene historia clínica\n- El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene historia clínica' },
       { label: 'Historias clínicas creadas hoy', action: 'request' },
-      { label: 'Detectar historias clínicas duplicadas', description: 'Lista historias activas repetidas y recomienda cuál conservar.', action: 'request' }
+      { label: 'Detectar historias clínicas duplicadas', action: 'request' }
     ] },
     consultas: { question: 'Puedes realizar estas consultas médicas:', options: [
       { label: '¿Cuántas consultas médicas hay registradas?', action: 'request' },
-      { label: '¿El paciente con DNI 72845292 tiene consultas médicas?', action: 'request' },
-      { label: 'Muéstrame las consultas médicas del paciente ID 4', action: 'request' },
-      { label: '¿Cuál fue la última consulta médica de un paciente?', action: 'prompt', text: 'Indica el DNI, ID o nombre completo del paciente.\nEjemplo: ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?' },
-      { label: '¿Tiene consultas médicas pendientes?', action: 'prompt', text: 'Indica el DNI, ID o nombre completo del paciente.\nEjemplo: ¿El paciente con DNI 72845292 tiene consultas médicas pendientes?' },
+      { label: 'Buscar si un paciente tiene consultas médicas', action: 'prompt', text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- El paciente con DNI (PONER DNI) tiene consultas médicas\n- El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene consultas médicas' },
+      { label: '¿Cuál fue la última consulta médica de un paciente?', action: 'prompt', text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- ¿Cuál fue la última consulta médica del paciente con DNI (PONER DNI)?\n- ¿Cuál fue la última consulta médica del paciente (AGREGAR NOMBRE Y DOS APELLIDOS)?' },
+      { label: '¿Tiene consultas médicas pendientes?', action: 'prompt', text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- ¿El paciente con DNI (PONER DNI) tiene consultas médicas pendientes?\n- ¿El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene consultas médicas pendientes?' },
       { label: 'Consultas médicas atendidas hoy', action: 'request' }
     ] },
-    verificar: { question: 'Selecciona qué información deseas verificar:', options: [
-      { label: 'Verificar si un paciente existe', action: 'prompt', text: 'Puedes verificarlo por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿Existe un paciente con DNI 72845292?\n- Consulta el paciente ID 4\n- Verifica si Rafael Velásquez Morales está registrado.' },
-      { label: 'Verificar si un paciente tiene historia clínica', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene historia clínica?\n- Consulta si el paciente ID 4 tiene historia clínica.\n- ¿Existe una historia clínica para Rafael Velásquez Morales?' },
-      { label: 'Verificar consultas médicas de un paciente', action: 'prompt', text: 'Puedes consultar por DNI, ID o nombre completo.\n\nEjemplos:\n- ¿El paciente con DNI 72845292 tiene consultas médicas?\n- Muéstrame las consultas médicas del paciente ID 4.\n- ¿Cuál fue la última consulta médica de Rafael Velásquez Morales?' },
-      { label: 'Detectar posibles pacientes duplicados', action: 'prompt', text: 'Puedes usar estas preguntas:\n- ¿Existen pacientes duplicados?\n- Verifica si hay pacientes repetidos.\n- Analiza posibles duplicados.\n- Busca pacientes duplicados.' },
-      { label: 'Detectar historias clínicas duplicadas', action: 'prompt', text: 'Puedes buscar en general o por DNI.\n\nEjemplos:\n- ¿Existen historias clínicas duplicadas?\n- Revisa la duplicidad de historias clínicas.\n- ¿El DNI 01234567 tiene historias clínicas duplicadas?' }
+    asistencia: { question: '¿Qué proceso deseas realizar con ayuda del asistente? Selecciona una opción o escribe tu solicitud.', options: [
+      { label: 'Pacientes', icon: 'pi pi-users', action: 'menu', target: 'asistencia-pacientes' },
+      { label: 'Historias clínicas', icon: 'pi pi-folder-open', action: 'menu', target: 'asistencia-historias' }
     ] },
-    manejo: { question: 'Selecciona una pregunta sobre el manejo del sistema:', options: [
-      { label: '¿Cómo registro un paciente?', action: 'request' }, { label: '¿Cómo edito un paciente?', action: 'request' },
-      { label: '¿Cómo creo una historia clínica?', action: 'request' }, { label: '¿Cómo agrego una consulta médica?', action: 'request' },
-      { label: '¿Cómo atiendo una consulta médica?', action: 'request' }, { label: '¿Cómo gestiono empleados?', action: 'request' },
-      { label: '¿Cómo gestiono usuarios y permisos?', action: 'request' }
+    'asistencia-pacientes': { question: 'Selecciona una opción o escribe tu solicitud sobre la gestión de pacientes.', options: [
+      { label: 'Registrar pacientes desde Excel', description: 'Importa pacientes mediante la plantilla oficial Excel.', icon: 'pi pi-file-excel', action: 'patient-import-flow' },
+      { label: 'Gestionar y eliminar pacientes duplicados', description: 'Compara y archiva de forma segura un registro repetido.', icon: 'pi pi-clone', action: 'patient-duplicate-flow' }
     ] },
-    ayuda: { question: 'Selecciona una opción de soporte y ayuda:', options: [
-      { label: '¿Qué preguntas puedo hacer?', action: 'request' }, { label: 'Mostrar consultas disponibles', action: 'request' },
-      { label: 'Cómo usar el asistente', action: 'request' }
+    'asistencia-historias': { question: 'Selecciona una opción o escribe tu solicitud sobre historias clínicas.', options: [
+      { label: 'Crear una historia clínica con el asistente', description: 'Completa una nueva historia usando los datos de un paciente existente.', action: 'clinical-history-flow' }
+    ] },
+    manejo: { question: '¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.', options: [
+      { label: 'Pacientes', icon: 'pi pi-users', action: 'menu', target: 'manejo-pacientes' },
+      { label: 'Historias clínicas', icon: 'pi pi-folder-open', action: 'menu', target: 'manejo-historias' },
+      { label: 'Consultas médicas', icon: 'pi pi-calendar', action: 'menu', target: 'manejo-consultas' }
+    ] },
+    'manejo-pacientes': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de pacientes.', options: [
+      { label: '¿Cómo registro un paciente?', action: 'request' },
+      { label: '¿Cómo edito los datos de un paciente?', action: 'request' },
+      { label: '¿Cómo visualizo los datos de un paciente?', action: 'request' }
+    ] },
+    'manejo-historias': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de historias clínicas.', options: [
+      { label: '¿Cómo creo una historia clínica?', action: 'request' },
+      { label: '¿Cómo edito una historia clínica?', action: 'request' },
+      { label: '¿Cómo visualizo una historia clínica?', action: 'request' }
+    ] },
+    'manejo-consultas': { question: 'Selecciona una opción o escribe tu pregunta sobre la gestión de consultas médicas.', options: [
+      { label: '¿Cómo agrego una consulta médica?', action: 'request' },
+      { label: '¿Cómo comienzo la atención de una consulta médica?', action: 'request' },
+      { label: '¿Cómo visualizo una consulta médica antes de atenderla?', action: 'request' }
     ] },
     'duplicados-final': { question: '¿Qué deseas hacer ahora?', options: [
       { label: 'Consultar otro DNI', action: 'patient-duplicate-flow' },
-      { label: 'Volver al menú de pacientes', action: 'menu', target: 'pacientes' },
+      { label: 'Volver al menú de pacientes', action: 'menu', target: 'asistencia-pacientes' },
       { label: 'Menú principal', action: 'menu', target: 'principal' }
     ] }
   };
@@ -164,6 +182,10 @@ export class InterfazChatComponent implements OnDestroy {
   messages: ChatMessage[] = this.getInitialMessages();
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
+  private readonly quickQuestionOptions: Record<string, MenuOption> = {
+    'Verificar historia clínica': VERIFY_CLINICAL_HISTORY_OPTION,
+    'Consultas médicas de un paciente': VERIFY_PATIENT_CONSULTATIONS_OPTION
+  };
   get gestionDuplicadosActiva(): boolean { return this.hayGestionDuplicadosActiva(); }
   get autenticado(): boolean { return !!this.authService.usuario?.idUsuario; }
 
@@ -221,17 +243,13 @@ export class InterfazChatComponent implements OnDestroy {
     if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
-      : text === 'Verificar historia clínica'
-        ? this.menus['verificar'].options[1]
-        : text === 'Consultas médicas de un paciente'
-          ? this.menus['verificar'].options[2]
-          : { label: text, action: 'request' as MenuAction };
+      : this.quickQuestionOptions[text] ?? { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
     this.executeMenuOption(quickOption, selection.id);
   }
   mostrarOpcionesPacientes(): void {
     const selection = this.addUserMessage('Volver a opciones de Pacientes');
-    this.addMenuBlock('pacientes');
+    this.addMenuBlock('asistencia-pacientes');
     this.scrollToNewBlock(selection.id);
   }
   registrarOtroArchivo(): void {
@@ -275,7 +293,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
     if (evento.vistaSiguiente && !vistaActualizada) this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
     if (state.estado === 'COMPLETADO') this.addMenuBlock('duplicados-final');
-    if (evento.volverPacientes) this.addMenuBlock('pacientes');
+    if (evento.volverPacientes) this.addMenuBlock('asistencia-pacientes');
     if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
   }
   cancelarGestionDuplicados(): void {
