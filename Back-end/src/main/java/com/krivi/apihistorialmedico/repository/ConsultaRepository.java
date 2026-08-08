@@ -17,6 +17,9 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   @Query("select c.historiaClinica.idHistoriaClinica, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.historiaClinica.idHistoriaClinica in :idsHistoria group by c.historiaClinica.idHistoriaClinica")
   List<Object[]> resumirPorHistoriasClinicas(@Param("idsHistoria") Collection<Integer> idsHistoria);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
+  long countByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
+  @Query(value = "select * from consulta c where c.idhistoriaclinica = :idHistoriaClinica order by coalesce(c.fechaconsulta, c.fechacreacion) desc", nativeQuery = true)
+  List<Consulta> findByHistoriaClinicaOrdenadasPorFecha(@Param("idHistoriaClinica") Integer idHistoriaClinica);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinicaAndEstadoIgnoreCaseOrderByFechaCreacionAsc(Integer idHistoriaClinica, String estado);
   @Query(value = "select * from consulta c where c.idhistoriaclinica = :idHistoriaClinica order by coalesce(c.fechaconsulta, c.fechacreacion) desc limit 1", nativeQuery = true)
   Optional<Consulta> findUltimaByHistoriaClinica(@Param("idHistoriaClinica") Integer idHistoriaClinica);
@@ -26,6 +29,8 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   long countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(String estado, LocalDateTime inicio, LocalDateTime fin);
   @Query("select count(c) from Consulta c where upper(c.estado) = upper(:estado) and c.fechaAtencion >= :inicio and c.fechaAtencion < :fin")
   long countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(@Param("estado") String estado, @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.doctorResponsable where upper(c.estado) = upper(:estado) and c.fechaAtencion >= :inicio and c.fechaAtencion < :fin order by c.fechaAtencion desc")
+  List<Consulta> findAtendidasPorFechaAtencion(@Param("estado") String estado, @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
   long countByDoctorResponsableIdEmpleado(Integer idEmpleado);
   long countByDoctorResponsableIdEmpleadoAndEstado(Integer idEmpleado, String estado);
   long countByPacienteIdPaciente(Integer idPaciente);

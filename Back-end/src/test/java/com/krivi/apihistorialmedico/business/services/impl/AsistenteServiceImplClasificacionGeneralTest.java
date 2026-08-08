@@ -141,11 +141,11 @@ class AsistenteServiceImplClasificacionGeneralTest {
     HistoriaClinica historia = historia(paciente);
     when(pacienteRepository.findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(DNI_PRUEBA, EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(paciente));
     when(historiaClinicaRepository.findByPacienteIdPaciente(paciente.getIdPaciente())).thenReturn(Optional.of(historia));
-    when(consultaRepository.findByHistoriaClinicaIdHistoriaClinica(historia.getIdHistoriaClinica())).thenReturn(List.of(consulta(historia, "ATENDIDO")));
+    when(consultaRepository.countByHistoriaClinicaIdHistoriaClinica(historia.getIdHistoriaClinica())).thenReturn(1L);
 
     AsistenteResponse response = preguntar("¿Cuántas consultas médicas tiene el paciente con DNI " + DNI_PRUEBA + "?");
 
-    assertEquals("CONSULTAS_MEDICAS_PACIENTE_LISTADO_CANTIDAD", response.getIntencion());
+    assertEquals("CONSULTAS_MEDICAS_PACIENTE_CANTIDAD", response.getIntencion());
     assertEquals(1, response.getDatos().get("cantidad"));
     verify(pacienteRepository).findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(DNI_PRUEBA, EstadoRegistroPaciente.ACTIVO);
     verify(consultaRepository, never()).count();

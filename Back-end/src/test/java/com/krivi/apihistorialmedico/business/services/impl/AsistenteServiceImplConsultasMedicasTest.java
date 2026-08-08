@@ -18,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -193,6 +195,136 @@ class AsistenteServiceImplConsultasMedicasTest {
     assertEquals("CONSULTAS_MEDICAS_REGISTRADAS", response.getIntencion());
     assertEquals(12L, response.getDatos().get("cantidad"));
     verifyNoInteractions(pacienteRepository);
+  }
+
+  @Test
+  void totalPorDniRespondeEnSingular() {
+    prepararPacientePorDniConHistoria();
+    when(consultaRepository.countByHistoriaClinicaIdHistoriaClinica(8)).thenReturn(1L);
+
+    AsistenteResponse response = preguntar("¿Cuántas consultas médicas tiene el paciente con DNI " + DNI_PRUEBA + "?");
+
+    assertEquals("CONSULTAS_MEDICAS_PACIENTE_CANTIDAD", response.getIntencion());
+    assertEquals("El paciente tiene 1 consulta médica registrada.", response.getRespuesta());
+    verify(consultaRepository).countByHistoriaClinicaIdHistoriaClinica(8);
+    verify(consultaRepository, never()).count();
+  }
+
+  @Test
+  void totalPorNombreRespondeEnPlural() {
+    prepararPacientePorNombreConHistoria();
+    when(consultaRepository.countByHistoriaClinicaIdHistoriaClinica(8)).thenReturn(4L);
+
+    AsistenteResponse response = preguntar("¿Cuántas consultas médicas tiene PACIENTE PRUEBA UNO DOS?");
+
+    assertEquals("El paciente tiene 4 consultas médicas registradas.", response.getRespuesta());
+    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(consultaRepository).countByHistoriaClinicaIdHistoriaClinica(8);
+  }
+
+  @Test
+  void totalPorPacienteInformaCuandoNoTieneConsultas() {
+    prepararPacientePorDniConHistoria();
+    when(consultaRepository.countByHistoriaClinicaIdHistoriaClinica(8)).thenReturn(0L);
+
+    AsistenteResponse response = preguntar("Total de consultas médicas del paciente con DNI " + DNI_PRUEBA);
+
+    assertEquals("El paciente no tiene consultas médicas registradas.", response.getRespuesta());
+  }
+
+  @Test
+  void totalPorPacienteInformaCuandoNoTieneHistoria() {
+    prepararPacientePorDniSinHistoria();
+
+    AsistenteResponse response = preguntar("¿Cuántas consultas tiene el paciente con DNI " + DNI_PRUEBA + "?");
+
+    assertEquals("El paciente está registrado, pero no cuenta con una historia clínica. Por lo tanto, no tiene consultas médicas registradas.", response.getRespuesta());
+    verifyNoInteractions(consultaRepository);
+  }
+
+  @Test
+  void listadoCompletoPorDniUsaOrdenDelRepositorioYOcultaIdentificadores() {
+    prepararPacientePorDniConHistoria();
+    Consulta reciente = consulta(51, "ATENDIDO", LocalDateTime.of(2026, 4, 3, 9, 0));
+    reciente.setEspecialidadRequerida("ESPECIALIDAD RECIENTE");
+    reciente.setFechaConsulta(Date.from(LocalDateTime.of(2026, 4, 4, 9, 0).atZone(ZoneId.systemDefault()).toInstant()));
+    Consulta anterior = consulta(50, "PENDIENTE", LocalDateTime.of(2026, 4, 2, 9, 0));
+    anterior.setEspecialidadRequerida("ESPECIALIDAD ANTERIOR");
+    when(consultaRepository.findByHistoriaClinicaOrdenadasPorFecha(8)).thenReturn(List.of(reciente, anterior));
+
+    AsistenteResponse response = preguntar("Muéstrame las consultas médicas del paciente con DNI " + DNI_PRUEBA);
+
+    assertEquals("CONSULTAS_MEDICAS_PACIENTE_LISTADO", response.getIntencion());
+    assertTrue(response.getRespuesta().startsWith("Consultas médicas registradas del paciente:"));
+    assertTrue(response.getRespuesta().indexOf("ESPECIALIDAD RECIENTE") < response.getRespuesta().indexOf("ESPECIALIDAD ANTERIOR"));
+    assertFalse(response.getRespuesta().contains("ID de consulta"));
+    assertFalse(response.getRespuesta().contains(DNI_PRUEBA));
+    assertEquals(2, response.getDatos().get("cantidad"));
+    verify(consultaRepository).findByHistoriaClinicaOrdenadasPorFecha(8);
+  }
+
+  @Test
+  void listadoCompletoPorNombreNoIncluyeConsultasDeOtraHistoria() {
+    prepararPacientePorNombreConHistoria();
+    when(consultaRepository.findByHistoriaClinicaOrdenadasPorFecha(8)).thenReturn(List.of(consulta(52, "ATENDIDO", LocalDateTime.now())));
+
+    AsistenteResponse response = preguntar("¿Qué consultas médicas tiene PACIENTE PRUEBA UNO DOS?");
+
+    assertEquals(1, response.getDatos().get("cantidad"));
+    verify(pacienteRepository).searchByNombre(NOMBRE_BUSQUEDA, 10);
+    verify(consultaRepository).findByHistoriaClinicaOrdenadasPorFecha(8);
+    verify(consultaRepository, never()).findByHistoriaClinicaOrdenadasPorFecha(99);
+  }
+
+  @Test
+  void listadoCompletoInformaCuandoNoHayConsultas() {
+    prepararPacientePorDniConHistoria();
+    when(consultaRepository.findByHistoriaClinicaOrdenadasPorFecha(8)).thenReturn(List.of());
+
+    AsistenteResponse response = preguntar("Lista las consultas médicas del paciente con DNI " + DNI_PRUEBA);
+
+    assertEquals("El paciente no tiene consultas médicas registradas.", response.getRespuesta());
+  }
+
+  @Test
+  void listadoAtendidasHoyDevuelveSoloDatosNecesarios() {
+    Consulta consulta = consulta(60, "ATENDIDO", LocalDateTime.now().minusDays(1));
+    consulta.setPaciente(paciente());
+    consulta.setFechaAtencion(LocalDateTime.now());
+    consulta.setEspecialidadRequerida("ESPECIALIDAD PRUEBA");
+    when(consultaRepository.findAtendidasPorFechaAtencion(eq("ATENDIDO"), any(), any())).thenReturn(List.of(consulta));
+
+    AsistenteResponse response = preguntar("Muéstrame las consultas médicas atendidas hoy");
+
+    assertEquals("CONSULTAS_MEDICAS_ATENDIDAS_HOY_LISTADO", response.getIntencion());
+    assertTrue(response.getRespuesta().startsWith("Consultas médicas atendidas el día de hoy:"));
+    assertTrue(response.getRespuesta().contains("Paciente: PACIENTE PRUEBA UNO DOS"));
+    assertTrue(response.getRespuesta().contains("Fecha de atención:"));
+    assertFalse(response.getRespuesta().contains("ID de consulta"));
+    assertFalse(response.getRespuesta().contains(DNI_PRUEBA));
+    verify(consultaRepository).findAtendidasPorFechaAtencion(eq("ATENDIDO"), any(), any());
+    verify(consultaRepository, never()).countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(any(), any(), any());
+  }
+
+  @Test
+  void listadoAtendidasHoyMantieneMensajeCuandoNoHayResultados() {
+    when(consultaRepository.findAtendidasPorFechaAtencion(eq("ATENDIDO"), any(), any())).thenReturn(List.of());
+
+    AsistenteResponse response = preguntar("Lista las consultas atendidas hoy");
+
+    assertEquals("CONSULTAS_MEDICAS_ATENDIDAS_HOY_LISTADO", response.getIntencion());
+    assertEquals("Actualmente no hay consultas médicas atendidas el día de hoy.", response.getRespuesta());
+  }
+
+  @Test
+  void conteoAtendidasHoyNoEjecutaElListado() {
+    when(consultaRepository.countByEstadoAndFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(eq("ATENDIDO"), any(), any())).thenReturn(2L);
+
+    AsistenteResponse response = preguntar("¿Cuántas consultas médicas se atendieron hoy?");
+
+    assertEquals("CONSULTAS_MEDICAS_ATENDIDAS", response.getIntencion());
+    assertEquals(2L, response.getDatos().get("cantidad"));
+    verify(consultaRepository, never()).findAtendidasPorFechaAtencion(any(), any(), any());
   }
 
   private Paciente prepararPacientePorDniConHistoria() {
