@@ -16,6 +16,9 @@ import { ImportacionPacientesChatComponent } from '@app/modules/paciente/compone
 import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-chat.service';
 
 describe('InterfazChatComponent', () => {
+  const DNI_PRUEBA = '0'.repeat(8);
+  const OTRO_DNI_PRUEBA = '1'.repeat(8);
+  const DNI_INEXISTENTE = '9'.repeat(8);
   let component: InterfazChatComponent;
   let fixture: ComponentFixture<InterfazChatComponent>;
   let asistenteService: jasmine.SpyObj<AsistenteService>;
@@ -30,8 +33,8 @@ describe('InterfazChatComponent', () => {
   let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
   let authServiceMock: any;
   const paciente = {
-    idPaciente: 8, dni: '01234567', numDocumento: '01234567', nombres: 'Andrea Lucía',
-    apellidos: 'Quispe Ramírez', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
+    idPaciente: 8, dni: DNI_PRUEBA, numDocumento: DNI_PRUEBA, nombres: 'NOMBRE PRUEBA',
+    apellidos: 'APELLIDO UNO APELLIDO DOS', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
   };
 
   beforeEach(async () => {
@@ -87,8 +90,12 @@ describe('InterfazChatComponent', () => {
   }
 
   function iniciarFlujoHistoriaClinica(): void {
-    const menuHistorias = abrirMenuHistorias();
-    const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear historia clínica');
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
+    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
+    const menuHistorias = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
+    const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear una historia clínica con el asistente');
     component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
   }
 
@@ -101,11 +108,19 @@ describe('InterfazChatComponent', () => {
   }
 
   function iniciarImportacion(): any {
-    const pacientes = abrirMenuPacientes();
-    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+    const pacientes = abrirMenuAsistenciaPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes desde Excel');
     component.selectHistoricalMenuOption(pacientes, opcion);
     fixture.detectChanges();
     return component.messages.find(mensaje => mensaje.type === 'patient-import')!;
+  }
+
+  function abrirMenuAsistenciaPacientes(): any {
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
+    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Pacientes')!);
+    return component.messages.find(mensaje => mensaje.menuId === 'asistencia-pacientes')!;
   }
 
   function enviarDni(dni: string): void {
@@ -118,7 +133,49 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[0]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'text' }));
     expect(component.messages[0].text).toContain('Hola, soy el Asistente IA');
     expect(component.messages[1]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'menu', menuId: 'principal' }));
-    expect(component.messages[1].options?.length).toBe(4);
+    expect(component.messages[1].options?.length).toBe(3);
+  });
+
+  it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
+    component.openChat();
+    fixture.detectChanges();
+
+    const botones = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('.quick-questions button'));
+    expect(botones.map(boton => boton.textContent?.trim())).toEqual([
+      'Menú principal',
+      '¿Qué preguntas puedo hacer?',
+      'Buscar paciente por DNI',
+      'Verificar historia clínica',
+      'Consultas médicas de un paciente'
+    ]);
+  });
+
+  it('debe mostrar exactamente las tres categorías de la nueva arquitectura', () => {
+    expect(component.messages[1].options?.map(opcion => opcion.label)).toEqual([
+      'Manejo del sistema', 'Consultar información', 'Asistencia guiada'
+    ]);
+    expect((component as any).menus['verificar']).toBeUndefined();
+    expect((component as any).menus['ayuda']).toBeUndefined();
+  });
+
+  it('debe ejecutar las verificaciones rápidas sin depender del menú verificar', () => {
+    const cantidadInicial = component.messages.length;
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    delete (component as any).menus['verificar'];
+
+    component.quickAsk('Verificar historia clínica');
+    component.quickAsk('Consultas médicas de un paciente');
+
+    const mensajesNuevos = component.messages.slice(cantidadInicial);
+    expect(mensajesNuevos.map(mensaje => mensaje.sender)).toEqual(['user', 'bot', 'user', 'bot']);
+    expect(mensajesNuevos[0].text).toBe('Verificar si un paciente tiene historia clínica');
+    expect(mensajesNuevos[1].text).toContain('Escribe el DNI o el nombre y los dos apellidos del paciente.');
+    expect(mensajesNuevos[2].text).toBe('Verificar consultas médicas de un paciente');
+    expect(mensajesNuevos[3].text).toContain('Escribe el DNI o el nombre y los dos apellidos del paciente.');
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[0].text).length).toBe(1);
+    expect(component.messages.filter(mensaje => mensaje.text === mensajesNuevos[2].text).length).toBe(1);
+    expect(scrollSpy.calls.allArgs()).toEqual([[mensajesNuevos[0].id], [mensajesNuevos[2].id]]);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
@@ -259,7 +316,7 @@ describe('InterfazChatComponent', () => {
 
   it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-success-1', type: 'prefill-success', createdAt: Date.now() };
@@ -276,7 +333,7 @@ describe('InterfazChatComponent', () => {
     const principal = component.messages.at(-1)!;
     expect(principal.menuId).toBe('principal');
     expect(principal.options?.map(option => option.label)).toEqual([
-      'Manejo del sistema', 'Consultar información', 'Verificar datos', 'Soporte y ayuda'
+      'Manejo del sistema', 'Consultar información', 'Asistencia guiada'
     ]);
     expect(fixture.nativeElement.querySelector('.continue-action')).toBeNull();
     expect(fixture.nativeElement.querySelector('.cancel-action')).toBeNull();
@@ -298,7 +355,7 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(message => message.text === 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.')).toBeTrue();
     expect(component.messages.some(message => message.text === '¿Necesitas ayuda con algo más?')).toBeTrue();
     expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
-    expect(component.messages.at(-1)?.options?.length).toBe(4);
+    expect(component.messages.at(-1)?.options?.length).toBe(3);
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(scrollBottomSpy).not.toHaveBeenCalled();
@@ -382,19 +439,25 @@ describe('InterfazChatComponent', () => {
   it('debe mostrar localmente las instrucciones de una opción prompt', () => {
     component.quickAsk('Buscar paciente por DNI');
 
-    expect(component.messages.at(-1)?.text).toContain('DNI de 8 dígitos');
+    expect(component.messages.at(-1)?.text).toContain('DNI del paciente');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
-  it('debe mostrar Crear historia clínica en el menú de historias', () => {
+  it('debe dejar en Historias clínicas solo las consultas informativas requeridas', () => {
     const menuHistorias = abrirMenuHistorias();
 
-    expect(menuHistorias.options.some((opcion: any) => opcion.label === 'Crear historia clínica')).toBeTrue();
+    expect(menuHistorias.options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cuántas historias clínicas hay registradas?',
+      'Buscar si un paciente tiene historia clínica',
+      'Historias clínicas creadas hoy',
+      'Detectar historias clínicas duplicadas'
+    ]);
+    expect(menuHistorias.options.find((opcion: any) => opcion.label === 'Detectar historias clínicas duplicadas')?.description).toBeUndefined();
   });
 
-  it('debe mostrar e iniciar el registro masivo desde Pacientes sin usar Botpress', () => {
-    const pacientes = abrirMenuPacientes();
-    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes de forma masiva');
+  it('debe mostrar e iniciar el registro desde Excel en Asistencia guiada sin usar Botpress', () => {
+    const pacientes = abrirMenuAsistenciaPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes desde Excel');
     expect(opcion).toBeTruthy();
 
     component.selectHistoricalMenuOption(pacientes, opcion);
@@ -455,7 +518,7 @@ describe('InterfazChatComponent', () => {
     importacionService.validarArchivo.and.returnValue(of({
       importacionId: 'preview-1', estado: 'PREVISUALIZADA', expiraEn: new Date(Date.now() + 60000).toISOString(),
       resumen: { registrosAnalizados: 1, validos: 1, conErrores: 0, filasConDniDuplicado: 0, gruposDniDuplicados: 0, dniExistentes: 0, conAdvertencias: 0, filasVaciasIgnoradas: 0 },
-      filas: [{ numeroFila: 2, nombreCompleto: 'Ana Pérez', dni: '01234567', estado: 'VALIDO', paciente: {}, antecedentes: {}, errores: [], advertencias: [] }]
+      filas: [{ numeroFila: 2, nombreCompleto: 'PACIENTE DE PRUEBA', dni: DNI_PRUEBA, estado: 'VALIDO', paciente: {}, antecedentes: {}, errores: [], advertencias: [] }]
     } as any));
     activa = component.importacionComponents.last;
     activa.analizarArchivo();
@@ -540,14 +603,65 @@ describe('InterfazChatComponent', () => {
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
-  it('debe conservar todas las opciones anteriores del menú Pacientes', () => {
+  it('debe mostrar solo las consultas informativas requeridas sobre pacientes', () => {
     const etiquetas = abrirMenuPacientes().options.map((opcion: any) => opcion.label);
-    expect(etiquetas).toContain('¿Cuántos pacientes hay registrados?');
-    expect(etiquetas).toContain('Muéstrame los últimos pacientes registrados');
-    expect(etiquetas).toContain('Buscar paciente por DNI');
-    expect(etiquetas).toContain('Buscar paciente por nombre');
-    expect(etiquetas).toContain('Consulta el paciente por ID');
-    expect(etiquetas).toContain('¿Cuál es la edad promedio de los pacientes?');
+    expect(etiquetas).toEqual([
+      '¿Cuántos pacientes hay registrados?',
+      'Muéstrame los últimos pacientes registrados',
+      'Buscar paciente por DNI',
+      'Buscar paciente por nombre',
+      '¿Cuál es la edad promedio de los pacientes?',
+      'Detectar posibles pacientes duplicados'
+    ]);
+    expect(etiquetas).not.toContain('Registrar pacientes desde Excel');
+    expect(etiquetas).not.toContain('Gestionar y eliminar pacientes duplicados');
+  });
+
+  it('debe mostrar solo las consultas médicas informativas requeridas', () => {
+    const menus = (component as any).menus;
+    expect(menus['consultas'].options.map((opcion: any) => opcion.label)).toEqual([
+      '¿Cuántas consultas médicas hay registradas?',
+      'Buscar si un paciente tiene consultas médicas',
+      '¿Cuál fue la última consulta médica de un paciente?',
+      '¿Tiene consultas médicas pendientes?',
+      'Consultas médicas atendidas hoy'
+    ]);
+  });
+
+  it('debe mostrar las dos subsecciones de Asistencia guiada y conservar el historial y scroll', () => {
+    const principal = component.messages[1];
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+
+    const asistencia = component.messages.at(-1)!;
+    expect(component.messages.at(-2)?.text).toBe('¿Qué proceso deseas realizar con ayuda del asistente? Selecciona una opción o escribe tu solicitud.');
+    expect(asistencia.menuId).toBe('asistencia');
+    expect(asistencia.options?.map(opcion => opcion.label)).toEqual(['Pacientes', 'Historias clínicas']);
+    expect(component.messages).toContain(principal);
+    expect(principal.options?.some(opcion => opcion.label === 'Asistencia guiada')).toBeFalse();
+    expect(scrollSpy).toHaveBeenCalledOnceWith(jasmine.any(String));
+  });
+
+  it('debe conservar los tipos especializados de las acciones trasladadas', () => {
+    const menus = (component as any).menus;
+    expect(menus['asistencia-pacientes'].options).toEqual([
+      jasmine.objectContaining({ label: 'Registrar pacientes desde Excel', action: 'patient-import-flow' }),
+      jasmine.objectContaining({ label: 'Gestionar y eliminar pacientes duplicados', action: 'patient-duplicate-flow' })
+    ]);
+    expect(menus['asistencia-historias'].options).toEqual([
+      jasmine.objectContaining({ label: 'Crear una historia clínica con el asistente', action: 'clinical-history-flow' })
+    ]);
+    expect(menus['pacientes'].options).toContain(jasmine.objectContaining({
+      label: 'Detectar posibles pacientes duplicados', action: 'request'
+    }));
+  });
+
+  it('no debe contener datos personales de ejemplo en los textos configurados del frontend', () => {
+    const textosMenus = JSON.stringify((component as any).menus);
+    expect(textosMenus).not.toMatch(/\b\d{8}\b/);
+    expect(textosMenus).not.toMatch(/\bID\s+\d+\b/i);
+    expect(textosMenus).toContain('(PONER DNI)');
+    expect(textosMenus).toContain('(AGREGAR NOMBRE Y DOS APELLIDOS)');
   });
 
   it('debe iniciar localmente el flujo y solicitar el DNI sin consultar al asistente', () => {
@@ -565,9 +679,9 @@ describe('InterfazChatComponent', () => {
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
 
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
-    const dniMessage = component.messages.find(message => message.sender === 'user' && message.text === '01234567')!;
+    const dniMessage = component.messages.find(message => message.sender === 'user' && message.text === DNI_PRUEBA)!;
     expect(scrollNewBlockSpy).toHaveBeenCalledOnceWith(dniMessage.id);
     expect(scrollBottomSpy).not.toHaveBeenCalled();
     expect(component.messages.at(-1)?.text).toContain('Paciente encontrado:');
@@ -575,9 +689,9 @@ describe('InterfazChatComponent', () => {
 
   [
     { name: 'inválido', configure: () => undefined, dni: '12A45678' },
-    { name: 'inexistente', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([])), dni: '01234567' },
-    { name: 'duplicado', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }])), dni: '01234567' },
-    { name: 'con error HTTP', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(throwError(() => new Error('error HTTP'))), dni: '01234567' }
+    { name: 'inexistente', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([])), dni: DNI_PRUEBA },
+    { name: 'duplicado', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }])), dni: DNI_PRUEBA },
+    { name: 'con error HTTP', configure: () => historiaClinicaService.buscarPacientesPorDni.and.returnValue(throwError(() => new Error('error HTTP'))), dni: DNI_PRUEBA }
   ].forEach(testCase => {
     it(`no debe forzar el scroll final para un DNI ${testCase.name}`, () => {
       iniciarFlujoHistoriaClinica();
@@ -593,7 +707,7 @@ describe('InterfazChatComponent', () => {
     });
   });
 
-  ['', '12A45678', '1234567', '123456789'].forEach(dni => {
+  ['', '12A45678', '1234567', '(PONER DNI)9'].forEach(dni => {
     it(`debe rechazar el DNI inválido ${dni || 'vacío'} sin consultar servicios`, () => {
       iniciarFlujoHistoriaClinica();
       enviarDni(dni);
@@ -607,19 +721,19 @@ describe('InterfazChatComponent', () => {
 
   it('debe recortar espacios, conservar el cero inicial y buscar una sola vez', () => {
     iniciarFlujoHistoriaClinica();
-    enviarDni('  01234567  ');
+    enviarDni('  (PONER DNI)  ');
 
-    expect(historiaClinicaService.buscarPacientesPorDni).toHaveBeenCalledOnceWith('01234567');
+    expect(historiaClinicaService.buscarPacientesPorDni).toHaveBeenCalledOnceWith(DNI_PRUEBA);
     expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
-    expect((component.clinicalHistoryFlow as any).dni).toBe('01234567');
+    expect((component.clinicalHistoryFlow as any).dni).toBe(DNI_PRUEBA);
     expect(typeof (component.clinicalHistoryFlow as any).dni).toBe('string');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
 
   it('debe aceptar solo coincidencias defensivas exactas y permitir reintentar cuando no existen', () => {
-    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([{ ...paciente, dni: '99999999', numDocumento: '99999999' }]));
+    historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([{ ...paciente, dni: DNI_INEXISTENTE, numDocumento: DNI_INEXISTENTE }]));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
     expect(component.messages.at(-1)?.text).toBe('No existe un paciente registrado con el DNI indicado.');
@@ -627,7 +741,7 @@ describe('InterfazChatComponent', () => {
     expect(historiaClinicaService.getByPaciente).not.toHaveBeenCalled();
 
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     expect(historiaClinicaService.buscarPacientesPorDni).toHaveBeenCalledTimes(2);
     expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
   });
@@ -635,7 +749,7 @@ describe('InterfazChatComponent', () => {
   it('debe mantener la captura activa ante varios pacientes sin seleccionar el primero', () => {
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }]));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
     expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('idPaciente');
@@ -648,21 +762,21 @@ describe('InterfazChatComponent', () => {
   });
 
   it('debe permitir buscar otro DNI después del conflicto sin enviarlo al asistente', () => {
-    const segundoPaciente = { ...paciente, idPaciente: 10, dni: '87654321', numDocumento: '87654321' };
-    historiaClinicaService.buscarPacientesPorDni.and.callFake(dni => dni === '01234567'
+    const segundoPaciente = { ...paciente, idPaciente: 10, dni: OTRO_DNI_PRUEBA, numDocumento: OTRO_DNI_PRUEBA };
+    historiaClinicaService.buscarPacientesPorDni.and.callFake(dni => dni === DNI_PRUEBA
       ? of([paciente, { ...paciente, idPaciente: 9 }])
       : of([segundoPaciente]));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
-    enviarDni('87654321');
+    enviarDni(OTRO_DNI_PRUEBA);
 
-    expect(historiaClinicaService.buscarPacientesPorDni.calls.allArgs()).toEqual([['01234567'], ['87654321']]);
+    expect(historiaClinicaService.buscarPacientesPorDni.calls.allArgs()).toEqual([[DNI_PRUEBA], [OTRO_DNI_PRUEBA]]);
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(antecedentesService.getByPacienteId).toHaveBeenCalledOnceWith(10);
     expect(historiaClinicaService.getByPaciente).toHaveBeenCalledOnceWith(10);
     expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
-    expect((component.clinicalHistoryFlow as any).dni).toBe('87654321');
+    expect((component.clinicalHistoryFlow as any).dni).toBe(OTRO_DNI_PRUEBA);
 
     component.cancelClinicalHistoryFlow();
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
@@ -670,7 +784,7 @@ describe('InterfazChatComponent', () => {
 
   it('debe consultar en paralelo antecedentes e historias para un paciente único', () => {
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(antecedentesService.getByPacienteId).toHaveBeenCalledOnceWith(8);
     expect(historiaClinicaService.getByPaciente).toHaveBeenCalledOnceWith(8);
@@ -679,7 +793,7 @@ describe('InterfazChatComponent', () => {
 
   it('debe representar antecedentes inexistentes con null sin inventar datos', () => {
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     const prefill = (component.clinicalHistoryFlow as any).prefill;
     expect(prefill.enfermedadesPrevias).toBeNull();
@@ -690,11 +804,11 @@ describe('InterfazChatComponent', () => {
   it('debe mostrar cero historias, el resumen limitado y los botones estructurados', () => {
     antecedentesService.getByPacienteId.and.returnValue(of({ enfermedadesPrevias: 'Asma severa', cirugiasPrevias: 'Apendicectomía', alergiaMedicamentos: 'Penicilina' }));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     fixture.detectChanges();
     const resumen = component.messages.at(-1)?.text ?? '';
 
-    expect(resumen).toContain('Nombre: Andrea Lucía Quispe Ramírez');
+    expect(resumen).toContain('Nombre: NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS');
     expect(resumen).toContain('Fecha de nacimiento: 01/01/1992');
     expect(resumen).toContain('Estado civil: Soltero(a)');
     expect(resumen).toContain('Historias clínicas existentes: 0');
@@ -708,7 +822,7 @@ describe('InterfazChatComponent', () => {
   it('debe mostrar la cantidad de varias historias existentes', () => {
     historiaClinicaService.getByPaciente.and.returnValue(of([{ idHistoriaClinica: 1 }, { idHistoriaClinica: 2 }, { idHistoriaClinica: 3 }]));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.messages.at(-1)?.text).toContain('Historias clínicas existentes: 3');
   });
@@ -725,7 +839,7 @@ describe('InterfazChatComponent', () => {
   it('debe crear una transferencia y navegar con state mínimo al continuar', fakeAsync(() => {
     const createTransferSpy = spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
 
@@ -736,7 +850,7 @@ describe('InterfazChatComponent', () => {
     expect(createTransferSpy).toHaveBeenCalledTimes(1);
     const candidate = createTransferSpy.calls.mostRecent().args[0];
     expect(candidate).toEqual(jasmine.objectContaining({
-      idPaciente: 8, dni: '01234567', nombres: 'Andrea Lucía', apellidos: 'Quispe Ramírez',
+      idPaciente: 8, dni: DNI_PRUEBA, nombres: 'NOMBRE PRUEBA', apellidos: 'APELLIDO UNO APELLIDO DOS',
       fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
     }));
     expect(candidate as any).not.toEqual(jasmine.objectContaining({ nombreCompleto: jasmine.anything(), existingClinicalHistoryCount: jasmine.anything() }));
@@ -745,7 +859,7 @@ describe('InterfazChatComponent', () => {
       { state: { source: 'chatbot', transferId } }
     );
     const navigation = router.navigate.calls.mostRecent().args;
-    expect(JSON.stringify(navigation)).not.toContain('01234567');
+    expect(JSON.stringify(navigation)).not.toContain(DNI_PRUEBA);
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(historiaClinicaService.insert).not.toHaveBeenCalled();
     expect(historiaClinicaService.update).not.toHaveBeenCalled();
@@ -763,7 +877,7 @@ describe('InterfazChatComponent', () => {
     router.navigate.and.returnValue(Promise.resolve(false));
     spyOn(transferService, 'revokeTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     component.continueClinicalHistoryFlow();
     const transferId = (component.clinicalHistoryFlow as any).transferId;
@@ -772,20 +886,20 @@ describe('InterfazChatComponent', () => {
     expect(transferService.revokeTransfer).toHaveBeenCalledOnceWith(transferId);
     expect(transferService.peekTransfer(transferId)).toBeNull();
     expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
-    expect((component.clinicalHistoryFlow as any).dni).toBe('01234567');
+    expect((component.clinicalHistoryFlow as any).dni).toBe(DNI_PRUEBA);
     expect(component.messages.at(-1)?.text).toBe('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
   }));
 
   it('debe cancelar y limpiar todos los datos temporales conservando el historial', () => {
     spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     const mensajesAntes = component.messages.length;
 
     component.cancelClinicalHistoryFlow();
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
-    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain('01234567');
+    expect(JSON.stringify(component.clinicalHistoryFlow)).not.toContain(DNI_PRUEBA);
     expect(component.messages.length).toBe(mensajesAntes + 2);
     expect(component.messages.at(-1)?.text).toBe('La creación de la historia clínica fue cancelada.');
     expect(transferService.createTransfer).not.toHaveBeenCalled();
@@ -794,7 +908,7 @@ describe('InterfazChatComponent', () => {
   it('debe limpiar el flujo al volver al Menú principal', () => {
     spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     component.quickAsk('Menú principal');
 
@@ -806,7 +920,7 @@ describe('InterfazChatComponent', () => {
   it('debe recuperarse de un error al buscar el paciente', () => {
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(throwError(() => new Error('falló búsqueda')));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
     expect(component.messages.at(-1)?.text).toBe('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
@@ -816,7 +930,7 @@ describe('InterfazChatComponent', () => {
   it('debe recuperarse si falla la consulta de antecedentes o historias', () => {
     antecedentesService.getByPacienteId.and.returnValue(throwError(() => new Error('falló antecedentes')));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
     expect(component.messages.at(-1)?.text).toContain('No se pudo consultar la información');
@@ -826,7 +940,7 @@ describe('InterfazChatComponent', () => {
   it('debe recuperarse si falla específicamente la consulta de historias', () => {
     historiaClinicaService.getByPaciente.and.returnValue(throwError(() => new Error('falló historias')));
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
     expect(component.messages.at(-1)?.text).toBe('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
@@ -897,7 +1011,7 @@ describe('InterfazChatComponent', () => {
   it('debe conservar awaitingConfirmation y sus datos al minimizar y reabrir', () => {
     component.openChat();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     component.minimizeChat();
     component.openChat();
@@ -925,7 +1039,7 @@ describe('InterfazChatComponent', () => {
     const busquedaPendiente = new Subject<any[]>();
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
     expect(busquedaPendiente.observed).toBeTrue();
 
     component.closeChat();
@@ -941,7 +1055,7 @@ describe('InterfazChatComponent', () => {
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     component.openChat();
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     logoutSubject.next();
 
@@ -957,7 +1071,7 @@ describe('InterfazChatComponent', () => {
     const busquedaPendiente = new Subject<any[]>();
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(busquedaPendiente);
     iniciarFlujoHistoriaClinica();
-    enviarDni('01234567');
+    enviarDni(DNI_PRUEBA);
 
     component.cancelClinicalHistoryFlow();
 
@@ -966,21 +1080,21 @@ describe('InterfazChatComponent', () => {
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
   });
 
-  it('debe mostrar Gestionar paciente duplicado para administrador y enfermería', () => {
-    expect(abrirMenuPacientes().options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeTrue();
+  it('debe mostrar la gestión guiada de duplicados para administrador y enfermería', () => {
+    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeTrue();
 
     fixture.destroy();
     authServiceMock.usuario.cargo = ' ENFERMERA(O) ';
     fixture = TestBed.createComponent(InterfazChatComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    expect(abrirMenuPacientes().options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeTrue();
+    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeTrue();
   });
 
   it('debe ocultar la opción al doctor y rechazar también la intención escrita', () => {
     authServiceMock.usuario.cargo = 'MÉDICO';
-    const pacientes = abrirMenuPacientes();
-    expect(pacientes.options.some((opcion: any) => opcion.label === 'Gestionar paciente duplicado')).toBeFalse();
+    const pacientes = abrirMenuAsistenciaPacientes();
+    expect(pacientes.options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeFalse();
 
     component.userMessage = 'Quiero eliminar un paciente duplicado';
     component.sendMessage();
@@ -1022,7 +1136,7 @@ describe('InterfazChatComponent', () => {
     it(`debe enviar al backend la consulta general de duplicados: ${frase}`, () => {
       asistenteService.preguntar.and.returnValue(of({
         intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
-        respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: 01234567 ID: 2 DNI: 01234567',
+        respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: (PONER DNI) ID: 2 DNI: (PONER DNI)',
         datos: { cantidad: 2, resultados: [] }
       } as any));
 
@@ -1043,14 +1157,14 @@ describe('InterfazChatComponent', () => {
     'Revisa la duplicidad de historias clínicas',
     'Detecta historias clínicas duplicadas',
     'Busca pacientes con más de una historia clínica',
-    '¿El DNI 01234567 tiene historias clínicas duplicadas?',
-    'Busca historias repetidas del DNI 01234567',
-    'Verifica historias clínicas del paciente con DNI 01234567'
+    '¿El DNI (PONER DNI) tiene historias clínicas duplicadas?',
+    'Busca historias repetidas del DNI (PONER DNI)',
+    'Verifica historias clínicas del paciente con DNI (PONER DNI)'
   ].forEach(frase => {
     it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, () => {
       asistenteService.preguntar.and.returnValue(of({
         intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
-        respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI 01234567.\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
+        respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI (PONER DNI).\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
         datos: { hayDuplicados: true, duplicados: [] }
       } as any));
 
@@ -1075,10 +1189,10 @@ describe('InterfazChatComponent', () => {
     },
     {
       nombre: 'pacientes duplicados por DNI',
-      pregunta: 'Busca pacientes duplicados con DNI 01234567',
+      pregunta: 'Busca pacientes duplicados con DNI (PONER DNI)',
       intencion: 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE',
       datos: { tipoBusqueda: 'DNI', resultados: [{}, {}] },
-      respuesta: 'Se encontraron posibles pacientes duplicados para el DNI 01234567:\n\nID paciente: 1\n\nID paciente: 2'
+      respuesta: 'Se encontraron posibles pacientes duplicados para el DNI (PONER DNI):\n\nID paciente: 1\n\nID paciente: 2'
     },
     {
       nombre: 'historias clínicas duplicadas generales',
@@ -1089,10 +1203,10 @@ describe('InterfazChatComponent', () => {
     },
     {
       nombre: 'historias clínicas duplicadas por DNI',
-      pregunta: '¿El DNI 01234567 tiene historias clínicas duplicadas?',
+      pregunta: '¿El DNI (PONER DNI) tiene historias clínicas duplicadas?',
       intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
-      datos: { hayDuplicados: true, dniConsultado: '01234567', duplicados: [{}] },
-      respuesta: 'Se encontraron posibles historias clínicas duplicadas para el DNI 01234567:\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
+      datos: { hayDuplicados: true, dniConsultado: DNI_PRUEBA, duplicados: [{}] },
+      respuesta: 'Se encontraron posibles historias clínicas duplicadas para el DNI (PONER DNI):\n\nID historia clínica: 12\n\nRecomendación: conservar ID 12'
     }
   ].forEach(caso => {
     it(`debe anclar el inicio del resultado sin saltar al final para ${caso.nombre}`, () => {
@@ -1150,18 +1264,18 @@ describe('InterfazChatComponent', () => {
   });
 
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {
-    const pacientes = abrirMenuPacientes();
-    const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar paciente duplicado');
+    const pacientes = abrirMenuAsistenciaPacientes();
+    const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar y eliminar pacientes duplicados');
     component.selectHistoricalMenuOption(pacientes, opcion);
     fixture.detectChanges();
     expect(component.gestionDuplicadosActiva).toBeTrue();
-    expect(component.messages.some(mensaje => mensaje.menuId === 'pacientes')).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.menuId === 'asistencia-pacientes')).toBeTrue();
 
     component.cancelarGestionDuplicados();
     fixture.detectChanges();
 
     expect(component.gestionDuplicadosActiva).toBeFalse();
-    expect(component.messages.at(-1)?.menuId).toBe('pacientes');
+    expect(component.messages.at(-1)?.menuId).toBe('asistencia-pacientes');
   });
 
   it('debe limpiar la contraseña al minimizar y todo el flujo al cerrar', () => {
@@ -1189,20 +1303,20 @@ describe('InterfazChatComponent', () => {
     const scrollBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const tarjeta = component.gestionDuplicadosComponents.last;
 
-    tarjeta.dniInput = '01234567';
+    tarjeta.dniInput = DNI_PRUEBA;
     tarjeta.consultarDni();
     fixture.detectChanges();
 
     const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
-    const dniIndexAntes = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const dniIndexAntes = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     expect(solicitudIndex).toBeLessThan(dniIndexAntes);
-    expect(duplicadosService.analizar).toHaveBeenCalledOnceWith('01234567');
+    expect(duplicadosService.analizar).toHaveBeenCalledOnceWith(DNI_PRUEBA);
 
     respuestaPendiente.next({
-      dni: '01234567', cantidadPacientesActivos: 2, esDuplicado: true,
+      dni: DNI_PRUEBA, cantidadPacientesActivos: 2, esDuplicado: true,
       pacientes: [
-        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadCamposPersonalesCompletos: 8, tieneInformacionClinicaRelevante: true },
-        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: '01234567', estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadCamposPersonalesCompletos: 5, tieneInformacionClinicaRelevante: false }
+        { idPaciente: 10, nombreCompleto: 'Paciente principal', dni: DNI_PRUEBA, estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2, cantidadCamposPersonalesCompletos: 8, tieneInformacionClinicaRelevante: true },
+        { idPaciente: 13, nombreCompleto: 'Paciente duplicado', dni: DNI_PRUEBA, estadoRegistro: 'ACTIVO', cantidadHistoriasClinicas: 0, cantidadConsultas: 0, cantidadCamposPersonalesCompletos: 5, tieneInformacionClinicaRelevante: false }
       ],
       idPacienteRecomendado: 10, razonesRecomendacion: ['Tiene 2 consultas registradas'],
       permitirArchivadoSimple: true, requiereRevision: false, resultado: 'DUPLICADOS_ENCONTRADOS',
@@ -1211,7 +1325,7 @@ describe('InterfazChatComponent', () => {
     respuestaPendiente.complete();
     fixture.detectChanges();
 
-    const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
     const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
     const mensajeResultado = component.messages[resultadoIndex];
@@ -1226,7 +1340,7 @@ describe('InterfazChatComponent', () => {
 
   it('debe conservar el orden solicitud, DNI y mensaje cuando solo existe un paciente', () => {
     duplicadosService.analizar.and.returnValue(of({
-      dni: '01234567', cantidadPacientesActivos: 1, esDuplicado: false, pacientes: [],
+      dni: DNI_PRUEBA, cantidadPacientesActivos: 1, esDuplicado: false, pacientes: [],
       razonesRecomendacion: [], permitirArchivadoSimple: false, requiereRevision: false,
       resultado: 'SIN_DUPLICADOS', mensaje: 'El DNI corresponde a un único paciente activo.'
     } as any));
@@ -1234,15 +1348,15 @@ describe('InterfazChatComponent', () => {
     component.sendMessage();
     fixture.detectChanges();
     const tarjeta = component.gestionDuplicadosComponents.last;
-    tarjeta.dniInput = '01234567';
+    tarjeta.dniInput = DNI_PRUEBA;
     tarjeta.consultarDni();
     fixture.detectChanges();
 
     const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
-    const dniIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567');
+    const dniIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Solo existe un paciente activo con ese DNI. No hay duplicados para gestionar.');
     expect(solicitudIndex).toBeLessThan(dniIndex);
     expect(dniIndex).toBeLessThan(resultadoIndex);
-    expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === '01234567').length).toBe(1);
+    expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA).length).toBe(1);
   });
 });
