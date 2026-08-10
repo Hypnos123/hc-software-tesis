@@ -8,6 +8,7 @@ import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 import com.krivi.apihistorialmedico.model.api.BusquedaHistoriasClinicasResponse;
 import com.krivi.apihistorialmedico.model.api.EstadisticasHistoriasClinicasResponse;
 import com.krivi.apihistorialmedico.model.api.DuplicadosHistoriasClinicasResponse;
+import com.krivi.apihistorialmedico.model.api.HistoriasClinicasFaltantesPreviewResponse;
 
 public interface HistoriaClinicaService {
   ResponseModelGet<HistoriaClinicaResponse> getAll();
@@ -19,4 +20,5 @@ public interface HistoriaClinicaService {
   EstadisticasHistoriasClinicasResponse obtenerEstadisticasParaIntegracion();
   DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion();
   DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion(String dni);
+  HistoriasClinicasFaltantesPreviewResponse obtenerHistoriasClinicasFaltantes();
 }
