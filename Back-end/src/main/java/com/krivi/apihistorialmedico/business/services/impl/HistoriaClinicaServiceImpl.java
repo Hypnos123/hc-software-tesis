@@ -10,7 +10,10 @@ import com.krivi.apihistorialmedico.util.Constant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -85,6 +88,54 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     String dniNormalizado = dni.trim();
     if (!DNI_PATTERN.matcher(dniNormalizado).matches()) return "No registrado";
     return "******" + dniNormalizado.substring(dniNormalizado.length() - 2);
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public CreacionHistoriaClinicaFaltanteResponse crearHistoriaClinicaSiFalta(Integer idPaciente) {
+    if (idPaciente == null) {
+      return resultadoCreacionFaltante(null, EstadoCreacionHistoriaClinicaFaltante.PACIENTE_NO_ENCONTRADO, null);
+    }
+
+    Optional<Paciente> pacienteEncontrado = pacienteRepository.findById(idPaciente);
+    if (pacienteEncontrado.isEmpty()) {
+      return resultadoCreacionFaltante(idPaciente, EstadoCreacionHistoriaClinicaFaltante.PACIENTE_NO_ENCONTRADO, null);
+    }
+
+    Paciente paciente = pacienteEncontrado.get();
+    if (paciente.getEstadoRegistro() != EstadoRegistroPaciente.ACTIVO) {
+      return resultadoCreacionFaltante(idPaciente, EstadoCreacionHistoriaClinicaFaltante.PACIENTE_INACTIVO, null);
+    }
+
+    if (historiaClinicaRepository.existsByPacienteIdPaciente(idPaciente)) {
+      return resultadoCreacionFaltante(idPaciente, EstadoCreacionHistoriaClinicaFaltante.OMITIDA_YA_TIENE_HISTORIA, null);
+    }
+
+    try {
+      HistoriaClinica historia = new HistoriaClinica();
+      historia.setPaciente(paciente);
+      HistoriaClinica guardada = historiaClinicaRepository.save(historia);
+      return resultadoCreacionFaltante(idPaciente, EstadoCreacionHistoriaClinicaFaltante.CREADA,
+          guardada.getIdHistoriaClinica());
+    } catch (RuntimeException exception) {
+      marcarRollbackSiHayTransaccionActiva();
+      return resultadoCreacionFaltante(idPaciente, EstadoCreacionHistoriaClinicaFaltante.ERROR, null);
+    }
+  }
+
+  private void marcarRollbackSiHayTransaccionActiva() {
+    if (TransactionSynchronizationManager.isActualTransactionActive()) {
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+    }
+  }
+
+  private CreacionHistoriaClinicaFaltanteResponse resultadoCreacionFaltante(Integer idPaciente,
+      EstadoCreacionHistoriaClinicaFaltante estado, Integer idHistoriaClinica) {
+    return CreacionHistoriaClinicaFaltanteResponse.builder()
+        .idPaciente(idPaciente)
+        .estado(estado)
+        .idHistoriaClinica(idHistoriaClinica)
+        .build();
   }
 
   @Transactional

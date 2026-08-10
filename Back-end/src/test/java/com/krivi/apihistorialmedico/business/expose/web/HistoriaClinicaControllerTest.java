@@ -3,11 +3,13 @@ package com.krivi.apihistorialmedico.business.expose.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.krivi.apihistorialmedico.business.exception.CreacionHistoriaClinicaException;
 import com.krivi.apihistorialmedico.business.services.HistoriaClinicaService;
+import com.krivi.apihistorialmedico.business.services.HistoriaClinicaFaltanteMasivaService;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaRequest;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaUpdateRequest;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
 import com.krivi.apihistorialmedico.model.api.HistoriasClinicasFaltantesPreviewResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteSinHistoriaClinicaResponse;
+import com.krivi.apihistorialmedico.model.api.CrearHistoriasClinicasFaltantesResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -30,14 +32,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class HistoriaClinicaControllerTest {
   private HistoriaClinicaService service;
+  private HistoriaClinicaFaltanteMasivaService servicioMasivo;
   private MockMvc mockMvc;
   private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
   @BeforeEach
   void setUp() {
     service = mock(HistoriaClinicaService.class);
+    servicioMasivo = mock(HistoriaClinicaFaltanteMasivaService.class);
     HistoriaClinicaController controller = new HistoriaClinicaController();
     controller.historiaClinicaService = service;
+    controller.historiaClinicaFaltanteMasivaService = servicioMasivo;
     mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
   }
 
@@ -71,6 +76,23 @@ class HistoriaClinicaControllerTest {
         .andExpect(jsonPath("$.pacientes[0].nombreCompleto").value("Paciente de prueba"))
         .andExpect(jsonPath("$.pacientes[0].dniEnmascarado").value("******42"))
         .andExpect(jsonPath("$.pacientes[0].dni").doesNotExist());
+  }
+
+  @Test
+  void procesaCreacionMasivaDesdeLosIdsConfirmados() throws Exception {
+    CrearHistoriasClinicasFaltantesResponse response = CrearHistoriasClinicasFaltantesResponse.builder()
+        .totalSolicitados(3).totalProcesados(2).creadas(1).omitidas(1)
+        .noEncontrados(0).inactivos(0).errores(0).resultados(List.of()).build();
+    when(servicioMasivo.crearHistoriasClinicasFaltantes(List.of(10, 10, 20))).thenReturn(response);
+
+    mockMvc.perform(post("/historiaClinica/faltantes/crear")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"idsPacientes\":[10,10,20]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalSolicitados").value(3))
+        .andExpect(jsonPath("$.totalProcesados").value(2))
+        .andExpect(jsonPath("$.creadas").value(1))
+        .andExpect(jsonPath("$.omitidas").value(1));
   }
 
   @Test
