@@ -20,6 +20,19 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
 
   List<Paciente> findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente estadoRegistro);
 
+  @Query("""
+      select p
+        from Paciente p
+       where p.estadoRegistro = :estado
+         and not exists (
+           select h.idHistoriaClinica
+             from HistoriaClinica h
+            where h.paciente.idPaciente = p.idPaciente
+         )
+       order by p.idPaciente
+      """)
+  List<Paciente> findByEstadoRegistroAndSinHistoriaClinica(@Param("estado") EstadoRegistroPaciente estado);
+
   @Query(value = "SELECT * FROM paciente p WHERE p.estadoregistro = 'ACTIVO' AND (LOWER(CONCAT(p.apellidos, ' ', p.nombres)) LIKE LOWER(CONCAT('%', :term, '%')) OR LOWER(CONCAT(p.nombres, ' ', p.apellidos)) LIKE LOWER(CONCAT('%', :term, '%'))) LIMIT :limit", nativeQuery = true)
   List<Paciente> searchByNombre(@Param("term") String term, @Param("limit") int limit);
 

@@ -11,6 +11,10 @@ import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaRequest;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaUpdateRequest;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
+import com.krivi.apihistorialmedico.model.api.HistoriasClinicasFaltantesPreviewResponse;
+import com.krivi.apihistorialmedico.model.api.CreacionHistoriaClinicaFaltanteResponse;
+import com.krivi.apihistorialmedico.model.api.EstadoCreacionHistoriaClinicaFaltante;
+import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -21,11 +25,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +49,179 @@ class HistoriaClinicaServiceImplTest {
   @Mock private AntecedentesRepository antecedentesRepository;
   @Mock private ConsultaRepository consultaRepository;
   @InjectMocks private HistoriaClinicaServiceImpl historiaClinicaService;
+
+  @Test
+  void previewDevuelveVacioCuandoNoHayPacientesPendientesSinGuardarEntidades() {
+    when(pacienteRepository.findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of());
+
+    HistoriasClinicasFaltantesPreviewResponse response =
+        historiaClinicaService.obtenerHistoriasClinicasFaltantes();
+
+    assertEquals(0, response.getCantidad());
+    assertTrue(response.getPacientes().isEmpty());
+    verify(pacienteRepository).findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO);
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+  }
+
+  @Test
+  void previewMapeaTodosLosPendientesEnOrdenConDatosMinimosYSeguros() {
+    Paciente primero = paciente(3, "  Ana María ", " Pérez ", "12345678");
+    Paciente segundo = paciente(7, null, "  ", null);
+    Paciente tercero = paciente(11, "Luis", null, "12A4");
+    when(pacienteRepository.findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(List.of(primero, segundo, tercero));
+
+    HistoriasClinicasFaltantesPreviewResponse response =
+        historiaClinicaService.obtenerHistoriasClinicasFaltantes();
+
+    assertEquals(3, response.getCantidad());
+    assertEquals(List.of(3, 7, 11), response.getPacientes().stream()
+        .map(item -> item.getIdPaciente()).toList());
+    assertEquals("Ana María Pérez", response.getPacientes().get(0).getNombreCompleto());
+    assertEquals("******78", response.getPacientes().get(0).getDniEnmascarado());
+    assertEquals("Nombre no registrado", response.getPacientes().get(1).getNombreCompleto());
+    assertEquals("No registrado", response.getPacientes().get(1).getDniEnmascarado());
+    assertEquals("Luis", response.getPacientes().get(2).getNombreCompleto());
+    assertEquals("No registrado", response.getPacientes().get(2).getDniEnmascarado());
+    assertFalse(response.getPacientes().get(2).getDniEnmascarado().contains("12A4"));
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+  }
+
+  private Paciente paciente(int id, String nombres, String apellidos, String dni) {
+    Paciente paciente = new Paciente();
+    paciente.setIdPaciente(id);
+    paciente.setNombres(nombres);
+    paciente.setApellidos(apellidos);
+    paciente.setNumDocumento(dni);
+    return paciente;
+  }
+
+  @Test
+  void creaHistoriaFaltanteParaPacienteActivoSinModificarPacienteNiAntecedentes() {
+    Paciente paciente = paciente(10, "Ana", "Pérez", "12345678");
+    paciente.setFechaNacimiento(java.sql.Date.valueOf("1990-02-03"));
+    paciente.setEstadoCivil("SOLTERO");
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
+    when(historiaClinicaRepository.existsByPacienteIdPaciente(10)).thenReturn(false);
+    when(historiaClinicaRepository.save(any(HistoriaClinica.class))).thenAnswer(invocacion -> {
+      HistoriaClinica historia = invocacion.getArgument(0);
+      historia.setIdHistoriaClinica(101);
+      return historia;
+    });
+
+    CreacionHistoriaClinicaFaltanteResponse response =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.CREADA, response.getEstado());
+    assertEquals(10, response.getIdPaciente());
+    assertEquals(101, response.getIdHistoriaClinica());
+    verify(historiaClinicaRepository, times(1)).save(org.mockito.ArgumentMatchers.argThat(historia ->
+        historia.getPaciente() == paciente && historia.getIdHistoriaClinica() == null));
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+    verifyNoInteractions(antecedentesRepository);
+    assertEquals("12345678", paciente.getNumDocumento());
+    assertEquals("Ana", paciente.getNombres());
+    assertEquals("Pérez", paciente.getApellidos());
+    assertEquals(java.sql.Date.valueOf("1990-02-03"), paciente.getFechaNacimiento());
+    assertEquals("SOLTERO", paciente.getEstadoCivil());
+  }
+
+  @Test
+  void omitePacienteQueYaTieneUnaOMultiplesHistorias() {
+    Paciente paciente = paciente(10, "Ana", "Pérez", "12345678");
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
+    when(historiaClinicaRepository.existsByPacienteIdPaciente(10)).thenReturn(true);
+
+    CreacionHistoriaClinicaFaltanteResponse conUnaHistoria =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+    CreacionHistoriaClinicaFaltanteResponse conMultiplesHistorias =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.OMITIDA_YA_TIENE_HISTORIA,
+        conUnaHistoria.getEstado());
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.OMITIDA_YA_TIENE_HISTORIA,
+        conMultiplesHistorias.getEstado());
+    verify(historiaClinicaRepository, never()).save(any(HistoriaClinica.class));
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+    verifyNoInteractions(antecedentesRepository);
+  }
+
+  @Test
+  void noCreaHistoriaParaPacienteInexistente() {
+    when(pacienteRepository.findById(999)).thenReturn(Optional.empty());
+
+    CreacionHistoriaClinicaFaltanteResponse response =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(999);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.PACIENTE_NO_ENCONTRADO, response.getEstado());
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+  }
+
+  @Test
+  void noCreaHistoriaParaPacienteArchivado() {
+    Paciente paciente = paciente(10, "Ana", "Pérez", "12345678");
+    paciente.setEstadoRegistro(EstadoRegistroPaciente.ARCHIVADO);
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
+
+    CreacionHistoriaClinicaFaltanteResponse response =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.PACIENTE_INACTIVO, response.getEstado());
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+  }
+
+  @Test
+  void permiteCrearSinDniValidoYSinAntecedentes() {
+    Paciente paciente = paciente(10, null, null, "DNI-invalido");
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
+    when(historiaClinicaRepository.existsByPacienteIdPaciente(10)).thenReturn(false);
+    when(historiaClinicaRepository.save(any(HistoriaClinica.class))).thenAnswer(invocacion -> {
+      HistoriaClinica historia = invocacion.getArgument(0);
+      historia.setIdHistoriaClinica(102);
+      return historia;
+    });
+
+    CreacionHistoriaClinicaFaltanteResponse response =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.CREADA, response.getEstado());
+    assertEquals(102, response.getIdHistoriaClinica());
+    verify(historiaClinicaRepository, times(1)).save(any(HistoriaClinica.class));
+    verifyNoInteractions(antecedentesRepository);
+  }
+
+  @Test
+  void devuelveErrorSiFallaElGuardadoDeLaHistoria() {
+    Paciente paciente = paciente(10, "Ana", "Pérez", "12345678");
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
+    when(historiaClinicaRepository.existsByPacienteIdPaciente(10)).thenReturn(false);
+    when(historiaClinicaRepository.save(any(HistoriaClinica.class)))
+        .thenThrow(new RuntimeException("fallo simulado"));
+
+    CreacionHistoriaClinicaFaltanteResponse response =
+        historiaClinicaService.crearHistoriaClinicaSiFalta(10);
+
+    assertEquals(EstadoCreacionHistoriaClinicaFaltante.ERROR, response.getEstado());
+    assertNull(response.getIdHistoriaClinica());
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+    verifyNoInteractions(antecedentesRepository);
+  }
+
+  @Test
+  void creacionIndividualUsaTransaccionIndependiente() throws Exception {
+    Transactional transactional = HistoriaClinicaServiceImpl.class
+        .getMethod("crearHistoriaClinicaSiFalta", Integer.class)
+        .getAnnotation(Transactional.class);
+
+    assertNotNull(transactional);
+    assertEquals(Propagation.REQUIRES_NEW, transactional.propagation());
+  }
 
   @Test
   void actualizaPacienteYAntecedentesSinCambiarRelacionNiCrearHistoria() {

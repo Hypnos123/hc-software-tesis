@@ -22,6 +22,11 @@ public class HistoriaClinicaController {
   @GetMapping("/findByPaciente/{idPaciente}")
   public ResponseEntity<ResponseModelGet<HistoriaClinicaResponse>> findByPaciente(@PathVariable int idPaciente) { return ResponseEntity.ok(historiaClinicaService.findByPaciente(idPaciente)); }
 
+  @GetMapping("/faltantes")
+  public ResponseEntity<HistoriasClinicasFaltantesPreviewResponse> obtenerHistoriasClinicasFaltantes() {
+    return ResponseEntity.ok(historiaClinicaService.obtenerHistoriasClinicasFaltantes());
+  }
+
   @PostMapping("/insert")
   public ResponseEntity<ResponseModelSet> insert(@RequestBody HistoriaClinicaRequest request) { return ResponseEntity.status(HttpStatus.CREATED).body(historiaClinicaService.save(request)); }
 
