@@ -11,6 +11,7 @@ import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaRequest;
 import com.krivi.apihistorialmedico.model.api.HistoriaClinicaUpdateRequest;
 import com.krivi.apihistorialmedico.model.api.ResponseModelSet;
+import com.krivi.apihistorialmedico.model.api.HistoriasClinicasFaltantesPreviewResponse;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +44,56 @@ class HistoriaClinicaServiceImplTest {
   @Mock private AntecedentesRepository antecedentesRepository;
   @Mock private ConsultaRepository consultaRepository;
   @InjectMocks private HistoriaClinicaServiceImpl historiaClinicaService;
+
+  @Test
+  void previewDevuelveVacioCuandoNoHayPacientesPendientesSinGuardarEntidades() {
+    when(pacienteRepository.findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of());
+
+    HistoriasClinicasFaltantesPreviewResponse response =
+        historiaClinicaService.obtenerHistoriasClinicasFaltantes();
+
+    assertEquals(0, response.getCantidad());
+    assertTrue(response.getPacientes().isEmpty());
+    verify(pacienteRepository).findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO);
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+  }
+
+  @Test
+  void previewMapeaTodosLosPendientesEnOrdenConDatosMinimosYSeguros() {
+    Paciente primero = paciente(3, "  Ana María ", " Pérez ", "12345678");
+    Paciente segundo = paciente(7, null, "  ", null);
+    Paciente tercero = paciente(11, "Luis", null, "12A4");
+    when(pacienteRepository.findByEstadoRegistroAndSinHistoriaClinica(
+        com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(List.of(primero, segundo, tercero));
+
+    HistoriasClinicasFaltantesPreviewResponse response =
+        historiaClinicaService.obtenerHistoriasClinicasFaltantes();
+
+    assertEquals(3, response.getCantidad());
+    assertEquals(List.of(3, 7, 11), response.getPacientes().stream()
+        .map(item -> item.getIdPaciente()).toList());
+    assertEquals("Ana María Pérez", response.getPacientes().get(0).getNombreCompleto());
+    assertEquals("******78", response.getPacientes().get(0).getDniEnmascarado());
+    assertEquals("Nombre no registrado", response.getPacientes().get(1).getNombreCompleto());
+    assertEquals("No registrado", response.getPacientes().get(1).getDniEnmascarado());
+    assertEquals("Luis", response.getPacientes().get(2).getNombreCompleto());
+    assertEquals("No registrado", response.getPacientes().get(2).getDniEnmascarado());
+    assertFalse(response.getPacientes().get(2).getDniEnmascarado().contains("12A4"));
+    verify(pacienteRepository, never()).save(any(Paciente.class));
+    verifyNoInteractions(historiaClinicaRepository, antecedentesRepository);
+  }
+
+  private Paciente paciente(int id, String nombres, String apellidos, String dni) {
+    Paciente paciente = new Paciente();
+    paciente.setIdPaciente(id);
+    paciente.setNombres(nombres);
+    paciente.setApellidos(apellidos);
+    paciente.setNumDocumento(dni);
+    return paciente;
+  }
 
   @Test
   void actualizaPacienteYAntecedentesSinCambiarRelacionNiCrearHistoria() {

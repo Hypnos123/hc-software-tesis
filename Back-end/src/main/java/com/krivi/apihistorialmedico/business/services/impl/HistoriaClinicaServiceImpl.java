@@ -48,6 +48,45 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
         .stream().map(this::toResponse).toList());
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public HistoriasClinicasFaltantesPreviewResponse obtenerHistoriasClinicasFaltantes() {
+    List<PacienteSinHistoriaClinicaResponse> pacientes = pacienteRepository
+        .findByEstadoRegistroAndSinHistoriaClinica(EstadoRegistroPaciente.ACTIVO)
+        .stream()
+        .map(this::toPacienteSinHistoriaResponse)
+        .toList();
+
+    return HistoriasClinicasFaltantesPreviewResponse.builder()
+        .cantidad(pacientes.size())
+        .pacientes(pacientes)
+        .build();
+  }
+
+  private PacienteSinHistoriaClinicaResponse toPacienteSinHistoriaResponse(Paciente paciente) {
+    return PacienteSinHistoriaClinicaResponse.builder()
+        .idPaciente(paciente.getIdPaciente())
+        .nombreCompleto(nombreCompletoSeguro(paciente))
+        .dniEnmascarado(enmascararDni(paciente.getNumDocumento()))
+        .build();
+  }
+
+  private String nombreCompletoSeguro(Paciente paciente) {
+    String nombreCompleto = java.util.stream.Stream.of(paciente.getNombres(), paciente.getApellidos())
+        .filter(Objects::nonNull)
+        .map(String::trim)
+        .filter(valor -> !valor.isEmpty())
+        .collect(java.util.stream.Collectors.joining(" "));
+    return nombreCompleto.isEmpty() ? "Nombre no registrado" : nombreCompleto;
+  }
+
+  private String enmascararDni(String dni) {
+    if (dni == null) return "No registrado";
+    String dniNormalizado = dni.trim();
+    if (!DNI_PATTERN.matcher(dniNormalizado).matches()) return "No registrado";
+    return "******" + dniNormalizado.substring(dniNormalizado.length() - 2);
+  }
+
   @Transactional
   public ResponseModelSet save(HistoriaClinicaRequest request) {
     validarRequestCreacion(request);
