@@ -115,18 +115,18 @@ export class HistoriasClinicasFaltantesChatComponent implements OnInit, OnDestro
         this.state.idsConfirmados = [];
         if (this.state.preview.pacientes.length === 0) {
           this.state.estado = 'SIN_CANDIDATOS';
-          this.emitir('bot', 'No se encontraron pacientes activos sin historia clínica.', 'empty', true, true);
+          this.emitir('bot', 'No se encontraron pacientes activos sin historia clínica.', 'empty', true);
           return;
         }
         this.state.estado = 'SELECCIONANDO';
-        this.emitir('bot', `Se encontraron ${this.state.preview.cantidad} pacientes activos sin historia clínica. Selecciona los pacientes que deseas incluir.`, 'selection', true, true);
+        this.emitir('bot', `Se encontraron ${this.state.preview.cantidad} pacientes activos sin historia clínica. Selecciona los pacientes que deseas incluir.`, 'selection', true);
       },
       error: () => {
         this.solicitud = undefined;
         this.state.cancelarSolicitud = undefined;
         this.state.estado = 'ERROR';
         this.state.mensajeError = 'No fue posible consultar los pacientes sin historia clínica.';
-        this.emitir('bot', this.state.mensajeError, 'error', true, true);
+        this.emitir('bot', this.state.mensajeError, 'error', true);
       }
     });
     const solicitud = this.solicitud;

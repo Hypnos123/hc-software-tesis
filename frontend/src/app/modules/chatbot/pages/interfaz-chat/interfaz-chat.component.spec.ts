@@ -1343,7 +1343,10 @@ describe('InterfazChatComponent', () => {
   });
 
   it('inicia el flujo especializado de historias faltantes con un único GET y sin alterar el flujo individual', () => {
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
     const tarjeta = iniciarFlujoHistoriasFaltantes();
+    const seleccionInicial = component.messages.find(mensaje => mensaje.sender === 'user'
+      && mensaje.text === 'Crear historias clínicas faltantes')!;
 
     expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
     expect(tarjeta.historiasFaltantes.preview?.pacientes.length).toBe(2);
@@ -1351,6 +1354,21 @@ describe('InterfazChatComponent', () => {
     expect(component.clinicalHistoryFlow.step).toBe('idle');
     expect(fixture.nativeElement.textContent).toContain('******00');
     expect(fixture.nativeElement.textContent).not.toContain(DNI_PRUEBA);
+    expect(scrollSpy).toHaveBeenCalledTimes(3);
+    expect(scrollSpy.calls.mostRecent().args).toEqual([seleccionInicial.id]);
+  });
+
+  it('mantiene el scroll actual al continuar hacia la confirmación', () => {
+    iniciarFlujoHistoriasFaltantes();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    const tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+
+    tarjeta.continuar();
+
+    const mensajeContinuar = component.messages.find(mensaje => mensaje.sender === 'user'
+      && mensaje.text === 'Continuar con 1 pacientes')!;
+    expect(scrollSpy).toHaveBeenCalledOnceWith(mensajeContinuar.id);
   });
 
   it('conserva selección al minimizar y reabrir sin repetir el GET', () => {
