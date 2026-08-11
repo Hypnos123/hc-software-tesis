@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.services.HistoriaClinicaService;
+import com.krivi.apihistorialmedico.business.services.HistoriaClinicaFaltanteMasivaService;
 import com.krivi.apihistorialmedico.business.exception.CreacionHistoriaClinicaException;
 import com.krivi.apihistorialmedico.model.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT})
 public class HistoriaClinicaController {
   @Autowired HistoriaClinicaService historiaClinicaService;
+  @Autowired HistoriaClinicaFaltanteMasivaService historiaClinicaFaltanteMasivaService;
 
   @GetMapping("/getAll")
   public ResponseEntity<ResponseModelGet<HistoriaClinicaResponse>> getAll() { return ResponseEntity.ok(historiaClinicaService.getAll()); }
@@ -21,6 +23,18 @@ public class HistoriaClinicaController {
 
   @GetMapping("/findByPaciente/{idPaciente}")
   public ResponseEntity<ResponseModelGet<HistoriaClinicaResponse>> findByPaciente(@PathVariable int idPaciente) { return ResponseEntity.ok(historiaClinicaService.findByPaciente(idPaciente)); }
+
+  @GetMapping("/faltantes")
+  public ResponseEntity<HistoriasClinicasFaltantesPreviewResponse> obtenerHistoriasClinicasFaltantes() {
+    return ResponseEntity.ok(historiaClinicaService.obtenerHistoriasClinicasFaltantes());
+  }
+
+  @PostMapping("/faltantes/crear")
+  public ResponseEntity<CrearHistoriasClinicasFaltantesResponse> crearHistoriasClinicasFaltantes(
+      @RequestBody(required = false) CrearHistoriasClinicasFaltantesRequest request) {
+    return ResponseEntity.ok(historiaClinicaFaltanteMasivaService.crearHistoriasClinicasFaltantes(
+        request == null ? null : request.getIdsPacientes()));
+  }
 
   @PostMapping("/insert")
   public ResponseEntity<ResponseModelSet> insert(@RequestBody HistoriaClinicaRequest request) { return ResponseEntity.status(HttpStatus.CREATED).body(historiaClinicaService.save(request)); }
