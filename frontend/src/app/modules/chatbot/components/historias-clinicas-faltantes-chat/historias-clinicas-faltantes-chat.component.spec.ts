@@ -107,6 +107,58 @@ describe('HistoriasClinicasFaltantesChatComponent', () => {
     expect(state.idsConfirmados).toEqual([2]);
   });
 
+  it('habilita la creación solo con ids confirmados e impide emitir dos veces', () => {
+    const eventos: HistoriasClinicasFaltantesEvento[] = [];
+    component.mensajeConversacional.subscribe(evento => eventos.push(evento));
+    fixture.detectChanges();
+    state.estado = 'CONFIRMANDO';
+    component.confirmarCreacion();
+    expect(eventos).toEqual([]);
+
+    state.idsConfirmados = [1, 3];
+    component.confirmarCreacion();
+    component.confirmarCreacion();
+
+    expect(state.estado).toBe('CREANDO');
+    expect(eventos.length).toBe(1);
+    expect(eventos[0]).toEqual(jasmine.objectContaining({ ejecutarCreacion: true, vistaSiguiente: 'creating' }));
+  });
+
+  it('durante CREANDO no presenta acciones editables', () => {
+    state.estado = 'CREANDO';
+    fixture.componentRef.setInput('view', 'creating');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Procesando historias clínicas');
+    expect(fixture.nativeElement.querySelectorAll('button').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('input').length).toBe(0);
+  });
+
+  it('representa los contadores y todos los estados sin exponer datos personales', () => {
+    state.estado = 'COMPLETADO';
+    state.resultado = {
+      totalSolicitados: 5, totalProcesados: 5, creadas: 1, omitidas: 1,
+      noEncontrados: 1, inactivos: 1, errores: 1,
+      resultados: [
+        { idPaciente: 1, estado: 'CREADA' },
+        { idPaciente: 2, estado: 'OMITIDA_YA_TIENE_HISTORIA' },
+        { idPaciente: 3, estado: 'PACIENTE_NO_ENCONTRADO' },
+        { idPaciente: 4, estado: 'PACIENTE_INACTIVO' },
+        { idPaciente: 5, estado: 'ERROR' }
+      ]
+    };
+    fixture.componentRef.setInput('view', 'result');
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Omitida: ya tenía historia');
+    expect(texto).toContain('Paciente no encontrado');
+    expect(texto).toContain('Paciente inactivo');
+    expect(texto).toContain('Error');
+    expect(texto).not.toContain('******42');
+    expect(texto).not.toContain('Ana Pérez');
+  });
+
   it('cancela sin escribir, limpia ids y solicita volver al menú de historias', () => {
     const eventos: HistoriasClinicasFaltantesEvento[] = [];
     component.mensajeConversacional.subscribe(evento => eventos.push(evento));

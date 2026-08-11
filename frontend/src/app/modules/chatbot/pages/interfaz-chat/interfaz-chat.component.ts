@@ -168,6 +168,7 @@ export class InterfazChatComponent implements OnDestroy {
 
   private activeRequest?: Subscription;
   private clinicalHistoryRequest?: Subscription;
+  private missingHistoriesRequest?: Subscription;
   private logoutSubscription: Subscription;
   private sessionChangedSubscription: Subscription;
   private feedbackSubscription: Subscription;
@@ -212,7 +213,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.isOpen = false; this.scheduleFloatingMessage(90_000); }
@@ -315,14 +316,59 @@ export class InterfazChatComponent implements OnDestroy {
       if (posicionTarjeta >= 0) this.messages.splice(posicionTarjeta, 1);
       tarjetaActiva.missingHistoriesView = evento.vistaSiguiente;
       vistaActualizada = true;
-    } else if (tarjetaActiva && (evento.vistaSiguiente || state.estado === 'CANCELADO')) {
+    } else if (tarjetaActiva && (evento.vistaSiguiente || evento.accionPosterior || state.estado === 'CANCELADO')) {
       tarjetaActiva.missingHistoriesActive = false;
     }
     const mensaje = evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
+    if (evento.accionPosterior) {
+      this.procesarAccionPosteriorHistoriasFaltantes(evento.accionPosterior);
+      if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+      return;
+    }
     if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
     if (evento.vistaSiguiente && !vistaActualizada) this.addMissingHistoriesBlock(state, evento.vistaSiguiente, state.estado !== 'CANCELADO');
     if (evento.volverHistorias) this.addMenuBlock('asistencia-historias');
     if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+    if (evento.ejecutarCreacion) this.ejecutarCreacionHistoriasFaltantes(state);
+  }
+
+  private ejecutarCreacionHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState): void {
+    if (this.missingHistoriesRequest || state.estado !== 'CREANDO' || state.idsConfirmados.length === 0) return;
+    const idsConfirmados = [...state.idsConfirmados];
+    const solicitud = this.historiaClinicaService.crearHistoriasClinicasFaltantes(idsConfirmados)
+      .pipe(finalize(() => { this.missingHistoriesRequest = undefined; }))
+      .subscribe({
+        next: resultado => {
+          state.resultado = resultado;
+          state.estado = 'COMPLETADO';
+          this.mostrarFinHistoriasFaltantes(state, 'Proceso finalizado.', 'result');
+        },
+        error: () => {
+          state.estado = 'ERROR_CREACION';
+          state.mensajeError = 'No se pudo completar la creación de historias clínicas.';
+          this.mostrarFinHistoriasFaltantes(state, state.mensajeError, 'creation-error');
+        }
+      });
+    this.missingHistoriesRequest = solicitud.closed ? undefined : solicitud;
+  }
+
+  private mostrarFinHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState, texto: string,
+      vista: HistoriasClinicasFaltantesVista): void {
+    const tarjetaProcesando = this.messages.find(message => message.type === 'missing-clinical-histories'
+      && message.historiasFaltantes === state && message.missingHistoriesActive);
+    if (tarjetaProcesando) tarjetaProcesando.missingHistoriesActive = false;
+    const mensaje = this.addBotMessage(texto);
+    this.addMissingHistoriesBlock(state, vista, true);
+    this.scrollToNewBlock(mensaje.id);
+  }
+
+  private procesarAccionPosteriorHistoriasFaltantes(accion: 'REVISAR' | 'HISTORIAS' | 'PRINCIPAL'): void {
+    if (accion === 'REVISAR') {
+      this.addBotMessage('Consultaré nuevamente los pacientes activos que todavía no tienen historia clínica.');
+      this.addMissingHistoriesBlock(crearHistoriasClinicasFaltantesState(), 'loading', true);
+      return;
+    }
+    this.addMenuBlock(accion === 'HISTORIAS' ? 'asistencia-historias' : 'principal');
   }
   cancelarGestionDuplicados(): void {
     const activa = this.gestionDuplicadosComponents?.find(component => component.active);
@@ -452,7 +498,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
   private getInitialMessages(): ChatMessage[] {
     if (!this.autenticado) {

@@ -35,4 +35,19 @@ describe('HistoriaClinicaService - historias faltantes', () => {
     expect(request.request.body).toBeNull();
     request.flush(preview);
   });
+
+  it('envía únicamente una copia de los ids confirmados al coordinador masivo', () => {
+    const ids = [1, 3];
+    const response = { totalSolicitados: 2, totalProcesados: 2, creadas: 2, omitidas: 0,
+      noEncontrados: 0, inactivos: 0, errores: 0, resultados: [] };
+
+    service.crearHistoriasClinicasFaltantes(ids).subscribe(resultado => expect(resultado).toEqual(response));
+    ids.push(99);
+
+    const request = http.expectOne(request => request.url.endsWith('historiaClinica/faltantes/crear'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ idsPacientes: [1, 3] });
+    expect(Object.keys(request.request.body)).toEqual(['idsPacientes']);
+    request.flush(response);
+  });
 });

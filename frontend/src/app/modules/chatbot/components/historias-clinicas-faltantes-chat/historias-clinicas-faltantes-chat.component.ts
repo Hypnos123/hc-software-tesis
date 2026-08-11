@@ -81,6 +81,28 @@ export class HistoriasClinicasFaltantesChatComponent implements OnInit, OnDestro
     this.emitir('user', 'Volver a seleccionar', 'selection', false, true);
   }
 
+  confirmarCreacion(): void {
+    if (!this.active || this.state.estado !== 'CONFIRMANDO' || this.state.idsConfirmados.length === 0) return;
+    this.state.idsConfirmados = [...this.state.idsConfirmados];
+    this.state.estado = 'CREANDO';
+    this.emitir('user', `Crear las ${this.state.idsConfirmados.length} historias clínicas`, 'creating', false, true, false, true);
+  }
+
+  revisarNuevamente(): void {
+    if (!this.active || !['COMPLETADO', 'ERROR_CREACION'].includes(this.state.estado)) return;
+    this.emitir('user', 'Revisar nuevamente pacientes sin historia clínica', undefined, false, true, false, false, 'REVISAR');
+  }
+
+  volverAHistorias(): void {
+    if (!this.active || !['COMPLETADO', 'ERROR_CREACION'].includes(this.state.estado)) return;
+    this.emitir('user', 'Volver a Historias clínicas', undefined, false, true, false, false, 'HISTORIAS');
+  }
+
+  volverAlMenuPrincipal(): void {
+    if (!this.active || this.state.estado !== 'COMPLETADO') return;
+    this.emitir('user', 'Menú principal', undefined, false, true, false, false, 'PRINCIPAL');
+  }
+
   cancelar(): void {
     if (!this.active || this.state.estado === 'CANCELADO') return;
     this.state.idsSeleccionados = [];
@@ -103,6 +125,16 @@ export class HistoriasClinicasFaltantesChatComponent implements OnInit, OnDestro
 
   trackByPaciente(_: number, paciente: { idPaciente: number }): number {
     return paciente.idPaciente;
+  }
+
+  etiquetaEstado(estado: string): string {
+    return ({
+      CREADA: 'Creada',
+      OMITIDA_YA_TIENE_HISTORIA: 'Omitida: ya tenía historia',
+      PACIENTE_NO_ENCONTRADO: 'Paciente no encontrado',
+      PACIENTE_INACTIVO: 'Paciente inactivo',
+      ERROR: 'Error'
+    } as Record<string, string>)[estado] ?? estado;
   }
 
   private cargarPreview(): void {
@@ -147,7 +179,9 @@ export class HistoriasClinicasFaltantesChatComponent implements OnInit, OnDestro
     vistaSiguiente?: HistoriasClinicasFaltantesVista,
     reemplazarVistaActiva = false,
     inicioGrupo = false,
-    volverHistorias = false
+    volverHistorias = false,
+    ejecutarCreacion = false,
+    accionPosterior?: HistoriasClinicasFaltantesEvento['accionPosterior']
   ): void {
     this.mensajeConversacional.emit({
       remitente,
@@ -155,7 +189,9 @@ export class HistoriasClinicasFaltantesChatComponent implements OnInit, OnDestro
       vistaSiguiente,
       reemplazarVistaActiva,
       inicioGrupo,
-      volverHistorias
+      volverHistorias,
+      ejecutarCreacion,
+      accionPosterior
     });
   }
 }

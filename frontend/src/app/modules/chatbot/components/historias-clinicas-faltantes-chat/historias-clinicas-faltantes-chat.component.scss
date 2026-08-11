@@ -49,3 +49,25 @@ button.secondary { color: #1f2933; background: #e8eef5; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
 .pending-note { color: #52606d; text-align: center; }
 .confirmation-step p { margin: 0; line-height: 1.45; }
+
+.result-summary,
+.next-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+.result-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.result-summary span { padding: 0.55rem; border-radius: 8px; background: #f1f5f9; }
+.result-summary b { display: block; font-size: 1.1rem; }
+.result-summary .success { color: #157347; background: #e8f6ee; }
+.result-summary .danger { color: #b42318; background: #fef0ed; }
+.individual-results {
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+}
+.individual-result { display: flex; justify-content: space-between; gap: 0.65rem; padding: 0.65rem; border-bottom: 1px solid #edf2f7; }
+.individual-result:last-child { border-bottom: 0; }
+.individual-result span { color: #52606d; text-align: right; }
+.individual-result .error-state { color: #b42318; }
+.next-actions { margin-top: 0.25rem; }

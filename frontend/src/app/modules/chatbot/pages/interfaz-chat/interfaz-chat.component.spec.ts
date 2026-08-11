@@ -43,7 +43,7 @@ describe('InterfazChatComponent', () => {
     sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
-    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes']);
+    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes', 'crearHistoriasClinicasFaltantes']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
     historiaClinicaService.getByPaciente.and.returnValue(of([]));
     historiaClinicaService.getHistoriasClinicasFaltantes.and.returnValue(of({
@@ -52,6 +52,11 @@ describe('InterfazChatComponent', () => {
         { idPaciente: 8, nombreCompleto: 'NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS', dniEnmascarado: '******00' },
         { idPaciente: 9, nombreCompleto: 'OTRO PACIENTE', dniEnmascarado: '******11' }
       ]
+    }));
+    historiaClinicaService.crearHistoriasClinicasFaltantes.and.returnValue(of({
+      totalSolicitados: 1, totalProcesados: 1, creadas: 1, omitidas: 0,
+      noEncontrados: 0, inactivos: 0, errores: 0,
+      resultados: [{ idPaciente: 8, estado: 'CREADA', idHistoriaClinica: 101 }]
     }));
     antecedentesService = jasmine.createSpyObj<AntecedentesService>('AntecedentesService', ['getByPacienteId']);
     antecedentesService.getByPacienteId.and.returnValue(of(undefined));
@@ -1435,5 +1440,75 @@ describe('InterfazChatComponent', () => {
 
     expect(component.messages.length).toBe(2);
     expect(component.messages.some(mensaje => mensaje.type === 'missing-clinical-histories')).toBeFalse();
+  });
+
+  it('envía una sola vez exclusivamente los ids confirmados y deja las tarjetas previas inactivas', () => {
+    iniciarFlujoHistoriasFaltantes();
+    let tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    tarjeta.continuar();
+    fixture.detectChanges();
+    tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.state.idsSeleccionados = [9];
+
+    tarjeta.confirmarCreacion();
+    tarjeta.confirmarCreacion();
+    fixture.detectChanges();
+
+    expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledOnceWith([8]);
+    expect(historiaClinicaService.insert).not.toHaveBeenCalled();
+    const tarjetas = component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories');
+    expect(tarjetas.at(-1)?.missingHistoriesView).toBe('result');
+    expect(tarjetas.slice(0, -1).every(mensaje => !mensaje.missingHistoriesActive)).toBeTrue();
+    expect(tarjetas.at(-1)?.historiasFaltantes?.resultado?.creadas).toBe(1);
+  });
+
+  it('impide doble POST mientras procesa y conserva resultados parciales del backend', () => {
+    const respuesta = new Subject<any>();
+    historiaClinicaService.crearHistoriasClinicasFaltantes.and.returnValue(respuesta);
+    iniciarFlujoHistoriasFaltantes();
+    let tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    tarjeta.cambiarSeleccion(9, { target: { checked: true } } as unknown as Event);
+    tarjeta.continuar();
+    fixture.detectChanges();
+    tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.confirmarCreacion();
+    tarjeta.confirmarCreacion();
+    fixture.detectChanges();
+
+    expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+    expect(component.messages.at(-1)?.missingHistoriesView).toBe('creating');
+    expect(fixture.nativeElement.querySelectorAll('.missing-step button').length).toBe(0);
+
+    respuesta.next({ totalSolicitados: 2, totalProcesados: 2, creadas: 1, omitidas: 1,
+      noEncontrados: 0, inactivos: 0, errores: 0,
+      resultados: [{ idPaciente: 8, estado: 'CREADA' }, { idPaciente: 9, estado: 'OMITIDA_YA_TIENE_HISTORIA' }] });
+    respuesta.complete();
+    fixture.detectChanges();
+
+    const resultado = component.messages.at(-1)?.historiasFaltantes?.resultado;
+    expect(resultado).toEqual(jasmine.objectContaining({ creadas: 1, omitidas: 1, errores: 0 }));
+    expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+  });
+
+  it('ante error HTTP no reintenta y revisar nuevamente ejecuta un GET nuevo con estado nuevo', () => {
+    historiaClinicaService.crearHistoriasClinicasFaltantes.and.returnValue(throwError(() => new Error('red')));
+    iniciarFlujoHistoriasFaltantes();
+    const estadoAnterior = component.historiasFaltantesComponents.last.state;
+    component.historiasFaltantesComponents.last.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    component.historiasFaltantesComponents.last.continuar();
+    fixture.detectChanges();
+    component.historiasFaltantesComponents.last.confirmarCreacion();
+    fixture.detectChanges();
+
+    expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+    expect(component.messages.at(-1)?.missingHistoriesView).toBe('creation-error');
+    component.historiasFaltantesComponents.last.revisarNuevamente();
+    fixture.detectChanges();
+
+    expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(2);
+    expect(component.historiasFaltantesComponents.last.state).not.toBe(estadoAnterior);
+    expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
   });
 });
