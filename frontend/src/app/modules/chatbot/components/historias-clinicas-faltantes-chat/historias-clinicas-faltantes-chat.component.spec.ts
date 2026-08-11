@@ -130,8 +130,26 @@ describe('HistoriasClinicasFaltantesChatComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Procesando historias clínicas');
+    expect(fixture.nativeElement.querySelector('.pi-spin.pi-spinner')).not.toBeNull();
     expect(fixture.nativeElement.querySelectorAll('button').length).toBe(0);
     expect(fixture.nativeElement.querySelectorAll('input').length).toBe(0);
+  });
+
+  it('detiene el spinner histórico al completar o terminar con error', () => {
+    fixture.componentRef.setInput('view', 'creating');
+    state.estado = 'COMPLETADO';
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pi-spin')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.pi-check-circle')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Procesamiento finalizado');
+
+    state.estado = 'ERROR_CREACION';
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pi-spin')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.pi-exclamation-circle')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('terminó con un error');
   });
 
   it('representa los contadores y todos los estados sin exponer datos personales', () => {
