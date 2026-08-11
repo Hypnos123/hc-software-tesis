@@ -29,6 +29,9 @@
       <div #conversationBlock *ngIf="message.type === 'duplicate-management' && message.duplicados" [attr.data-block-id]="message.id" class="bot-message duplicate-message-block">
         <app-gestion-duplicados-chat [state]="message.duplicados" [view]="message.duplicateView!" [active]="!!message.duplicateActive" (mensajeConversacional)="manejarMensajeGestionDuplicados(message.duplicados, $event)"></app-gestion-duplicados-chat>
       </div>
+      <div #conversationBlock *ngIf="message.type === 'missing-clinical-histories' && message.historiasFaltantes" [attr.data-block-id]="message.id" class="bot-message missing-histories-message-block">
+        <app-historias-clinicas-faltantes-chat [state]="message.historiasFaltantes" [view]="message.missingHistoriesView!" [active]="!!message.missingHistoriesActive" (mensajeConversacional)="manejarMensajeHistoriasFaltantes(message.historiasFaltantes, $event)"></app-historias-clinicas-faltantes-chat>
+      </div>
     </ng-container>
   </div>
 

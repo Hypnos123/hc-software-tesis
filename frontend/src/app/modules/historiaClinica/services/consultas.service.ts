@@ -4,6 +4,11 @@ import { Observable, map, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
 import { IDetalleConsulta, IEmpleadoDoctor, IHistoriaClinica, IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest, INuevaConsultaRequest, IPacienteBusqueda, IResponseModelGet, IResponseModelSet } from '../models/historiaClinica';
 import { AuthService } from '@app/auth/services/auth.service';
+import {
+  CrearHistoriasClinicasFaltantesRequest,
+  CrearHistoriasClinicasFaltantesResponse,
+  HistoriasClinicasFaltantesPreview
+} from '../models/historias-clinicas-faltantes';
 
 @Injectable({ providedIn: 'root' })
 export class HistoriaClinicaService {
@@ -18,6 +23,16 @@ export class HistoriaClinicaService {
   }
   getByPaciente(idPaciente: number): Observable<IHistoriaClinica[]> {
     return this.httpClient.get<IResponseModelGet<IHistoriaClinica>>(`${this.URLServicio}historiaClinica/findByPaciente/${idPaciente}`).pipe(map(r => r.data ?? []));
+  }
+  getHistoriasClinicasFaltantes(): Observable<HistoriasClinicasFaltantesPreview> {
+    return this.httpClient.get<HistoriasClinicasFaltantesPreview>(`${this.URLServicio}historiaClinica/faltantes`);
+  }
+  crearHistoriasClinicasFaltantes(idsPacientes: number[]): Observable<CrearHistoriasClinicasFaltantesResponse> {
+    const request: CrearHistoriasClinicasFaltantesRequest = { idsPacientes: [...idsPacientes] };
+    return this.httpClient.post<CrearHistoriasClinicasFaltantesResponse>(
+      `${this.URLServicio}historiaClinica/faltantes/crear`,
+      request
+    );
   }
   insert(header: IHistoriaClinicaCreateRequest): Observable<IResponseModelSet> {
     return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}historiaClinica/insert`, header);
