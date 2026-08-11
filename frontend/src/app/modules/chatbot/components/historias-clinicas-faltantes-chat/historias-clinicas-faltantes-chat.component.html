@@ -1,0 +1,74 @@
+<div class="missing-histories-chat" [ngSwitch]="view" aria-label="Creación de historias clínicas faltantes">
+  <section *ngSwitchCase="'loading'" class="missing-step loading-step" aria-live="polite">
+    <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+    <strong>Buscando pacientes sin historia clínica...</strong>
+  </section>
+
+  <section *ngSwitchCase="'selection'" class="missing-step selection-step">
+    <div class="step-heading">
+      <span class="step-label">Selección de pacientes</span>
+      <strong>{{ state.preview?.cantidad ?? 0 }} pacientes disponibles</strong>
+    </div>
+
+    <label class="select-all-row">
+      <input type="checkbox"
+        [checked]="todosSeleccionados"
+        [indeterminate]="seleccionParcial"
+        [disabled]="!active || state.estado !== 'SELECCIONANDO'"
+        (change)="alternarTodos()">
+      <span>{{ todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos' }}</span>
+    </label>
+
+    <div class="patient-list" tabindex="0" aria-label="Pacientes activos sin historia clínica">
+      <label class="patient-row" *ngFor="let paciente of state.preview?.pacientes; trackBy: trackByPaciente">
+        <input type="checkbox"
+          [checked]="estaSeleccionado(paciente.idPaciente)"
+          [disabled]="!active || state.estado !== 'SELECCIONANDO'"
+          [attr.aria-label]="'Seleccionar a ' + paciente.nombreCompleto"
+          (change)="cambiarSeleccion(paciente.idPaciente, $event)">
+        <span class="patient-data">
+          <strong>{{ paciente.nombreCompleto }}</strong>
+          <small>DNI {{ paciente.dniEnmascarado }}</small>
+        </span>
+      </label>
+    </div>
+
+    <p class="selection-count" aria-live="polite">{{ cantidadSeleccionados }} pacientes seleccionados.</p>
+    <div class="step-actions">
+      <button type="button" class="primary" (click)="continuar()"
+        [disabled]="!active || state.estado !== 'SELECCIONANDO' || cantidadSeleccionados === 0">
+        Continuar con {{ cantidadSeleccionados }} pacientes
+      </button>
+      <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+  </section>
+
+  <section *ngSwitchCase="'confirmation'" class="missing-step confirmation-step">
+    <span class="step-label">Confirmación</span>
+    <strong>Seleccionaste {{ state.idsConfirmados.length }} pacientes.</strong>
+    <p>Se creará una historia clínica únicamente para los pacientes que continúen sin historia al momento de procesarlos.</p>
+    <p>Los pacientes que ya tengan una historia serán omitidos.</p>
+    <p><b>¿Deseas continuar?</b></p>
+    <div class="step-actions">
+      <button type="button" class="primary pending-action" disabled
+        title="Esta acción estará disponible en la siguiente fase">
+        Crear las {{ state.idsConfirmados.length }} historias clínicas
+      </button>
+      <button type="button" class="secondary" (click)="volverASeleccionar()" [disabled]="!active">Volver a seleccionar</button>
+      <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+    <small class="pending-note">La creación estará disponible en la siguiente fase.</small>
+  </section>
+
+  <section *ngSwitchCase="'empty'" class="missing-step empty-step">
+    <i class="pi pi-check-circle" aria-hidden="true"></i>
+    <strong>No hay pacientes pendientes.</strong>
+    <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Volver a Historias clínicas</button>
+  </section>
+
+  <section *ngSwitchCase="'error'" class="missing-step error-step" role="alert">
+    <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+    <strong>{{ state.mensajeError }}</strong>
+    <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Volver a Historias clínicas</button>
+  </section>
+</div>

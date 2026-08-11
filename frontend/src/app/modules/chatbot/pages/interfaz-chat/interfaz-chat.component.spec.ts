@@ -14,6 +14,7 @@ import { PacienteImportacionService } from '@app/modules/paciente/services/pacie
 import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
 import { ImportacionPacientesChatComponent } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-chat.service';
+import { HistoriasClinicasFaltantesChatComponent } from '../../components/historias-clinicas-faltantes-chat/historias-clinicas-faltantes-chat.component';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -42,9 +43,16 @@ describe('InterfazChatComponent', () => {
     sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
-    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update']);
+    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
     historiaClinicaService.getByPaciente.and.returnValue(of([]));
+    historiaClinicaService.getHistoriasClinicasFaltantes.and.returnValue(of({
+      cantidad: 2,
+      pacientes: [
+        { idPaciente: 8, nombreCompleto: 'NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS', dniEnmascarado: '******00' },
+        { idPaciente: 9, nombreCompleto: 'OTRO PACIENTE', dniEnmascarado: '******11' }
+      ]
+    }));
     antecedentesService = jasmine.createSpyObj<AntecedentesService>('AntecedentesService', ['getByPacienteId']);
     antecedentesService.getByPacienteId.and.returnValue(of(undefined));
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
@@ -97,6 +105,18 @@ describe('InterfazChatComponent', () => {
     const menuHistorias = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
     const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear una historia clínica con el asistente');
     component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+  }
+
+  function iniciarFlujoHistoriasFaltantes(): any {
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
+    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
+    const menuHistorias = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
+    const opcion = menuHistorias.options.find((item: any) => item.label === 'Crear historias clínicas faltantes');
+    component.selectHistoricalMenuOption(menuHistorias, opcion);
+    fixture.detectChanges();
+    return component.messages.find(mensaje => mensaje.type === 'missing-clinical-histories' && mensaje.missingHistoriesActive)!;
   }
 
   function abrirMenuPacientes(): any {
@@ -610,7 +630,8 @@ describe('InterfazChatComponent', () => {
       jasmine.objectContaining({ label: 'Gestionar y eliminar pacientes duplicados', action: 'patient-duplicate-flow' })
     ]);
     expect(menus['asistencia-historias'].options).toEqual([
-      jasmine.objectContaining({ label: 'Crear una historia clínica con el asistente', action: 'clinical-history-flow' })
+      jasmine.objectContaining({ label: 'Crear una historia clínica con el asistente', action: 'clinical-history-flow' }),
+      jasmine.objectContaining({ label: 'Crear historias clínicas faltantes', action: 'missing-clinical-histories-flow' })
     ]);
     expect(menus['pacientes'].options).toContain(jasmine.objectContaining({
       label: 'Detectar posibles pacientes duplicados', action: 'request'
@@ -1319,5 +1340,100 @@ describe('InterfazChatComponent', () => {
     expect(solicitudIndex).toBeLessThan(dniIndex);
     expect(dniIndex).toBeLessThan(resultadoIndex);
     expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA).length).toBe(1);
+  });
+
+  it('inicia el flujo especializado de historias faltantes con un único GET y sin alterar el flujo individual', () => {
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    const tarjeta = iniciarFlujoHistoriasFaltantes();
+    const seleccionInicial = component.messages.find(mensaje => mensaje.sender === 'user'
+      && mensaje.text === 'Crear historias clínicas faltantes')!;
+
+    expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+    expect(tarjeta.historiasFaltantes.preview?.pacientes.length).toBe(2);
+    expect(tarjeta.missingHistoriesView).toBe('selection');
+    expect(component.clinicalHistoryFlow.step).toBe('idle');
+    expect(fixture.nativeElement.textContent).toContain('******00');
+    expect(fixture.nativeElement.textContent).not.toContain(DNI_PRUEBA);
+    expect(scrollSpy).toHaveBeenCalledTimes(3);
+    expect(scrollSpy.calls.mostRecent().args).toEqual([seleccionInicial.id]);
+  });
+
+  it('mantiene el scroll actual al continuar hacia la confirmación', () => {
+    iniciarFlujoHistoriasFaltantes();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+    const tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+
+    tarjeta.continuar();
+
+    const mensajeContinuar = component.messages.find(mensaje => mensaje.sender === 'user'
+      && mensaje.text === 'Continuar con 1 pacientes')!;
+    expect(scrollSpy).toHaveBeenCalledOnceWith(mensajeContinuar.id);
+  });
+
+  it('conserva selección al minimizar y reabrir sin repetir el GET', () => {
+    iniciarFlujoHistoriasFaltantes();
+    const tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    expect(tarjeta.state.idsSeleccionados).toEqual([8]);
+
+    component.minimizeChat();
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+
+    const tarjetaRestaurada = component.historiasFaltantesComponents.last;
+    expect(tarjetaRestaurada.state.idsSeleccionados).toEqual([8]);
+    expect(tarjetaRestaurada.estaSeleccionado(8)).toBeTrue();
+    expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantiene la selección al confirmar y volver, dejando las tarjetas históricas inactivas', () => {
+    iniciarFlujoHistoriasFaltantes();
+    let tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    tarjeta.continuar();
+    fixture.detectChanges();
+
+    const tarjetasTrasConfirmar = component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories');
+    expect(tarjetasTrasConfirmar.length).toBe(2);
+    expect(tarjetasTrasConfirmar[0].missingHistoriesActive).toBeFalse();
+    expect(tarjetasTrasConfirmar[1].missingHistoriesView).toBe('confirmation');
+    expect(tarjetasTrasConfirmar[1].historiasFaltantes?.idsConfirmados).toEqual([8]);
+
+    tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.volverASeleccionar();
+    fixture.detectChanges();
+    const tarjetasFinales = component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories');
+    expect(tarjetasFinales.at(-2)?.missingHistoriesActive).toBeFalse();
+    expect(tarjetasFinales.at(-1)?.missingHistoriesView).toBe('selection');
+    expect(tarjetasFinales.at(-1)?.historiasFaltantes?.idsSeleccionados).toEqual([8]);
+  });
+
+  it('cancela sin POST, limpia la selección y vuelve a Asistencia guiada Historias clínicas', () => {
+    iniciarFlujoHistoriasFaltantes();
+    const tarjeta = component.historiasFaltantesComponents.last;
+    tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+    tarjeta.continuar();
+    fixture.detectChanges();
+    component.historiasFaltantesComponents.last.cancelar();
+    fixture.detectChanges();
+
+    const estado = component.messages.find(mensaje => mensaje.type === 'missing-clinical-histories')?.historiasFaltantes;
+    expect(estado?.idsSeleccionados).toEqual([]);
+    expect(estado?.idsConfirmados).toEqual([]);
+    expect(component.messages.some(mensaje => mensaje.text === 'La creación de historias clínicas faltantes fue cancelada.')).toBeTrue();
+    expect(component.messages.at(-1)?.menuId).toBe('asistencia-historias');
+    expect(component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories' && mensaje.missingHistoriesActive).length).toBe(0);
+  });
+
+  it('cierra y reinicia limpiando por completo el nuevo flujo', () => {
+    iniciarFlujoHistoriasFaltantes();
+    component.historiasFaltantesComponents.last.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
+
+    component.closeChat();
+
+    expect(component.messages.length).toBe(2);
+    expect(component.messages.some(mensaje => mensaje.type === 'missing-clinical-histories')).toBeFalse();
   });
 });
