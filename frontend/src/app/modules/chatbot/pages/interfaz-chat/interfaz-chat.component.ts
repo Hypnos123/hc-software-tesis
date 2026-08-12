@@ -37,7 +37,8 @@ import {
   HistoriasClinicasFaltantesVista
 } from '../../models/historias-clinicas-faltantes-chat';
 
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories'; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; }
+type ChatPresentationState = 'pending' | 'presenting' | 'visible';
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -174,6 +175,8 @@ export class InterfazChatComponent implements OnDestroy {
   private feedbackSubscription: Subscription;
   private readonly processedFeedbackIds = new Set<string>();
   private messageSequence = 0;
+  private readonly presentationQueue: ChatMessage[] = [];
+  private activePresentationId?: string;
   private scrollPosition = 0;
   private floatingMessageTimer?: ReturnType<typeof setTimeout>;
   private floatingMessageIndex = 0;
@@ -189,7 +192,7 @@ export class InterfazChatComponent implements OnDestroy {
   mensajeFlotanteVisible = false;
   mensajeFlotante = '';
   isOpen = false; userMessage = ''; isLoading = false;
-  messages: ChatMessage[] = this.getInitialMessages();
+  messages: ChatMessage[] = this.initializeMessages(this.getInitialMessages());
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
   private readonly quickQuestionOptions: Record<string, MenuOption> = {
@@ -213,7 +216,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.isOpen = false; this.scheduleFloatingMessage(90_000); }
@@ -420,7 +423,8 @@ export class InterfazChatComponent implements OnDestroy {
     this.hideFloatingMessage();
     if (!autenticado) return;
     this.isOpen = false;
-    this.messages = this.getInitialMessages();
+    this.resetPresentationCoordinator();
+    this.messages = this.initializeMessages(this.getInitialMessages());
     this.scheduleFloatingMessage(10_000);
   }
   private scheduleFloatingMessage(delay: number): void {
@@ -460,23 +464,63 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private saveScrollPosition(): void { if (this.chatBody) this.scrollPosition = this.chatBody.nativeElement.scrollTop; }
   private restoreScrollPosition(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.scrollPosition; }); }
-  private addUserMessage(text: string): ChatMessage { const message = this.createTextMessage('user', text); this.messages.push(message); return message; }
-  private addBotMessage(text: string): ChatMessage { const message = this.createTextMessage('bot', text); this.messages.push(message); return message; }
+  private addUserMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('user', text)); }
+  private addBotMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('bot', text)); }
   private addMenuBlock(menuId: string): void {
     const menu = this.menus[menuId];
     if (menuId !== 'principal' && menu.question) this.addBotMessage(menu.question);
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId, options: this.createMenuOptions(menuId) });
+    this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
   }
   private addImportBlock(state: PacienteImportacionChatState, view: PacienteImportView, active: boolean): void {
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'patient-import', importacion: state, importView: view, importActive: active });
+    this.addMessage(this.createBlockMessage('patient-import', { importacion: state, importView: view, importActive: active }));
   }
   private addDuplicateBlock(state: GestionDuplicadosChatState, view: GestionDuplicadosVista, active: boolean): void {
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'duplicate-management', duplicados: { ...state }, duplicateView: view, duplicateActive: active });
+    this.addMessage(this.createBlockMessage('duplicate-management', { duplicados: { ...state }, duplicateView: view, duplicateActive: active }));
   }
   private addMissingHistoriesBlock(state: HistoriasClinicasFaltantesChatState, view: HistoriasClinicasFaltantesVista, active: boolean): void {
-    this.messages.push({ id: this.nextMessageId(), sender: 'bot', type: 'missing-clinical-histories', historiasFaltantes: state, missingHistoriesView: view, missingHistoriesActive: active });
+    this.addMessage(this.createBlockMessage('missing-clinical-histories', { historiasFaltantes: state, missingHistoriesView: view, missingHistoriesActive: active }));
   }
-  private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage { return { id: this.nextMessageId(), sender, type: 'text', text }; }
+  private addMessage(message: ChatMessage): ChatMessage {
+    this.messages.push(message);
+    this.enqueueForPresentation(message);
+    return message;
+  }
+  private initializeMessages(messages: ChatMessage[]): ChatMessage[] {
+    messages.forEach(message => this.enqueueForPresentation(message));
+    return messages;
+  }
+  private enqueueForPresentation(message: ChatMessage): void {
+    this.presentationQueue.push(message);
+    this.processPresentationQueue();
+  }
+  private processPresentationQueue(): void {
+    if (this.activePresentationId) return;
+    let message = this.presentationQueue.shift();
+    while (message) {
+      this.activePresentationId = message.id;
+      message.presentationState = 'presenting';
+      this.revealMessageImmediately(message);
+      this.activePresentationId = undefined;
+      message = this.presentationQueue.shift();
+    }
+  }
+  private revealMessageImmediately(message: ChatMessage): void {
+    if (message.type === 'text') message.visibleText = message.text ?? '';
+    message.presentationState = 'visible';
+  }
+  private resetPresentationCoordinator(): void {
+    this.presentationQueue.length = 0;
+    this.activePresentationId = undefined;
+  }
+  private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage {
+    return { id: this.nextMessageId(), sender, type: 'text', text, visibleText: '', presentationState: 'pending', animateText: this.shouldAnimateText(sender, 'text') };
+  }
+  private createBlockMessage(type: Exclude<ChatMessage['type'], 'text'>, data: Partial<ChatMessage>): ChatMessage {
+    return { ...data, id: this.nextMessageId(), sender: 'bot', type, presentationState: 'pending', animateText: false };
+  }
+  private shouldAnimateText(sender: ChatMessage['sender'], type: ChatMessage['type']): boolean {
+    return sender === 'bot' && type === 'text';
+  }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
     this.isLoading = true; this.addBotMessage('Escribiendo...');
@@ -498,14 +542,14 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.messages = this.getInitialMessages(); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
   private getInitialMessages(): ChatMessage[] {
     if (!this.autenticado) {
       return [this.createTextMessage('bot', 'Hola, soy el Asistente IA del sistema.\nPara realizar consultas, verificar datos o ayudarte con los procesos, primero debes iniciar sesión.')];
     }
     const welcome = this.createTextMessage('bot', this.initialMessage);
-    return [welcome, { id: this.nextMessageId(), sender: 'bot', type: 'menu', menuId: 'principal', options: this.createMenuOptions('principal') }];
+    return [welcome, this.createBlockMessage('menu', { menuId: 'principal', options: this.createMenuOptions('principal') })];
   }
   private clearStoredChat(): void { localStorage.removeItem('asistenteChatState'); sessionStorage.removeItem('asistenteChatState'); }
   private createMenuOptions(menuId: string): MenuOption[] {

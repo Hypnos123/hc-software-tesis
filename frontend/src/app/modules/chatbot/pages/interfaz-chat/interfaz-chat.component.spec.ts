@@ -161,6 +161,31 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1].options?.length).toBe(3);
   });
 
+  it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
+    expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
+    expect(component.messages[0].visibleText).toBe(component.messages[0].text);
+    expect(component.messages[0].animateText).toBeTrue();
+    expect(component.messages[1].animateText).toBeFalse();
+    expect((component as any).presentationQueue).toEqual([]);
+    expect((component as any).activePresentationId).toBeUndefined();
+  });
+
+  it('debe conservar texto, texto y componente en orden aunque todos se revelen inmediatamente', () => {
+    const inicio = component.messages.length;
+    (component as any).addBotMessage('Primer mensaje');
+    (component as any).addBotMessage('Segundo mensaje');
+    (component as any).addImportBlock({ estado: 'INICIAL', mensaje: '', plantillaDescargada: false, mensajes: [] }, 'template', true);
+    fixture.detectChanges();
+
+    const secuencia = component.messages.slice(inicio);
+    expect(secuencia.map(mensaje => mensaje.type)).toEqual(['text', 'text', 'patient-import']);
+    expect(secuencia.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible', 'visible']);
+    expect(secuencia.slice(0, 2).map(mensaje => mensaje.visibleText)).toEqual(['Primer mensaje', 'Segundo mensaje']);
+    expect(fixture.nativeElement.textContent).toContain('Primer mensaje');
+    expect(fixture.nativeElement.textContent).toContain('Segundo mensaje');
+    expect(fixture.nativeElement.querySelector('app-importacion-pacientes-chat')).not.toBeNull();
+  });
+
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
     component.openChat();
     fixture.detectChanges();
