@@ -161,6 +161,129 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1].options?.length).toBe(3);
   });
 
+  it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
+    expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
+    expect(component.messages[0].visibleText).toBe(component.messages[0].text);
+    expect(component.messages[0].animateText).toBeTrue();
+    expect(component.messages[1].animateText).toBeFalse();
+    expect((component as any).presentationQueue).toEqual([]);
+    expect((component as any).activePresentationId).toBeUndefined();
+  });
+
+  it('debe escribir progresivamente un mensaje bot y conservar intacto el texto final', fakeAsync(() => {
+    const mensaje = (component as any).addBotMessage('Hola');
+
+    expect(mensaje.presentationState).toBe('presenting');
+    expect(mensaje.visibleText).toBe('');
+    expect(mensaje.text).toBe('Hola');
+    tick(20);
+    expect(mensaje.visibleText).toBe('H');
+    tick(60);
+
+    expect(mensaje.visibleText).toBe('Hola');
+    expect(mensaje.text).toBe('Hola');
+    expect(mensaje.presentationState).toBe('visible');
+  }));
+
+  it('debe terminar un mensaje bot antes de comenzar el siguiente', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('AB');
+    const segundo = (component as any).addBotMessage('CD');
+
+    expect(primero.presentationState).toBe('presenting');
+    expect(segundo.presentationState).toBe('pending');
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting').length).toBe(1);
+    tick(40);
+    expect(primero).toEqual(jasmine.objectContaining({ visibleText: 'AB', presentationState: 'visible' }));
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: '', presentationState: 'presenting' }));
+    tick(40);
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: 'CD', presentationState: 'visible' }));
+  }));
+
+  it('debe mostrar inmediatamente el mensaje de usuario sin ocupar el timer', () => {
+    const mensaje = (component as any).addUserMessage('Mensaje inmediato');
+
+    expect(mensaje).toEqual(jasmine.objectContaining({ visibleText: 'Mensaje inmediato', presentationState: 'visible', animateText: false }));
+    expect((component as any).presentationTimer).toBeUndefined();
+  });
+
+  it('debe preservar tildes, Unicode y saltos de línea durante la presentación', fakeAsync(() => {
+    const texto = 'Información 🩺\nLínea número dos';
+    const mensaje = (component as any).addBotMessage(texto);
+
+    tick(Array.from(texto).length * 20);
+
+    expect(mensaje.visibleText).toBe(texto);
+    expect(mensaje.text).toBe(texto);
+    expect(mensaje.visibleText.split('\n')).toEqual(['Información 🩺', 'Línea número dos']);
+  }));
+
+  it('debe mantener un único timer y un único mensaje presenting para toda la cola', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('ABC');
+    const timerInicial = (component as any).presentationTimer;
+    const segundo = (component as any).addBotMessage('DEF');
+
+    expect(timerInicial).toBeDefined();
+    expect((component as any).presentationTimer).toBe(timerInicial);
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([primero]);
+    expect((component as any).presentationQueue).toEqual([segundo]);
+    tick(120);
+    expect((component as any).presentationTimer).toBeUndefined();
+    expect((component as any).activePresentationId).toBeUndefined();
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([]);
+  }));
+
+  it('no debe renderizar la burbuja de un texto pendiente', fakeAsync(() => {
+    component.openChat();
+    const primero = (component as any).addBotMessage('AB');
+    const pendiente = (component as any).addBotMessage('CD');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${primero.id}"]`)).not.toBeNull();
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${pendiente.id}"]`)).toBeNull();
+    tick(40);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${pendiente.id}"]`)).not.toBeNull();
+  }));
+
+  it('debe mostrar un único indicador fuera del historial mientras escribe y retirarlo al terminar', fakeAsync(() => {
+    component.openChat();
+    const cantidadInicial = component.messages.length;
+    (component as any).addBotMessage('AB');
+    (component as any).addBotMessage('CD');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.assistant-typing-indicator').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.assistant-typing-indicator').textContent).toContain('Asistente escribiendo');
+    expect(component.messages.length).toBe(cantidadInicial + 2);
+    expect(component.messages.some(mensaje => mensaje.text?.includes('Asistente escribiendo'))).toBeFalse();
+    tick(80);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assistant-typing-indicator')).toBeNull();
+  }));
+
+  it('debe respetar texto, texto y componente sin mostrar el componente antes de su turno', fakeAsync(() => {
+    component.openChat();
+    const primero = (component as any).addBotMessage('AB');
+    const segundo = (component as any).addBotMessage('CD');
+    const componente = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(componente);
+    fixture.detectChanges();
+
+    const menuElement = (): HTMLElement | null => fixture.nativeElement.querySelector(`[data-block-id="${componente.id}"]`);
+    expect([primero, segundo, componente].map(mensaje => mensaje.presentationState)).toEqual(['presenting', 'pending', 'pending']);
+    expect(menuElement()?.hidden).toBeTrue();
+    tick(40);
+    fixture.detectChanges();
+    expect(segundo.presentationState).toBe('presenting');
+    expect(componente.presentationState).toBe('pending');
+    expect(menuElement()?.hidden).toBeTrue();
+    tick(40);
+    fixture.detectChanges();
+    expect(componente.presentationState).toBe('visible');
+    expect(menuElement()?.hidden).toBeFalse();
+    expect(menuElement()?.querySelectorAll('button').length).toBe(0);
+  }));
+
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
     component.openChat();
     fixture.detectChanges();

@@ -13,6 +13,8 @@ import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -133,6 +135,40 @@ class AsistenteServiceImplClasificacionGeneralTest {
 
     assertEquals("ANALISIS_DUPLICADOS_PACIENTES", response.getIntencion());
     verificarSinResolucionDePaciente();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "¿Hay pacientes duplicados?",
+      "¿Existen pacientes duplicados?",
+      "Existen pacientes duplicados",
+      "Detectar pacientes duplicados",
+      "Buscar pacientes duplicados",
+      "Mostrar pacientes duplicados"
+  })
+  void priorizaPacientesDuplicadosSobreElConteoGeneral(String pregunta) {
+    Paciente primero = paciente();
+    Paciente segundo = paciente();
+    segundo.setIdPaciente(6);
+    when(pacienteRepository.findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(List.of(primero, segundo));
+
+    AsistenteResponse response = preguntar(pregunta);
+
+    assertEquals("ANALISIS_DUPLICADOS_PACIENTES", response.getIntencion());
+    verify(pacienteRepository, never()).countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = { "¿Cuántos pacientes hay?", "¿Cuántos pacientes están registrados?" })
+  void conservaElConteoGeneralSinConceptoDeDuplicidad(String pregunta) {
+    when(pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)).thenReturn(7L);
+
+    AsistenteResponse response = preguntar(pregunta);
+
+    assertEquals("PACIENTES_REGISTRADOS", response.getIntencion());
+    verify(pacienteRepository).countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
+    verify(pacienteRepository, never()).findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente.ACTIVO);
   }
 
   @Test

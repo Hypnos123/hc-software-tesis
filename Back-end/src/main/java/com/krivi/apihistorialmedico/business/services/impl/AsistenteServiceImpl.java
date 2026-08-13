@@ -61,6 +61,9 @@ public class AsistenteServiceImpl implements AsistenteService {
     }
     if (esUltimosPacientes(q)) return ultimosPacientes();
     if (esEstadisticaEdad(q)) return estadisticaEdad(q);
+    AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q);
+    if (historiasDuplicadas != null) return historiasDuplicadas;
+    if (esAnalisisDuplicados(q)) return analizarDuplicadosPacientes();
     if (esConteoPacientes(q)) {
       long cantidad = p.total()
           ? pacienteRepository.countByEstadoRegistro(EstadoRegistroPaciente.ACTIVO)
@@ -70,10 +73,6 @@ public class AsistenteServiceImpl implements AsistenteService {
               Date.from(p.fin().atZone(ZoneId.systemDefault()).toInstant()));
       return cantidad("PACIENTES_REGISTRADOS", cantidad, pref(p) + "hay %d pacientes registrados.", p);
     }
-    AsistenteResponse historiasDuplicadas = responderHistoriasClinicasDuplicadas(q);
-    if (historiasDuplicadas != null) return historiasDuplicadas;
-    AsistenteResponse pacientesDuplicados = buscarPacienteDuplicado(q);
-    if (pacientesDuplicados != null && esAnalisisDuplicados(q)) return pacientesDuplicados;
     if (esConsultaGeneralHistoriasClinicas(q)) {
       long cantidad = p.total()
           ? historiaClinicaRepository.count()

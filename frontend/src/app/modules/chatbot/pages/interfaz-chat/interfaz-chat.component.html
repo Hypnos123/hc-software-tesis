@@ -15,24 +15,25 @@
 
   <div class="chatbot-body" #chatBody>
     <ng-container *ngFor="let message of messages">
-      <div #conversationBlock *ngIf="message.type === 'text'" [attr.data-block-id]="message.id" [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'">{{ message.text }}</div>
-      <div #conversationBlock *ngIf="message.type === 'menu'" [attr.data-block-id]="message.id" class="navigation-options" [class.main-categories]="message.menuId === 'principal'" aria-label="Opciones del asistente">
+      <div #conversationBlock *ngIf="message.type === 'text' && message.presentationState !== 'pending'" [attr.data-block-id]="message.id" [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'">{{ message.visibleText }}</div>
+      <div #conversationBlock *ngIf="message.type === 'menu'" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="navigation-options" [class.main-categories]="message.menuId === 'principal'" aria-label="Opciones del asistente">
         <button *ngFor="let option of message.options || []" type="button" class="navigation-option" [class.category-card]="message.menuId === 'principal'" [disabled]="isLoading" [title]="option.description || option.label" (click)="selectHistoricalMenuOption(message, option)">
           <i *ngIf="option.icon" [class]="option.icon" aria-hidden="true"></i>
           <span class="option-content"><strong>{{ option.label }}</strong><small *ngIf="option.description">{{ option.description }}</small></span>
         </button>
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
-      <div #conversationBlock *ngIf="message.type === 'patient-import' && message.importacion" [attr.data-block-id]="message.id" class="bot-message import-message-block">
+      <div #conversationBlock *ngIf="message.type === 'patient-import' && message.importacion" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message import-message-block">
         <app-importacion-pacientes-chat [state]="message.importacion" [view]="message.importView!" [active]="!!message.importActive" (mensajeConversacional)="manejarMensajeImportacion(message.importacion, $event)" (registrarOtro)="registrarOtroArchivo()" (volverPacientes)="mostrarOpcionesPacientes()"></app-importacion-pacientes-chat>
       </div>
-      <div #conversationBlock *ngIf="message.type === 'duplicate-management' && message.duplicados" [attr.data-block-id]="message.id" class="bot-message duplicate-message-block">
+      <div #conversationBlock *ngIf="message.type === 'duplicate-management' && message.duplicados" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message duplicate-message-block">
         <app-gestion-duplicados-chat [state]="message.duplicados" [view]="message.duplicateView!" [active]="!!message.duplicateActive" (mensajeConversacional)="manejarMensajeGestionDuplicados(message.duplicados, $event)"></app-gestion-duplicados-chat>
       </div>
-      <div #conversationBlock *ngIf="message.type === 'missing-clinical-histories' && message.historiasFaltantes" [attr.data-block-id]="message.id" class="bot-message missing-histories-message-block">
+      <div #conversationBlock *ngIf="message.type === 'missing-clinical-histories' && message.historiasFaltantes" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message missing-histories-message-block">
         <app-historias-clinicas-faltantes-chat [state]="message.historiasFaltantes" [view]="message.missingHistoriesView!" [active]="!!message.missingHistoriesActive" (mensajeConversacional)="manejarMensajeHistoriasFaltantes(message.historiasFaltantes, $event)"></app-historias-clinicas-faltantes-chat>
       </div>
     </ng-container>
+    <div *ngIf="asistenteEscribiendo" class="assistant-typing-indicator" role="status" aria-live="polite">Asistente escribiendo…</div>
   </div>
 
   <div *ngIf="autenticado" class="quick-questions" aria-label="Preguntas rápidas">
