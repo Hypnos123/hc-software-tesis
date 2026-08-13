@@ -177,6 +177,8 @@ export class InterfazChatComponent implements OnDestroy {
   private messageSequence = 0;
   private readonly presentationQueue: ChatMessage[] = [];
   private activePresentationId?: string;
+  private presentationTimer?: ReturnType<typeof setTimeout>;
+  private readonly characterPresentationDelay = 20;
   private scrollPosition = 0;
   private floatingMessageTimer?: ReturnType<typeof setTimeout>;
   private floatingMessageIndex = 0;
@@ -486,31 +488,63 @@ export class InterfazChatComponent implements OnDestroy {
     return message;
   }
   private initializeMessages(messages: ChatMessage[]): ChatMessage[] {
-    messages.forEach(message => this.enqueueForPresentation(message));
+    messages.forEach(message => this.revealMessageImmediately(message));
     return messages;
   }
   private enqueueForPresentation(message: ChatMessage): void {
+    if (!this.isAnimatedBotText(message)) {
+      this.revealMessageImmediately(message);
+      return;
+    }
     this.presentationQueue.push(message);
     this.processPresentationQueue();
   }
   private processPresentationQueue(): void {
     if (this.activePresentationId) return;
-    let message = this.presentationQueue.shift();
-    while (message) {
-      this.activePresentationId = message.id;
-      message.presentationState = 'presenting';
-      this.revealMessageImmediately(message);
-      this.activePresentationId = undefined;
-      message = this.presentationQueue.shift();
+    const message = this.presentationQueue.shift();
+    if (!message) return;
+    this.activePresentationId = message.id;
+    message.presentationState = 'presenting';
+    message.visibleText = '';
+    this.revealNextCharacter(message, Array.from(message.text ?? ''), 0);
+  }
+  private revealNextCharacter(message: ChatMessage, characters: string[], index: number): void {
+    if (this.activePresentationId !== message.id) return;
+    if (index >= characters.length) {
+      this.completeMessagePresentation(message);
+      return;
     }
+    this.presentationTimer = setTimeout(() => {
+      this.presentationTimer = undefined;
+      if (this.activePresentationId !== message.id) return;
+      message.visibleText = `${message.visibleText ?? ''}${characters[index]}`;
+      this.revealNextCharacter(message, characters, index + 1);
+    }, this.characterPresentationDelay);
+  }
+  private completeMessagePresentation(message: ChatMessage): void {
+    message.visibleText = message.text ?? '';
+    message.presentationState = 'visible';
+    this.activePresentationId = undefined;
+    this.processPresentationQueue();
   }
   private revealMessageImmediately(message: ChatMessage): void {
     if (message.type === 'text') message.visibleText = message.text ?? '';
     message.presentationState = 'visible';
   }
   private resetPresentationCoordinator(): void {
+    if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
+    this.presentationTimer = undefined;
     this.presentationQueue.length = 0;
     this.activePresentationId = undefined;
+  }
+  private removeMessageFromPresentation(message: ChatMessage): void {
+    const queuedIndex = this.presentationQueue.indexOf(message);
+    if (queuedIndex >= 0) this.presentationQueue.splice(queuedIndex, 1);
+    if (this.activePresentationId !== message.id) return;
+    if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
+    this.presentationTimer = undefined;
+    this.activePresentationId = undefined;
+    this.processPresentationQueue();
   }
   private createTextMessage(sender: ChatMessage['sender'], text: string): ChatMessage {
     return { id: this.nextMessageId(), sender, type: 'text', text, visibleText: '', presentationState: 'pending', animateText: this.shouldAnimateText(sender, 'text') };
@@ -520,6 +554,9 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private shouldAnimateText(sender: ChatMessage['sender'], type: ChatMessage['type']): boolean {
     return sender === 'bot' && type === 'text';
+  }
+  private isAnimatedBotText(message: ChatMessage): boolean {
+    return message.sender === 'bot' && message.type === 'text' && message.animateText;
   }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
@@ -543,7 +580,12 @@ export class InterfazChatComponent implements OnDestroy {
     return response.datos?.['hayDuplicados'] === true;
   }
   private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } }); this.cancelarGestionDuplicadosSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
-  private removeTypingMessage(): void { if (this.messages[this.messages.length - 1]?.text === 'Escribiendo...') this.messages.pop(); }
+  private removeTypingMessage(): void {
+    const message = this.messages[this.messages.length - 1];
+    if (message?.text !== 'Escribiendo...') return;
+    this.messages.pop();
+    this.removeMessageFromPresentation(message);
+  }
   private getInitialMessages(): ChatMessage[] {
     if (!this.autenticado) {
       return [this.createTextMessage('bot', 'Hola, soy el Asistente IA del sistema.\nPara realizar consultas, verificar datos o ayudarte con los procesos, primero debes iniciar sesión.')];
@@ -785,7 +827,12 @@ export class InterfazChatComponent implements OnDestroy {
     this.clinicalHistoryFlow = { step: 'awaitingDni' };
     this.addBotMessage('No se pudo consultar la información del paciente en este momento. Inténtalo nuevamente.');
   }
-  private removeClinicalHistoryLoadingMessage(): void { if (this.messages.at(-1)?.text === 'Consultando paciente...') this.messages.pop(); }
+  private removeClinicalHistoryLoadingMessage(): void {
+    const message = this.messages.at(-1);
+    if (message?.text !== 'Consultando paciente...') return;
+    this.messages.pop();
+    this.removeMessageFromPresentation(message);
+  }
   private stopClinicalHistoryRequest(): void { this.clinicalHistoryRequest?.unsubscribe(); this.clinicalHistoryRequest = undefined; this.isLoading = false; this.removeClinicalHistoryLoadingMessage(); }
   private formatResponse(response: IAsistenteResponse): string { return response.respuesta || 'No pude identificar la consulta.'; }
 }

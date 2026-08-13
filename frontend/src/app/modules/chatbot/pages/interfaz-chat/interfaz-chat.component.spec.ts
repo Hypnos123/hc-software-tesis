@@ -170,21 +170,67 @@ describe('InterfazChatComponent', () => {
     expect((component as any).activePresentationId).toBeUndefined();
   });
 
-  it('debe conservar texto, texto y componente en orden aunque todos se revelen inmediatamente', () => {
-    const inicio = component.messages.length;
-    (component as any).addBotMessage('Primer mensaje');
-    (component as any).addBotMessage('Segundo mensaje');
-    (component as any).addImportBlock({ estado: 'INICIAL', mensaje: '', plantillaDescargada: false, mensajes: [] }, 'template', true);
-    fixture.detectChanges();
+  it('debe escribir progresivamente un mensaje bot y conservar intacto el texto final', fakeAsync(() => {
+    const mensaje = (component as any).addBotMessage('Hola');
 
-    const secuencia = component.messages.slice(inicio);
-    expect(secuencia.map(mensaje => mensaje.type)).toEqual(['text', 'text', 'patient-import']);
-    expect(secuencia.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible', 'visible']);
-    expect(secuencia.slice(0, 2).map(mensaje => mensaje.visibleText)).toEqual(['Primer mensaje', 'Segundo mensaje']);
-    expect(fixture.nativeElement.textContent).toContain('Primer mensaje');
-    expect(fixture.nativeElement.textContent).toContain('Segundo mensaje');
-    expect(fixture.nativeElement.querySelector('app-importacion-pacientes-chat')).not.toBeNull();
+    expect(mensaje.presentationState).toBe('presenting');
+    expect(mensaje.visibleText).toBe('');
+    expect(mensaje.text).toBe('Hola');
+    tick(20);
+    expect(mensaje.visibleText).toBe('H');
+    tick(60);
+
+    expect(mensaje.visibleText).toBe('Hola');
+    expect(mensaje.text).toBe('Hola');
+    expect(mensaje.presentationState).toBe('visible');
+  }));
+
+  it('debe terminar un mensaje bot antes de comenzar el siguiente', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('AB');
+    const segundo = (component as any).addBotMessage('CD');
+
+    expect(primero.presentationState).toBe('presenting');
+    expect(segundo.presentationState).toBe('pending');
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting').length).toBe(1);
+    tick(40);
+    expect(primero).toEqual(jasmine.objectContaining({ visibleText: 'AB', presentationState: 'visible' }));
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: '', presentationState: 'presenting' }));
+    tick(40);
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: 'CD', presentationState: 'visible' }));
+  }));
+
+  it('debe mostrar inmediatamente el mensaje de usuario sin ocupar el timer', () => {
+    const mensaje = (component as any).addUserMessage('Mensaje inmediato');
+
+    expect(mensaje).toEqual(jasmine.objectContaining({ visibleText: 'Mensaje inmediato', presentationState: 'visible', animateText: false }));
+    expect((component as any).presentationTimer).toBeUndefined();
   });
+
+  it('debe preservar tildes, Unicode y saltos de línea durante la presentación', fakeAsync(() => {
+    const texto = 'Información 🩺\nLínea número dos';
+    const mensaje = (component as any).addBotMessage(texto);
+
+    tick(Array.from(texto).length * 20);
+
+    expect(mensaje.visibleText).toBe(texto);
+    expect(mensaje.text).toBe(texto);
+    expect(mensaje.visibleText.split('\n')).toEqual(['Información 🩺', 'Línea número dos']);
+  }));
+
+  it('debe mantener un único timer y un único mensaje presenting para toda la cola', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('ABC');
+    const timerInicial = (component as any).presentationTimer;
+    const segundo = (component as any).addBotMessage('DEF');
+
+    expect(timerInicial).toBeDefined();
+    expect((component as any).presentationTimer).toBe(timerInicial);
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([primero]);
+    expect((component as any).presentationQueue).toEqual([segundo]);
+    tick(120);
+    expect((component as any).presentationTimer).toBeUndefined();
+    expect((component as any).activePresentationId).toBeUndefined();
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([]);
+  }));
 
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
     component.openChat();
