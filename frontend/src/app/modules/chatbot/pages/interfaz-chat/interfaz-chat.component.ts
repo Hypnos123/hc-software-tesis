@@ -203,6 +203,17 @@ export class InterfazChatComponent implements OnDestroy {
   };
   get gestionDuplicadosActiva(): boolean { return this.hayGestionDuplicadosActiva(); }
   get autenticado(): boolean { return !!this.authService.usuario?.idUsuario; }
+  get asistenteEscribiendo(): boolean {
+    if (this.activePresentationId) {
+      const active = this.messages.find(message => message.id === this.activePresentationId);
+      if (active && this.isAnimatedBotText(active)) return true;
+    }
+    for (const message of this.presentationQueue) {
+      if (!this.isAnimatedBotText(message)) return false;
+      return true;
+    }
+    return false;
+  }
 
   constructor(
     private asistenteService: AsistenteService,
@@ -492,7 +503,7 @@ export class InterfazChatComponent implements OnDestroy {
     return messages;
   }
   private enqueueForPresentation(message: ChatMessage): void {
-    if (!this.isAnimatedBotText(message)) {
+    if (message.sender === 'user') {
       this.revealMessageImmediately(message);
       return;
     }
@@ -503,6 +514,15 @@ export class InterfazChatComponent implements OnDestroy {
     if (this.activePresentationId) return;
     const message = this.presentationQueue.shift();
     if (!message) return;
+    if (!this.messages.includes(message)) {
+      this.processPresentationQueue();
+      return;
+    }
+    if (!this.isAnimatedBotText(message)) {
+      this.revealMessageImmediately(message);
+      this.processPresentationQueue();
+      return;
+    }
     this.activePresentationId = message.id;
     message.presentationState = 'presenting';
     message.visibleText = '';
