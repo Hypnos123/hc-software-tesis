@@ -179,6 +179,10 @@ export class InterfazChatComponent implements OnDestroy {
   private activePresentationId?: string;
   private presentationTimer?: ReturnType<typeof setTimeout>;
   private readonly characterPresentationDelay = 20;
+  private presentationScrollFrame?: number;
+  private autoFollowPresentation = true;
+  private readonly autoFollowThreshold = 48;
+  private presentationSequenceHadText = false;
   private scrollPosition = 0;
   private floatingMessageTimer?: ReturnType<typeof setTimeout>;
   private floatingMessageIndex = 0;
@@ -232,7 +236,7 @@ export class InterfazChatComponent implements OnDestroy {
   ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
-  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.isOpen = false; this.scheduleFloatingMessage(90_000); }
+  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
   closeChat(): void {
     this.importacionComponents?.forEach(component => component.limpiarFlujo());
     this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo());
@@ -420,8 +424,14 @@ export class InterfazChatComponent implements OnDestroy {
     }).catch(() => this.handleClinicalHistoryNavigationError(dni, patient, prefill, transferId))
       .finally(() => { this.isLoading = false; });
   }
-  scrollToBottom(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
+  onChatBodyScroll(): void {
+    if (!this.chatBody) return;
+    const body = this.chatBody.nativeElement;
+    this.autoFollowPresentation = body.scrollHeight - body.scrollTop - body.clientHeight <= this.autoFollowThreshold;
+  }
+  scrollToBottom(): void { this.autoFollowPresentation = true; requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
   private scrollToNewBlock(blockId: string): void {
+    this.autoFollowPresentation = true;
     requestAnimationFrame(() => this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
   cerrarMensajeFlotante(): void {
@@ -520,12 +530,16 @@ export class InterfazChatComponent implements OnDestroy {
     }
     if (!this.isAnimatedBotText(message)) {
       this.revealMessageImmediately(message);
+      if (this.presentationSequenceHadText) this.focusPresentedBlock(message.id);
+      this.presentationSequenceHadText = false;
       this.processPresentationQueue();
       return;
     }
     this.activePresentationId = message.id;
+    this.presentationSequenceHadText = true;
     message.presentationState = 'presenting';
     message.visibleText = '';
+    this.followActivePresentation();
     this.revealNextCharacter(message, Array.from(message.text ?? ''), 0);
   }
   private revealNextCharacter(message: ChatMessage, characters: string[], index: number): void {
@@ -538,6 +552,7 @@ export class InterfazChatComponent implements OnDestroy {
       this.presentationTimer = undefined;
       if (this.activePresentationId !== message.id) return;
       message.visibleText = `${message.visibleText ?? ''}${characters[index]}`;
+      this.followActivePresentation();
       this.revealNextCharacter(message, characters, index + 1);
     }, this.characterPresentationDelay);
   }
@@ -551,11 +566,28 @@ export class InterfazChatComponent implements OnDestroy {
     if (message.type === 'text') message.visibleText = message.text ?? '';
     message.presentationState = 'visible';
   }
+  private followActivePresentation(): void {
+    if (!this.isOpen || !this.autoFollowPresentation || this.presentationScrollFrame !== undefined) return;
+    this.presentationScrollFrame = requestAnimationFrame(() => {
+      this.presentationScrollFrame = undefined;
+      if (!this.chatBody || !this.isOpen || !this.autoFollowPresentation) return;
+      const body = this.chatBody.nativeElement;
+      body.scrollTop = Math.max(body.scrollTop, body.scrollHeight - body.clientHeight);
+    });
+  }
+  private focusPresentedBlock(blockId: string): void {
+    if (!this.isOpen) return;
+    this.scrollToNewBlock(blockId);
+  }
   private resetPresentationCoordinator(): void {
     if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
     this.presentationTimer = undefined;
+    if (this.presentationScrollFrame !== undefined) cancelAnimationFrame(this.presentationScrollFrame);
+    this.presentationScrollFrame = undefined;
     this.presentationQueue.length = 0;
     this.activePresentationId = undefined;
+    this.presentationSequenceHadText = false;
+    this.autoFollowPresentation = true;
   }
   private removeMessageFromPresentation(message: ChatMessage): void {
     const queuedIndex = this.presentationQueue.indexOf(message);

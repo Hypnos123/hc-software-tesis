@@ -284,6 +284,104 @@ describe('InterfazChatComponent', () => {
     expect(menuElement()?.querySelectorAll('button').length).toBe(0);
   }));
 
+  it('debe seguir suavemente el crecimiento del texto con un solo frame pendiente', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 240 });
+    body.scrollTop = 140;
+
+    (component as any).addBotMessage('AB');
+    tick(20);
+    expect((component as any).presentationScrollFrame).toBeDefined();
+    tick(20);
+
+    expect(body.scrollTop).toBe(140);
+    expect((component as any).presentationScrollFrame).toBeUndefined();
+  }));
+
+  it('debe mantener el seguimiento al cambiar de un texto al siguiente', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    spyOn<any>(component, 'followActivePresentation').and.callThrough();
+    (component as any).addBotMessage('A');
+    (component as any).addBotMessage('B');
+
+    tick(40);
+
+    expect((component as any).followActivePresentation).toHaveBeenCalledTimes(4);
+    expect(component.messages.slice(-2).map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
+  }));
+
+  it('debe enfocar el inicio del componente que aparece después de textos', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const scrollSpy = spyOn<any>(component, 'scrollToNewBlock').and.callThrough();
+    (component as any).addBotMessage('A');
+    const tarjeta = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(tarjeta);
+    fixture.detectChanges();
+    const tarjetaElement = fixture.nativeElement.querySelector(`[data-block-id="${tarjeta.id}"]`) as HTMLElement;
+    tarjetaElement.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(scrollSpy).toHaveBeenCalledWith(tarjeta.id);
+    expect(tarjetaElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe suspender el seguimiento cuando el usuario se aleja del final', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 500 });
+    body.scrollTop = 100;
+    component.onChatBodyScroll();
+    (component as any).addBotMessage('AB');
+
+    tick(40);
+
+    expect(body.scrollTop).toBe(100);
+    expect((component as any).autoFollowPresentation).toBeFalse();
+  }));
+
+  it('no debe modificar el scroll interno de una tarjeta al enfocar su inicio', fakeAsync(() => {
+    component.openChat();
+    (component as any).addBotMessage('A');
+    const tarjeta = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(tarjeta);
+    fixture.detectChanges();
+    const tarjetaElement = fixture.nativeElement.querySelector(`[data-block-id="${tarjeta.id}"]`) as HTMLElement;
+    tarjetaElement.scrollTop = 37;
+    tarjetaElement.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(tarjetaElement.scrollTop).toBe(37);
+    expect(tarjetaElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe conservar la posición al minimizar y reabrir durante la presentación', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    body.scrollTop = 73;
+    const mensaje = (component as any).addBotMessage('ABCD');
+    component.minimizeChat();
+    tick(40);
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+    tick(20);
+
+    const restored = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    expect(restored.scrollTop).toBe(73);
+    expect(mensaje.visibleText.length).toBeGreaterThan(0);
+    tick(40);
+  }));
+
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
     component.openChat();
     fixture.detectChanges();
