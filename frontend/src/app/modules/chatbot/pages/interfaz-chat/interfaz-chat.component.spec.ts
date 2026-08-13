@@ -161,6 +161,227 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1].options?.length).toBe(3);
   });
 
+  it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
+    expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
+    expect(component.messages[0].visibleText).toBe(component.messages[0].text);
+    expect(component.messages[0].animateText).toBeTrue();
+    expect(component.messages[1].animateText).toBeFalse();
+    expect((component as any).presentationQueue).toEqual([]);
+    expect((component as any).activePresentationId).toBeUndefined();
+  });
+
+  it('debe escribir progresivamente un mensaje bot y conservar intacto el texto final', fakeAsync(() => {
+    const mensaje = (component as any).addBotMessage('Hola');
+
+    expect(mensaje.presentationState).toBe('presenting');
+    expect(mensaje.visibleText).toBe('');
+    expect(mensaje.text).toBe('Hola');
+    tick(20);
+    expect(mensaje.visibleText).toBe('H');
+    tick(60);
+
+    expect(mensaje.visibleText).toBe('Hola');
+    expect(mensaje.text).toBe('Hola');
+    expect(mensaje.presentationState).toBe('visible');
+  }));
+
+  it('debe terminar un mensaje bot antes de comenzar el siguiente', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('AB');
+    const segundo = (component as any).addBotMessage('CD');
+
+    expect(primero.presentationState).toBe('presenting');
+    expect(segundo.presentationState).toBe('pending');
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting').length).toBe(1);
+    tick(40);
+    expect(primero).toEqual(jasmine.objectContaining({ visibleText: 'AB', presentationState: 'visible' }));
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: '', presentationState: 'presenting' }));
+    tick(40);
+    expect(segundo).toEqual(jasmine.objectContaining({ visibleText: 'CD', presentationState: 'visible' }));
+  }));
+
+  it('debe mostrar inmediatamente el mensaje de usuario sin ocupar el timer', () => {
+    const mensaje = (component as any).addUserMessage('Mensaje inmediato');
+
+    expect(mensaje).toEqual(jasmine.objectContaining({ visibleText: 'Mensaje inmediato', presentationState: 'visible', animateText: false }));
+    expect((component as any).presentationTimer).toBeUndefined();
+  });
+
+  it('debe preservar tildes, Unicode y saltos de línea durante la presentación', fakeAsync(() => {
+    const texto = 'Información 🩺\nLínea número dos';
+    const mensaje = (component as any).addBotMessage(texto);
+
+    tick(Array.from(texto).length * 20);
+
+    expect(mensaje.visibleText).toBe(texto);
+    expect(mensaje.text).toBe(texto);
+    expect(mensaje.visibleText.split('\n')).toEqual(['Información 🩺', 'Línea número dos']);
+  }));
+
+  it('debe mantener un único timer y un único mensaje presenting para toda la cola', fakeAsync(() => {
+    const primero = (component as any).addBotMessage('ABC');
+    const timerInicial = (component as any).presentationTimer;
+    const segundo = (component as any).addBotMessage('DEF');
+
+    expect(timerInicial).toBeDefined();
+    expect((component as any).presentationTimer).toBe(timerInicial);
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([primero]);
+    expect((component as any).presentationQueue).toEqual([segundo]);
+    tick(120);
+    expect((component as any).presentationTimer).toBeUndefined();
+    expect((component as any).activePresentationId).toBeUndefined();
+    expect(component.messages.filter(mensaje => mensaje.presentationState === 'presenting')).toEqual([]);
+  }));
+
+  it('no debe renderizar la burbuja de un texto pendiente', fakeAsync(() => {
+    component.openChat();
+    const primero = (component as any).addBotMessage('AB');
+    const pendiente = (component as any).addBotMessage('CD');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${primero.id}"]`)).not.toBeNull();
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${pendiente.id}"]`)).toBeNull();
+    tick(40);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector(`[data-block-id="${pendiente.id}"]`)).not.toBeNull();
+  }));
+
+  it('debe mostrar un único indicador fuera del historial mientras escribe y retirarlo al terminar', fakeAsync(() => {
+    component.openChat();
+    const cantidadInicial = component.messages.length;
+    (component as any).addBotMessage('AB');
+    (component as any).addBotMessage('CD');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.assistant-typing-indicator').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.assistant-typing-indicator').textContent).toContain('Asistente escribiendo');
+    expect(component.messages.length).toBe(cantidadInicial + 2);
+    expect(component.messages.some(mensaje => mensaje.text?.includes('Asistente escribiendo'))).toBeFalse();
+    tick(80);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.assistant-typing-indicator')).toBeNull();
+  }));
+
+  it('debe respetar texto, texto y componente sin mostrar el componente antes de su turno', fakeAsync(() => {
+    component.openChat();
+    const primero = (component as any).addBotMessage('AB');
+    const segundo = (component as any).addBotMessage('CD');
+    const componente = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(componente);
+    fixture.detectChanges();
+
+    const menuElement = (): HTMLElement | null => fixture.nativeElement.querySelector(`[data-block-id="${componente.id}"]`);
+    expect([primero, segundo, componente].map(mensaje => mensaje.presentationState)).toEqual(['presenting', 'pending', 'pending']);
+    expect(menuElement()?.hidden).toBeTrue();
+    tick(40);
+    fixture.detectChanges();
+    expect(segundo.presentationState).toBe('presenting');
+    expect(componente.presentationState).toBe('pending');
+    expect(menuElement()?.hidden).toBeTrue();
+    tick(40);
+    fixture.detectChanges();
+    expect(componente.presentationState).toBe('visible');
+    expect(menuElement()?.hidden).toBeFalse();
+    expect(menuElement()?.querySelectorAll('button').length).toBe(0);
+  }));
+
+  it('debe seguir suavemente el crecimiento del texto con un solo frame pendiente', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 240 });
+    body.scrollTop = 140;
+
+    (component as any).addBotMessage('AB');
+    tick(20);
+    expect((component as any).presentationScrollFrame).toBeDefined();
+    tick(20);
+
+    expect(body.scrollTop).toBe(140);
+    expect((component as any).presentationScrollFrame).toBeUndefined();
+  }));
+
+  it('debe mantener el seguimiento al cambiar de un texto al siguiente', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    spyOn<any>(component, 'followActivePresentation').and.callThrough();
+    (component as any).addBotMessage('A');
+    (component as any).addBotMessage('B');
+
+    tick(40);
+
+    expect((component as any).followActivePresentation).toHaveBeenCalledTimes(4);
+    expect(component.messages.slice(-2).map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
+  }));
+
+  it('debe enfocar el inicio del componente que aparece después de textos', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const scrollSpy = spyOn<any>(component, 'scrollToNewBlock').and.callThrough();
+    (component as any).addBotMessage('A');
+    const tarjeta = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(tarjeta);
+    fixture.detectChanges();
+    const tarjetaElement = fixture.nativeElement.querySelector(`[data-block-id="${tarjeta.id}"]`) as HTMLElement;
+    tarjetaElement.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(scrollSpy).toHaveBeenCalledWith(tarjeta.id);
+    expect(tarjetaElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe suspender el seguimiento cuando el usuario se aleja del final', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 500 });
+    body.scrollTop = 100;
+    component.onChatBodyScroll();
+    (component as any).addBotMessage('AB');
+
+    tick(40);
+
+    expect(body.scrollTop).toBe(100);
+    expect((component as any).autoFollowPresentation).toBeFalse();
+  }));
+
+  it('no debe modificar el scroll interno de una tarjeta al enfocar su inicio', fakeAsync(() => {
+    component.openChat();
+    (component as any).addBotMessage('A');
+    const tarjeta = (component as any).createBlockMessage('menu', { menuId: 'principal', options: [] });
+    (component as any).addMessage(tarjeta);
+    fixture.detectChanges();
+    const tarjetaElement = fixture.nativeElement.querySelector(`[data-block-id="${tarjeta.id}"]`) as HTMLElement;
+    tarjetaElement.scrollTop = 37;
+    tarjetaElement.scrollIntoView = jasmine.createSpy('scrollIntoView');
+
+    tick(20);
+
+    expect(tarjetaElement.scrollTop).toBe(37);
+    expect(tarjetaElement.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+  }));
+
+  it('debe conservar la posición al minimizar y reabrir durante la presentación', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    body.scrollTop = 73;
+    const mensaje = (component as any).addBotMessage('ABCD');
+    component.minimizeChat();
+    tick(40);
+    fixture.detectChanges();
+    component.openChat();
+    fixture.detectChanges();
+    tick(20);
+
+    const restored = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    expect(restored.scrollTop).toBe(73);
+    expect(mensaje.visibleText.length).toBeGreaterThan(0);
+    tick(40);
+  }));
+
   it('debe conservar los cinco botones inferiores con el mismo texto y orden', () => {
     component.openChat();
     fixture.detectChanges();
