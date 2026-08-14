@@ -33,6 +33,9 @@ export interface ConsultaHistoriaAnalisis {
   idConsulta: number;
   estado?: string;
   fechaActividad?: string;
+  idEmpleado?: number;
+  medico?: string;
+  diagnosticoResumen?: string;
   camposClinicosInformados: number;
   puntajeRiquezaClinica: number;
 }
@@ -75,6 +78,36 @@ export interface AnalisisHistoriasClinicasDuplicadas {
   motivoBloqueo?: string;
   advertenciasIntegridad: string[];
   mensaje: string;
+  tokenAnalisis: string;
+}
+
+export interface FusionarHistoriasClinicasRequest {
+  idHistoriaPrincipal: number;
+  contrasena: string;
+  confirmacion: true;
+  motivo: 'HISTORIA_CLINICA_DUPLICADA';
+  detalle: string;
+  origen: 'CHATBOT';
+  cantidadEsperadaPrincipal: number;
+  cantidadEsperadaSecundaria: number;
+  idsConsultasEsperadasPrincipal: number[];
+  idsConsultasEsperadasSecundaria: number[];
+  tokenAnalisis: string;
+}
+
+export interface FusionarHistoriasClinicasResponse {
+  fusionada: boolean;
+  idHistoriaPrincipal?: number;
+  idHistoriaEliminada?: number;
+  idPaciente?: number;
+  cantidadConsultasAntesPrincipal?: number;
+  cantidadConsultasAntesSecundaria?: number;
+  cantidadConsultasTransferidas?: number;
+  cantidadConsultasFinalPrincipal?: number;
+  posiblesCoincidencias?: number;
+  idAuditoria?: number;
+  resultado: string;
+  mensaje: string;
 }
 
 export type EstadoGestionHistoriasDuplicadas =
@@ -83,6 +116,10 @@ export type EstadoGestionHistoriasDuplicadas =
   | 'SELECCIONANDO_HISTORIAS'
   | 'ANALIZANDO_HISTORIAS'
   | 'MOSTRANDO_COMPARACION'
+  | 'SELECCIONANDO_PRINCIPAL'
+  | 'MOSTRANDO_VISTA_PREVIA'
+  | 'SOLICITANDO_CONTRASENA'
+  | 'FUSIONANDO'
   | 'COMPLETADO'
   | 'CANCELADO'
   | 'ERROR';
@@ -93,6 +130,11 @@ export type GestionHistoriasDuplicadasVista =
   | 'selection'
   | 'analyzing'
   | 'comparison'
+  | 'principal-selection'
+  | 'preview'
+  | 'password'
+  | 'fusing'
+  | 'success'
   | 'cancelled'
   | 'error';
 
@@ -102,6 +144,10 @@ export interface GestionHistoriasDuplicadasState {
   grupoSeleccionado?: GrupoHistoriasClinicasDuplicadas;
   idsSeleccionados: number[];
   analisis?: AnalisisHistoriasClinicasDuplicadas;
+  idHistoriaPrincipal?: number;
+  idHistoriaSecundaria?: number;
+  intentosRestantes: number;
+  respuestaFusion?: FusionarHistoriasClinicasResponse;
   mensajeError?: string;
   cancelarSolicitud?: () => void;
 }
@@ -116,5 +162,5 @@ export interface GestionHistoriasDuplicadasEvento {
 }
 
 export function crearGestionHistoriasDuplicadasState(): GestionHistoriasDuplicadasState {
-  return { estado: 'CONSULTANDO_DUPLICADOS', idsSeleccionados: [] };
+  return { estado: 'CONSULTANDO_DUPLICADOS', idsSeleccionados: [], intentosRestantes: 3 };
 }

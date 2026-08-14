@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -8,6 +10,7 @@ import {
   GestionHistoriasDuplicadasVista,
   GrupoHistoriasClinicasDuplicadas,
   HistoriaClinicaAnalisisDetallado
+  , FusionarHistoriasClinicasRequest
 } from '../../models/historia-clinica-duplicada-chat';
 import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-clinica-duplicada-chat.service';
 
@@ -23,6 +26,9 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
   @Input({ required: true }) view!: GestionHistoriasDuplicadasVista;
   @Input() active = false;
   @Output() mensajeConversacional = new EventEmitter<GestionHistoriasDuplicadasEvento>();
+  @ViewChild('passwordInput') passwordInput?: ElementRef<HTMLInputElement>;
+  password = '';
+  mostrarPassword = false;
 
   private solicitud?: Subscription;
 
@@ -32,7 +38,7 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     if (this.active && this.state.estado === 'CONSULTANDO_DUPLICADOS') this.detectar();
   }
 
-  ngOnDestroy(): void { this.detenerSolicitud(); }
+  ngOnDestroy(): void { this.detenerSolicitud(); this.limpiarPassword(); }
 
   seleccionarGrupo(grupo: GrupoHistoriasClinicasDuplicadas): void {
     if (!this.active || this.state.estado !== 'MOSTRANDO_HISTORIAS') return;
@@ -92,6 +98,64 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.emitir('bot', 'El análisis finalizó sin realizar cambios en las historias clínicas.', undefined, false, false, true);
   }
 
+  continuarConFusion(): void {
+    const analisis = this.state.analisis;
+    if (!this.active || this.state.estado !== 'MOSTRANDO_COMPARACION' || !analisis?.futuraFusionPermitida) return;
+    this.state.idHistoriaPrincipal = analisis.idHistoriaClinicaRecomendada;
+    this.state.idHistoriaSecundaria = analisis.historiasComparadas.find(h => h.idHistoriaClinica !== analisis.idHistoriaClinicaRecomendada)?.idHistoriaClinica;
+    this.state.estado = 'SELECCIONANDO_PRINCIPAL';
+    this.emitir('user', 'Continuar con la fusión', 'principal-selection', false, true);
+  }
+
+  cambiarPrincipal(id: number): void {
+    if (!this.active || this.state.estado !== 'SELECCIONANDO_PRINCIPAL') return;
+    this.state.idHistoriaPrincipal = id;
+    if (this.state.idHistoriaSecundaria === id) this.state.idHistoriaSecundaria = this.secundariasDisponibles[0]?.idHistoriaClinica;
+  }
+  get secundariasDisponibles(): HistoriaClinicaAnalisisDetallado[] {
+    return (this.state.analisis?.historiasComparadas ?? []).filter(h => h.idHistoriaClinica !== this.state.idHistoriaPrincipal);
+  }
+  mostrarVistaPrevia(): void {
+    if (!this.active || this.state.estado !== 'SELECCIONANDO_PRINCIPAL' || !this.principal || !this.secundaria) return;
+    this.state.estado = 'MOSTRANDO_VISTA_PREVIA';
+    this.emitir('user', `Conservar HC ${this.principal.idHistoriaClinica} y fusionar HC ${this.secundaria.idHistoriaClinica}`, 'preview', false, true);
+  }
+  volverSeleccionPrincipal(): void {
+    if (!this.active || this.state.estado !== 'MOSTRANDO_VISTA_PREVIA') return;
+    this.state.estado = 'SELECCIONANDO_PRINCIPAL';
+    this.emitir('user', 'Cambiar historia principal', 'principal-selection', false, true);
+  }
+  get principal(): HistoriaClinicaAnalisisDetallado | undefined { return this.historia(this.state.idHistoriaPrincipal); }
+  get secundaria(): HistoriaClinicaAnalisisDetallado | undefined { return this.historia(this.state.idHistoriaSecundaria); }
+  confirmarVistaPrevia(): void {
+    if (!this.active || this.state.estado !== 'MOSTRANDO_VISTA_PREVIA') return;
+    this.state.estado = 'SOLICITANDO_CONTRASENA';
+    this.emitir('user', 'Confirmar fusión', 'password', false, true);
+    setTimeout(() => this.passwordInput?.nativeElement.focus());
+  }
+  fusionar(): void {
+    if (!this.active || this.state.estado !== 'SOLICITANDO_CONTRASENA' || !this.password || !this.principal || !this.secundaria) return;
+    const contrasena = this.password; this.limpiarPassword();
+    const request: FusionarHistoriasClinicasRequest = {
+      idHistoriaPrincipal: this.principal.idHistoriaClinica, contrasena, confirmacion: true,
+      motivo: 'HISTORIA_CLINICA_DUPLICADA', detalle: 'Fusión confirmada desde el Asistente IA.', origen: 'CHATBOT',
+      cantidadEsperadaPrincipal: this.principal.cantidadConsultas, cantidadEsperadaSecundaria: this.secundaria.cantidadConsultas,
+      idsConsultasEsperadasPrincipal: this.principal.consultasExclusivas.map(c => c.idConsulta),
+      idsConsultasEsperadasSecundaria: this.secundaria.consultasExclusivas.map(c => c.idConsulta),
+      tokenAnalisis: this.state.analisis!.tokenAnalisis
+    };
+    this.state.estado = 'FUSIONANDO';
+    this.emitir('bot', 'Verificando identidad y fusionando las historias clínicas...', 'fusing', true, true);
+    this.solicitud = this.service.fusionar(this.secundaria.idHistoriaClinica, request).pipe(finalize(() => {
+      request.contrasena = ''; this.solicitud = undefined;
+    })).subscribe({ next: respuesta => {
+      this.state.respuestaFusion = respuesta; this.state.estado = 'COMPLETADO'; this.state.intentosRestantes = 3;
+      this.emitir('bot', respuesta.mensaje, 'success', true, true);
+    }, error: error => this.procesarErrorFusion(error) });
+  }
+  limpiarPassword(): void { this.password = ''; this.mostrarPassword = false; }
+  alternarPassword(): void { this.mostrarPassword = !this.mostrarPassword; }
+
   analizarOtroGrupo(): void {
     if (!this.active || this.state.estado !== 'MOSTRANDO_COMPARACION') return;
     this.state.analisis = undefined;
@@ -115,6 +179,8 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.state.grupoSeleccionado = undefined;
     this.state.idsSeleccionados = [];
     this.state.analisis = undefined;
+    this.state.idHistoriaPrincipal = undefined; this.state.idHistoriaSecundaria = undefined;
+    this.state.intentosRestantes = 3; this.state.respuestaFusion = undefined; this.limpiarPassword();
     this.state.mensajeError = undefined;
   }
 
@@ -183,6 +249,24 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.state.cancelarSolicitud = undefined;
     this.solicitud?.unsubscribe();
     this.solicitud = undefined;
+  }
+  private historia(id?: number): HistoriaClinicaAnalisisDetallado | undefined {
+    return this.state.analisis?.historiasComparadas.find(h => h.idHistoriaClinica === id);
+  }
+  private procesarErrorFusion(error: HttpErrorResponse): void {
+    this.limpiarPassword(); const codigo = error.error?.resultado;
+    if (error.status === 401 && codigo === 'CONTRASENA_INCORRECTA') {
+      this.state.intentosRestantes--;
+      if (this.state.intentosRestantes <= 0) { this.limpiarFlujo(); this.emitir('bot', 'Se alcanzó el máximo de intentos. La fusión fue cancelada.', 'cancelled', true, true); return; }
+      this.state.estado = 'SOLICITANDO_CONTRASENA';
+      this.emitir('bot', `La contraseña no es correcta. Te quedan ${this.state.intentosRestantes} intentos.`, 'password', true, true); return;
+    }
+    if (codigo === 'ANALISIS_DESACTUALIZADO') {
+      this.state.estado = 'CANCELADO'; this.emitir('bot', 'La información cambió. Debes volver a analizar antes de fusionar.', 'cancelled', true, true); return;
+    }
+    const mensajes: Record<string,string> = { CARGO_NO_AUTORIZADO: 'Tu cargo no permite fusionar historias clínicas.', HISTORIAS_DE_PACIENTES_DIFERENTES: 'Las historias pertenecen a pacientes diferentes.', CONSULTA_INCONSISTENTE: 'Se detectó una consulta inconsistente.', PACIENTE_INACTIVO: 'El paciente ya no está activo.' };
+    this.state.estado = 'ERROR'; this.state.mensajeError = mensajes[codigo] ?? 'No se pudo completar la fusión. No se realizaron cambios.';
+    this.emitir('bot', this.state.mensajeError, 'error', true, true);
   }
 
   private emitir(remitente: 'user' | 'bot', texto: string, vistaSiguiente?: GestionHistoriasDuplicadasVista,

@@ -15,6 +15,9 @@ public class ConsultaHistoriaAnalisisResponse {
   private Integer idConsulta;
   private String estado;
   private LocalDateTime fechaActividad;
+  private Integer idEmpleado;
+  private String medico;
+  private String diagnosticoResumen;
   private Integer camposClinicosInformados;
   private Integer puntajeRiquezaClinica;
 }

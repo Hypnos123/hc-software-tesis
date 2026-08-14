@@ -79,6 +79,7 @@ public class AnalisisHistoriasClinicasDuplicadasServiceImpl implements AnalisisH
         .motivoBloqueo(motivoBloqueo)
         .advertenciasIntegridad(advertencias)
         .mensaje(mensaje(tipoDuplicidad, recomendada, detalles, coincidencias, advertencias))
+        .tokenAnalisis(tokenAnalisis(detalles))
         .build();
   }
 
@@ -130,6 +131,9 @@ public class AnalisisHistoriasClinicasDuplicadasServiceImpl implements AnalisisH
         .sorted(Comparator.comparing(Consulta::getIdConsulta))
         .map(consulta -> ConsultaHistoriaAnalisisResponse.builder().idConsulta(consulta.getIdConsulta())
             .estado(consulta.getEstado()).fechaActividad(fechaActividad(consulta))
+            .idEmpleado(consulta.getDoctorResponsable() == null ? null : consulta.getDoctorResponsable().getIdEmpleado())
+            .medico(consulta.getDoctorResponsable() == null ? null : nombreEmpleado(consulta.getDoctorResponsable()))
+            .diagnosticoResumen(resumir(consulta.getDiagnostico()))
             .camposClinicosInformados(camposInformados(consulta)).puntajeRiquezaClinica(puntajeRiqueza(consulta)).build())
         .toList();
     return HistoriaClinicaAnalisisDetalladoResponse.builder()
@@ -288,6 +292,21 @@ public class AnalisisHistoriasClinicasDuplicadasServiceImpl implements AnalisisH
   private String nombre(Paciente paciente) {
     return (Objects.toString(paciente.getNombres(), "") + " " + Objects.toString(paciente.getApellidos(), ""))
         .replaceAll("\\s+", " ").trim();
+  }
+  private String nombreEmpleado(Empleado empleado) {
+    return (Objects.toString(empleado.getNombres(), "") + " " + Objects.toString(empleado.getApellidos(), "")).replaceAll("\\s+", " ").trim();
+  }
+  private String resumir(String valor) {
+    if (valor == null || valor.isBlank()) return null;
+    String limpio = valor.trim(); return limpio.length() <= 100 ? limpio : limpio.substring(0, 97) + "...";
+  }
+  private String tokenAnalisis(List<HistoriaClinicaAnalisisDetalladoResponse> historias) {
+    String contenido = historias.stream().sorted(Comparator.comparing(HistoriaClinicaAnalisisDetalladoResponse::getIdHistoriaClinica))
+        .map(h -> h.getIdHistoriaClinica() + ":" + h.getIdPaciente() + ":" + h.getCantidadConsultas() + ":"
+            + h.getConsultasExclusivas().stream().map(c -> c.getIdConsulta() + "|" + c.getEstado() + "|" + c.getFechaActividad()
+                + "|" + c.getIdEmpleado() + "|" + c.getDiagnosticoResumen() + "|" + c.getPuntajeRiquezaClinica()).toList())
+        .collect(java.util.stream.Collectors.joining(";"));
+    return Integer.toUnsignedString(contenido.hashCode(), 16);
   }
   private BusquedaHistoriaClinicaException error(String codigo, String mensaje, HttpStatus status) {
     return new BusquedaHistoriaClinicaException(codigo, mensaje, status);

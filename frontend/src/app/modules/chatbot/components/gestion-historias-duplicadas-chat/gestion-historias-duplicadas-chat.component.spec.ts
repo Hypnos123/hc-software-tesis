@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   AnalisisHistoriasClinicasDuplicadas,
   crearGestionHistoriasDuplicadasState,
@@ -23,7 +24,7 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
   };
 
   beforeEach(async () => {
-    service = jasmine.createSpyObj('HistoriaClinicaDuplicadaChatService', ['detectar', 'analizar']);
+    service = jasmine.createSpyObj('HistoriaClinicaDuplicadaChatService', ['detectar', 'analizar', 'fusionar']);
     service.detectar.and.returnValue(of(deteccion));
     await TestBed.configureTestingModule({
       imports: [GestionHistoriasDuplicadasChatComponent],
@@ -138,13 +139,39 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(component.state.analisis).toBeUndefined();
   });
 
-  it('no presenta acciones destructivas', () => {
+  it('no presenta contraseña ni eliminación antes de confirmar la vista previa', () => {
     prepararComparacion(analisis());
     const botones = Array.from(fixture.nativeElement.querySelectorAll('button')).map((boton: unknown) => (boton as HTMLButtonElement).textContent?.trim());
 
-    expect(botones).not.toContain('Fusionar');
     expect(botones).not.toContain('Eliminar');
     expect(botones).not.toContain('Confirmar eliminación');
+    expect(fixture.nativeElement.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('preselecciona la recomendada y muestra la contraseña solo después de confirmar', () => {
+    prepararComparacion(analisis());
+    component.continuarConFusion();
+    expect(component.state.idHistoriaPrincipal).toBe(7);
+    expect(component.state.idHistoriaSecundaria).toBe(8);
+    component.mostrarVistaPrevia();
+    component.confirmarVistaPrevia();
+    component.view = 'password'; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('input[type="password"]')).not.toBeNull();
+  });
+
+  it('limita la contraseña a tres intentos y nunca la emite como mensaje', () => {
+    prepararComparacion(analisis()); component.continuarConFusion(); component.mostrarVistaPrevia(); component.confirmarVistaPrevia();
+    service.fusionar.and.returnValue(throwError(() => new HttpErrorResponse({ status: 401, error: { resultado: 'CONTRASENA_INCORRECTA' } })));
+    const textos: string[] = []; component.mensajeConversacional.subscribe(e => textos.push(e.texto));
+    for (let i=0;i<3;i++) { component.password='secreta'; component.fusionar(); }
+    expect(component.state.estado).toBe('CANCELADO'); expect(component.password).toBe(''); expect(textos).not.toContain('secreta');
+  });
+
+  it('envía snapshot y conserva idPaciente de solo lectura en frontend', () => {
+    const respuesta=analisis(); respuesta.historiasComparadas[1].consultasExclusivas=[{idConsulta:20,estado:'ATENDIDO',camposClinicosInformados:1,puntajeRiquezaClinica:3}]; respuesta.historiasComparadas[1].cantidadConsultas=1;
+    prepararComparacion(respuesta); component.continuarConFusion(); component.mostrarVistaPrevia(); component.confirmarVistaPrevia();
+    service.fusionar.and.returnValue(of({fusionada:true,resultado:'HISTORIAS_FUSIONADAS',mensaje:'OK'})); component.password='clave'; component.fusionar();
+    const body=service.fusionar.calls.mostRecent().args[1]; expect(body.idsConsultasEsperadasSecundaria).toEqual([20]); expect(body).not.toEqual(jasmine.objectContaining({idPaciente:12})); expect(component.password).toBe('');
   });
 
   it('limpiarFlujo cancela y elimina el estado al minimizar o cerrar desde el padre', () => {
@@ -170,6 +197,7 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
       tipoDuplicidad: 'MISMO_PACIENTE', idHistoriaClinicaRecomendada: 7,
       motivosRecomendacion: ['Todos los criterios están empatados y tiene el ID menor.'],
       resumenComparativo: 'Comparación completa', futuraFusionPermitida: true,
+      tokenAnalisis: 'token',
       posiblesCoincidencias: [], advertenciasIntegridad: [], mensaje: 'No existen consultas para transferir.',
       historiasComparadas: [historia(7, '2026-01-01T10:00:00'), historia(8, '2026-02-01T10:00:00')]
     };

@@ -67,7 +67,7 @@ describe('InterfazChatComponent', () => {
     router.navigate.and.returnValue(Promise.resolve(true));
     importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
     duplicadosService = jasmine.createSpyObj('PacienteDuplicadoChatService', ['analizar', 'archivar']);
-    historiasDuplicadasService = jasmine.createSpyObj('HistoriaClinicaDuplicadaChatService', ['detectar', 'analizar']);
+    historiasDuplicadasService = jasmine.createSpyObj('HistoriaClinicaDuplicadaChatService', ['detectar', 'analizar', 'fusionar']);
     historiasDuplicadasService.detectar.and.returnValue(of({ hayDuplicados: false, totalGrupos: 0, duplicados: [], mensaje: 'Sin duplicados' }));
     authServiceMock = {
       logout$: logoutSubject.asObservable(),

@@ -22,4 +22,5 @@ public class AnalisisHistoriasClinicasDuplicadasResponse {
   private String motivoBloqueo;
   private List<String> advertenciasIntegridad;
   private String mensaje;
+  private String tokenAnalisis;
 }
