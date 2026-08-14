@@ -154,6 +154,14 @@ describe('InterfazChatComponent', () => {
     return component.messages.find(mensaje => mensaje.menuId === 'asistencia-pacientes')!;
   }
 
+  function abrirMenuAsistenciaHistorias(): any {
+    const menuPrincipal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+    const menuAsistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
+    component.selectHistoricalMenuOption(menuAsistencia, menuAsistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
+    return component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
+  }
+
   function enviarDni(dni: string): void {
     component.userMessage = dni;
     component.sendMessage();
@@ -668,27 +676,26 @@ describe('InterfazChatComponent', () => {
     expect(menuHistorias.options.find((opcion: any) => opcion.label === 'Detectar historias clínicas duplicadas')?.description).toBeUndefined();
   });
 
-  it('inicia el análisis guiado desde la detección existente sin consultar al asistente general', () => {
-    const pendiente = new Subject<any>();
-    historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
+  it('consulta primero las historias duplicadas desde Consultar información', () => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS', respuesta: 'No existen historias duplicadas.',
+      datos: { hayDuplicados: false, totalGrupos: 0, duplicados: [] }
+    } as any));
     const menuHistorias = abrirMenuHistorias();
     const opcion = menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas');
 
     component.selectHistoricalMenuOption(menuHistorias, opcion);
-    fixture.detectChanges();
 
-    expect(component.messages.some(mensaje => mensaje.type === 'clinical-history-duplicate-management')).toBeTrue();
-    expect(component.gestionHistoriasDuplicadasActiva).toBeTrue();
-    expect(historiasDuplicadasService.detectar).toHaveBeenCalledTimes(1);
-    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('Detectar historias clínicas duplicadas');
+    expect(component.messages.some(mensaje => mensaje.type === 'clinical-history-duplicate-management')).toBeFalse();
   });
 
   it('limpia el análisis de historias duplicadas al minimizar', () => {
     const pendiente = new Subject<any>();
     historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
-    const menuHistorias = abrirMenuHistorias();
+    const menuHistorias = abrirMenuAsistenciaHistorias();
     component.selectHistoricalMenuOption(menuHistorias,
-      menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas'));
+      menuHistorias.options.find((item: any) => item.label === 'Analizar historias clínicas duplicadas'));
     fixture.detectChanges();
     const tarjeta = component.historiasDuplicadasComponents.last;
 
@@ -704,11 +711,11 @@ describe('InterfazChatComponent', () => {
     component.openChat();
     const pendiente = new Subject<any>();
     historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
-    const menuHistorias = abrirMenuHistorias();
+    const menuHistorias = abrirMenuAsistenciaHistorias();
     const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
 
     component.selectHistoricalMenuOption(menuHistorias,
-      menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas'));
+      menuHistorias.options.find((item: any) => item.label === 'Analizar historias clínicas duplicadas'));
     fixture.detectChanges();
     const inicio = component.messages.find(mensaje => mensaje.text?.startsWith('Consultaré las historias clínicas duplicadas'))!;
     pendiente.next({ hayDuplicados: true, totalGrupos: 1, mensaje: 'Se encontró un grupo.', duplicados: [{
@@ -917,7 +924,7 @@ describe('InterfazChatComponent', () => {
       'Detectar posibles pacientes duplicados'
     ]);
     expect(etiquetas).not.toContain('Registrar pacientes desde Excel');
-    expect(etiquetas).not.toContain('Gestionar y eliminar pacientes duplicados');
+    expect(etiquetas).not.toContain('Gestionar pacientes duplicados');
   });
 
   it('debe mostrar solo las consultas médicas informativas requeridas', () => {
@@ -949,7 +956,7 @@ describe('InterfazChatComponent', () => {
     const menus = (component as any).menus;
     expect(menus['asistencia-pacientes'].options).toEqual([
       jasmine.objectContaining({ label: 'Registrar pacientes desde Excel', action: 'patient-import-flow' }),
-      jasmine.objectContaining({ label: 'Gestionar y eliminar pacientes duplicados', action: 'patient-duplicate-flow' })
+      jasmine.objectContaining({ label: 'Gestionar pacientes duplicados', action: 'patient-duplicate-flow' })
     ]);
     expect(menus['asistencia-historias'].options).toEqual([
       jasmine.objectContaining({ label: 'Crear una historia clínica con el asistente', action: 'clinical-history-flow' }),
@@ -1386,25 +1393,25 @@ describe('InterfazChatComponent', () => {
   });
 
   it('debe mostrar la gestión guiada de duplicados para administrador y enfermería', () => {
-    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeTrue();
+    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar pacientes duplicados')).toBeTrue();
 
     fixture.destroy();
     authServiceMock.usuario.cargo = ' ENFERMERA(O) ';
     fixture = TestBed.createComponent(InterfazChatComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
-    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeTrue();
+    expect(abrirMenuAsistenciaPacientes().options.some((opcion: any) => opcion.label === 'Gestionar pacientes duplicados')).toBeTrue();
   });
 
   it('debe ocultar la opción al doctor y rechazar también la intención escrita', () => {
     authServiceMock.usuario.cargo = 'MÉDICO';
     const pacientes = abrirMenuAsistenciaPacientes();
-    expect(pacientes.options.some((opcion: any) => opcion.label === 'Gestionar y eliminar pacientes duplicados')).toBeFalse();
+    expect(pacientes.options.some((opcion: any) => opcion.label === 'Gestionar pacientes duplicados')).toBeFalse();
 
     component.userMessage = 'Quiero eliminar un paciente duplicado';
     component.sendMessage();
 
-    expect(component.messages.at(-1)?.text).toBe('Tu cargo no tiene permiso para archivar pacientes.');
+    expect(component.messages.at(-1)?.text).toBe('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
     expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
   });
@@ -1452,7 +1459,8 @@ describe('InterfazChatComponent', () => {
       expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
       expect(component.messages.some(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.')).toBeFalse();
       expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
-      expect(component.messages.at(-1)?.text).toContain('Se encontraron posibles pacientes duplicados');
+      expect(component.messages.some(mensaje => mensaje.text?.includes('Se encontraron posibles pacientes duplicados'))).toBeTrue();
+      expect(component.messages.at(-1)?.options?.[0].label).toBe('Gestionar pacientes duplicados');
     });
   });
 
@@ -1478,11 +1486,83 @@ describe('InterfazChatComponent', () => {
       fixture.detectChanges();
 
       expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
-      expect(component.messages.at(-1)?.text).toContain('ID historia clínica: 12');
-      expect(component.messages.at(-1)?.text).not.toContain('Se encontraron posibles pacientes duplicados');
+      expect(component.messages.some(mensaje => mensaje.text?.includes('ID historia clínica: 12'))).toBeTrue();
+      expect(component.messages.at(-1)?.options?.[0].label).toBe('Analizar historias clínicas duplicadas');
       expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
     });
   });
+
+  it('no ofrece acciones contextuales cuando no existen duplicados', () => {
+    asistenteService.preguntar.and.returnValues(
+      of({ intencion: 'ANALISIS_DUPLICADOS_SIN_RESULTADOS', respuesta: 'No existen pacientes duplicados.', datos: { cantidad: 0 } } as any),
+      of({ intencion: 'HISTORIAS_CLINICAS_DUPLICADAS', respuesta: 'No existen historias duplicadas.', datos: { hayDuplicados: false, duplicados: [] } } as any)
+    );
+
+    component.userMessage = '¿Existen pacientes duplicados?';
+    component.sendMessage();
+    component.userMessage = '¿Existen historias clínicas duplicadas?';
+    component.sendMessage();
+
+    const etiquetas = component.messages.flatMap(mensaje => mensaje.options?.map(opcion => opcion.label) ?? []);
+    expect(etiquetas).not.toContain('Gestionar pacientes duplicados');
+    expect(etiquetas).not.toContain('Analizar historias clínicas duplicadas');
+  });
+
+  it('muestra el mensaje progresivo antes del CTA y abre el mismo flujo de pacientes', fakeAsync(() => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES', respuesta: 'Se encontraron dos pacientes.',
+      datos: { cantidad: 2, resultados: [{}, {}] }
+    } as any));
+
+    component.userMessage = '¿Existen pacientes duplicados?';
+    component.sendMessage();
+    const ayuda = component.messages.find(mensaje => mensaje.text?.startsWith('Si deseas, puedo ayudarte'))!;
+    const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
+    expect(component.messages.indexOf(ayuda)).toBeLessThan(component.messages.indexOf(cta));
+    expect(cta.presentationState).toBe('pending');
+
+    tick(10_000);
+    component.selectHistoricalMenuOption(cta, cta.options![0]);
+
+    expect(cta.presentationState).toBe('visible');
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'dni')).toBeTrue();
+    expect(duplicadosService.analizar).not.toHaveBeenCalled();
+  }));
+
+  it('abre desde el CTA el componente existente de historias y vuelve a validar en backend', fakeAsync(() => {
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'HISTORIAS_CLINICAS_DUPLICADAS', respuesta: 'Se encontraron historias duplicadas.',
+      datos: { hayDuplicados: true, duplicados: [{}, {}] }
+    } as any));
+
+    component.userMessage = '¿Existen historias clínicas duplicadas?';
+    component.sendMessage();
+    tick(10_000);
+    const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
+    component.selectHistoricalMenuOption(cta, cta.options![0]);
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.type === 'clinical-history-duplicate-management')).toBeTrue();
+    expect(historiasDuplicadasService.detectar).toHaveBeenCalledTimes(1);
+  }));
+
+  it('mantiene informativa la detección pero bloquea ambos CTA para un cargo no autorizado', fakeAsync(() => {
+    authServiceMock.usuario.cargo = 'DOCTOR';
+    asistenteService.preguntar.and.returnValue(of({
+      intencion: 'ANALISIS_DUPLICADOS_PACIENTES', respuesta: 'Se encontraron dos pacientes.',
+      datos: { cantidad: 2, resultados: [{}, {}] }
+    } as any));
+    component.userMessage = '¿Existen pacientes duplicados?';
+    component.sendMessage();
+    tick(10_000);
+    const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
+
+    component.selectHistoricalMenuOption(cta, cta.options![0]);
+
+    expect(asistenteService.preguntar).toHaveBeenCalled();
+    expect(component.messages.at(-1)?.text).toBe('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
+  }));
 
   [
     {
@@ -1547,7 +1627,7 @@ describe('InterfazChatComponent', () => {
     component.userMessage = 'Analiza posibles duplicados';
     component.sendMessage();
     fixture.detectChanges();
-    const resultado = component.messages.at(-1)!;
+    const resultado = component.messages.find(mensaje => mensaje.text?.startsWith('Se encontraron posibles pacientes duplicados'))!;
     const elemento = fixture.nativeElement.querySelector(`[data-block-id="${resultado.id}"]`);
     elemento.scrollIntoView = jasmine.createSpy('scrollIntoView');
 
@@ -1570,7 +1650,7 @@ describe('InterfazChatComponent', () => {
 
   it('debe iniciar desde el menú, mantenerlo en el historial y cancelar limpiamente', () => {
     const pacientes = abrirMenuAsistenciaPacientes();
-    const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar y eliminar pacientes duplicados');
+    const opcion = pacientes.options.find((item: any) => item.label === 'Gestionar pacientes duplicados');
     component.selectHistoricalMenuOption(pacientes, opcion);
     fixture.detectChanges();
     expect(component.gestionDuplicadosActiva).toBeTrue();
