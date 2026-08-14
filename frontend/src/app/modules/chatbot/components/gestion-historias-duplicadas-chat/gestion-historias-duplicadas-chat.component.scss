@@ -1,0 +1,35 @@
+.history-duplicate-flow, .flow-step, .compact-history-list, .selection-list, .selection-row span, .actions { display: flex; flex-direction: column; }
+.flow-step { gap: 0.75rem; }
+.centered { align-items: center; text-align: center; }
+.centered i { color: #2563eb; font-size: 1.4rem; }
+.step-label { color: #52606d; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.group-card, .analysis-card, .recommendation-box, .warning-box, .integrity-box, .blocked-box { border: 1px solid #d9e2ec; border-radius: 10px; padding: 0.75rem; }
+.group-card { display: grid; gap: 0.45rem; background: #fff; }
+.compact-history-list { gap: 0.2rem; color: #52606d; }
+.selection-list { max-height: 230px; overflow-y: auto; border: 1px solid #d9e2ec; border-radius: 10px; }
+.selection-row { display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem; cursor: pointer; }
+.selection-list .selection-row { border-bottom: 1px solid #edf2f7; }
+.selection-list .selection-row:last-child { border-bottom: 0; }
+.selection-row span { gap: 0.1rem; }
+.selection-row small { color: #52606d; }
+.select-all { padding: 0; }
+.selection-count { margin: 0; font-weight: 700; }
+.analysis-card { display: grid; gap: 0.35rem; background: #fff; }
+.analysis-card.recommended { border-color: #16a34a; box-shadow: inset 3px 0 #16a34a; background: #f2fbf5; }
+.badge { color: #157347; font-size: 0.75rem; font-weight: 800; }
+.analysis-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; margin: 0.25rem 0 0; }
+.analysis-card dl div { padding: 0.4rem; border-radius: 7px; background: #f1f5f9; }
+.analysis-card dt { color: #52606d; font-size: 0.72rem; }
+.analysis-card dd { margin: 0; font-weight: 800; }
+.recommendation-box { border-color: #93c5fd; background: #eff6ff; }
+.recommendation-box p, .warning-box p, .integrity-box p, .blocked-box p { margin: 0.35rem 0; }
+.recommendation-box ul, .integrity-box ul { margin: 0.4rem 0 0; padding-left: 1.15rem; }
+.warning-box { color: #854d0e; border-color: #fde68a; background: #fffbeb; }
+.integrity-box, .blocked-box { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+.read-only-note { margin: 0; color: #52606d; font-size: 0.8rem; }
+.actions { gap: 0.5rem; }
+button { border: 0; border-radius: 8px; padding: 0.65rem 0.8rem; font-weight: 750; cursor: pointer; }
+button.primary { color: #fff; background: #2563eb; }
+button.secondary { color: #1f2933; background: #e8eef5; }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+.error, .error i { color: #b42318; }
