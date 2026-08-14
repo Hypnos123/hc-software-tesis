@@ -14,6 +14,7 @@ import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.krivi.apihistorialmedico.model.entity.Empleado;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
