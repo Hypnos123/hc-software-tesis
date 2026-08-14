@@ -45,7 +45,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -192,6 +192,7 @@ export class InterfazChatComponent implements OnDestroy {
   private autoFollowPresentation = true;
   private readonly autoFollowThreshold = 48;
   private presentationSequenceHadText = false;
+  private interactionScrollAnchorId?: string;
   private scrollPosition = 0;
   private floatingMessageTimer?: ReturnType<typeof setTimeout>;
   private floatingMessageIndex = 0;
@@ -376,7 +377,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (evento.vistaSiguiente) this.addDuplicateHistoriesBlock(state, evento.vistaSiguiente,
       !['COMPLETADO', 'CANCELADO', 'ERROR'].includes(state.estado));
     if (evento.volverHistorias) this.addMenuBlock('historias');
-    if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+    if (evento.inicioGrupo) this.pinInteractionStart(mensaje.id);
   }
 
   private ejecutarCreacionHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState): void {
@@ -531,7 +532,12 @@ export class InterfazChatComponent implements OnDestroy {
     this.addMessage(this.createBlockMessage('missing-clinical-histories', { historiasFaltantes: state, missingHistoriesView: view, missingHistoriesActive: active }));
   }
   private addDuplicateHistoriesBlock(state: GestionHistoriasDuplicadasState, view: GestionHistoriasDuplicadasVista, active: boolean): void {
-    this.addMessage(this.createBlockMessage('clinical-history-duplicate-management', { historiasDuplicadas: state, duplicateHistoriesView: view, duplicateHistoriesActive: active }));
+    this.addMessage(this.createBlockMessage('clinical-history-duplicate-management', {
+      historiasDuplicadas: state,
+      duplicateHistoriesView: view,
+      duplicateHistoriesActive: active,
+      preserveInteractionAnchor: view === 'loading' || view === 'analyzing'
+    }));
   }
   private addMessage(message: ChatMessage): ChatMessage {
     this.messages.push(message);
@@ -560,7 +566,14 @@ export class InterfazChatComponent implements OnDestroy {
     }
     if (!this.isAnimatedBotText(message)) {
       this.revealMessageImmediately(message);
-      if (this.presentationSequenceHadText) this.focusPresentedBlock(message.id);
+      if (this.interactionScrollAnchorId) {
+        if (!message.preserveInteractionAnchor) {
+          this.interactionScrollAnchorId = undefined;
+          this.autoFollowPresentation = false;
+        }
+      } else if (this.presentationSequenceHadText) {
+        this.focusPresentedBlock(message.id);
+      }
       this.presentationSequenceHadText = false;
       this.processPresentationQueue();
       return;
@@ -597,7 +610,7 @@ export class InterfazChatComponent implements OnDestroy {
     message.presentationState = 'visible';
   }
   private followActivePresentation(): void {
-    if (!this.isOpen || !this.autoFollowPresentation || this.presentationScrollFrame !== undefined) return;
+    if (!this.isOpen || this.interactionScrollAnchorId || !this.autoFollowPresentation || this.presentationScrollFrame !== undefined) return;
     this.presentationScrollFrame = requestAnimationFrame(() => {
       this.presentationScrollFrame = undefined;
       if (!this.chatBody || !this.isOpen || !this.autoFollowPresentation) return;
@@ -609,6 +622,11 @@ export class InterfazChatComponent implements OnDestroy {
     if (!this.isOpen) return;
     this.scrollToNewBlock(blockId);
   }
+  private pinInteractionStart(blockId: string): void {
+    this.interactionScrollAnchorId = blockId;
+    this.scrollToNewBlock(blockId);
+    this.autoFollowPresentation = false;
+  }
   private resetPresentationCoordinator(): void {
     if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
     this.presentationTimer = undefined;
@@ -617,6 +635,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.presentationQueue.length = 0;
     this.activePresentationId = undefined;
     this.presentationSequenceHadText = false;
+    this.interactionScrollAnchorId = undefined;
     this.autoFollowPresentation = true;
   }
   private removeMessageFromPresentation(message: ChatMessage): void {
@@ -724,9 +743,9 @@ export class InterfazChatComponent implements OnDestroy {
         this.scrollToNewBlock(selectionId);
         return;
       }
-      this.addBotMessage('Consultaré las historias clínicas duplicadas disponibles. El análisis será únicamente informativo y no modificará ningún registro.');
+      const inicio = this.addBotMessage('Consultaré las historias clínicas duplicadas disponibles. El análisis será únicamente informativo y no modificará ningún registro.');
       this.addDuplicateHistoriesBlock(crearGestionHistoriasDuplicadasState(), 'loading', true);
-      this.scrollToNewBlock(selectionId);
+      this.pinInteractionStart(inicio.id);
       return;
     }
     this.addMenuBlock(option.target || 'principal');

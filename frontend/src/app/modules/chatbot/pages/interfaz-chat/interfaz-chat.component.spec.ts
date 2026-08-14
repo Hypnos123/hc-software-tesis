@@ -16,6 +16,7 @@ import { ImportacionPacientesChatComponent } from '@app/modules/paciente/compone
 import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-chat.service';
 import { HistoriasClinicasFaltantesChatComponent } from '../../components/historias-clinicas-faltantes-chat/historias-clinicas-faltantes-chat.component';
 import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-clinica-duplicada-chat.service';
+import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clinica-duplicada-chat';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -698,6 +699,64 @@ describe('InterfazChatComponent', () => {
     expect(pendiente.observed).toBeFalse();
     expect(component.gestionHistoriasDuplicadasActiva).toBeFalse();
   });
+
+  it('ancla el inicio informativo del flujo y no desplaza el scroll al bloque de grupos', fakeAsync(() => {
+    component.openChat();
+    const pendiente = new Subject<any>();
+    historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
+    const menuHistorias = abrirMenuHistorias();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.selectHistoricalMenuOption(menuHistorias,
+      menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas'));
+    fixture.detectChanges();
+    const inicio = component.messages.find(mensaje => mensaje.text?.startsWith('Consultaré las historias clínicas duplicadas'))!;
+    pendiente.next({ hayDuplicados: true, totalGrupos: 1, mensaje: 'Se encontró un grupo.', duplicados: [{
+      tipo: 'dni', valorCoincidente: DNI_PRUEBA, cantidad: 2, historiasClinicas: [
+        { idHistoriaClinica: 7, idPaciente: 12, nombreCompleto: 'Paciente', cantidadConsultas: 0, estado: 'ACTIVA' },
+        { idHistoriaClinica: 8, idPaciente: 12, nombreCompleto: 'Paciente', cantidadConsultas: 0, estado: 'ACTIVA' }
+      ]
+    }] });
+    tick(10_000);
+    fixture.detectChanges();
+    const grupos = component.messages.find(mensaje => mensaje.duplicateHistoriesView === 'groups')!;
+
+    expect(scrollSpy).toHaveBeenCalledOnceWith(inicio.id);
+    expect(scrollSpy).not.toHaveBeenCalledWith(grupos.id);
+    expect(grupos.presentationState).toBe('visible');
+  }));
+
+  it('ancla el primer mensaje del resultado y la comparación aparece sin apropiarse del scroll', fakeAsync(() => {
+    component.openChat();
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'ANALIZANDO_HISTORIAS';
+    (component as any).addDuplicateHistoriesBlock(state, 'analyzing', true);
+    fixture.detectChanges();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'He analizado las historias clínicas seleccionadas para Paciente.',
+      reemplazarVistaActiva: true, inicioGrupo: true
+    });
+    const primerMensaje = component.messages.at(-1)!;
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'Recomiendo conservar la historia clínica 7.'
+    });
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'No existen consultas para transferir en este caso.', vistaSiguiente: 'comparison'
+    });
+    const comparacion = component.messages.find(mensaje => mensaje.duplicateHistoriesView === 'comparison')!;
+    expect(comparacion.presentationState).toBe('pending');
+
+    tick(10_000);
+    fixture.detectChanges();
+
+    expect(scrollSpy).toHaveBeenCalledOnceWith(primerMensaje.id);
+    expect(scrollSpy).not.toHaveBeenCalledWith(comparacion.id);
+    expect(comparacion.presentationState).toBe('visible');
+    expect((component as any).interactionScrollAnchorId).toBeUndefined();
+    expect((component as any).autoFollowPresentation).toBeFalse();
+  }));
 
   it('debe mostrar e iniciar el registro desde Excel en Asistencia guiada sin usar Botpress', () => {
     const pacientes = abrirMenuAsistenciaPacientes();
