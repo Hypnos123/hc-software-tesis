@@ -3,6 +3,7 @@ package com.krivi.apihistorialmedico.repository;
 import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
@@ -33,6 +34,13 @@ public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinic
 
   @Query("select h from HistoriaClinica h join fetch h.paciente p where p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO order by h.idHistoriaClinica")
   List<HistoriaClinica> findAllForIntegracion();
+
+  @Query("select h from HistoriaClinica h join fetch h.paciente p where h.idHistoriaClinica in :idsHistoria and p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO")
+  List<HistoriaClinica> findForAnalisisByIds(@Param("idsHistoria") Collection<Integer> idsHistoria);
+
+  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Query("select h from HistoriaClinica h join fetch h.paciente p where h.idHistoriaClinica = :idHistoria")
+  Optional<HistoriaClinica> findForFusionById(@Param("idHistoria") Integer idHistoria);
 
   @Query(value = "select h.idpaciente from historiaclinica h where h.idpaciente is not null group by h.idpaciente having count(*) > 1 order by h.idpaciente", nativeQuery = true)
   List<Integer> findIdsPacienteConHistoriasDuplicadas();

@@ -2,6 +2,7 @@ package com.krivi.apihistorialmedico.repository;
 
 import com.krivi.apihistorialmedico.model.entity.Consulta;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +18,9 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   @Query("select c.historiaClinica.idHistoriaClinica, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.historiaClinica.idHistoriaClinica in :idsHistoria group by c.historiaClinica.idHistoriaClinica")
   List<Object[]> resumirPorHistoriasClinicas(@Param("idsHistoria") Collection<Integer> idsHistoria);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
+  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.doctorResponsable left join fetch c.tipoEnfermedad where c.historiaClinica.idHistoriaClinica = :idHistoria order by c.idConsulta")
+  List<Consulta> findForFusionByHistoriaId(@Param("idHistoria") Integer idHistoria);
   long countByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
   @Query(value = "select * from consulta c where c.idhistoriaclinica = :idHistoriaClinica order by coalesce(c.fechaconsulta, c.fechacreacion) desc", nativeQuery = true)
   List<Consulta> findByHistoriaClinicaOrdenadasPorFecha(@Param("idHistoriaClinica") Integer idHistoriaClinica);
