@@ -1,0 +1,149 @@
+<section class="history-duplicate-flow" [attr.aria-busy]="state.estado === 'CONSULTANDO_DUPLICADOS' || state.estado === 'ANALIZANDO_HISTORIAS'">
+  <ng-container [ngSwitch]="view">
+    <div *ngSwitchCase="'loading'" class="flow-step centered" role="status">
+      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+      <strong>Consultando historias clínicas duplicadas...</strong>
+      <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+
+    <div *ngSwitchCase="'groups'" class="flow-step">
+      <span class="step-label">Grupos encontrados</span>
+      <article *ngFor="let grupo of state.deteccion?.duplicados; let indice = index" class="group-card">
+        <strong>Grupo {{ indice + 1 }} · {{ grupo.cantidad }} historias</strong>
+        <span>{{ grupo.tipo === 'dni' ? 'DNI' : 'Paciente' }}: {{ grupo.valorCoincidente }}</span>
+        <div class="compact-history-list">
+          <small *ngFor="let historia of grupo.historiasClinicas">HC {{ historia.idHistoriaClinica }} · Paciente {{ historia.idPaciente }} · {{ historia.cantidadConsultas }} consultas</small>
+        </div>
+        <button type="button" class="primary" (click)="seleccionarGrupo(grupo)" [disabled]="!active">Analizar historias</button>
+      </article>
+      <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+
+    <div *ngSwitchCase="'selection'" class="flow-step">
+      <span class="step-label">Seleccionar historias</span>
+      <p>Selecciona al menos dos historias clínicas. Puedes incluir todas las del grupo.</p>
+      <label class="selection-row select-all">
+        <input type="checkbox" [checked]="todasSeleccionadas" (change)="alternarTodas()" [disabled]="!active" />
+        <strong>Seleccionar todas</strong>
+      </label>
+      <div class="selection-list">
+        <label *ngFor="let historia of state.grupoSeleccionado?.historiasClinicas; trackBy: trackHistoria" class="selection-row">
+          <input type="checkbox" [checked]="estaSeleccionada(historia.idHistoriaClinica)" (change)="cambiarSeleccion(historia.idHistoriaClinica, $event)" [disabled]="!active" />
+          <span><b>HC {{ historia.idHistoriaClinica }}</b><small>Paciente {{ historia.idPaciente }} · {{ historia.cantidadConsultas }} consultas · {{ formatDate(historia.fechaCreacion) }}</small></span>
+        </label>
+      </div>
+      <p class="selection-count">{{ state.idsSeleccionados.length }} seleccionadas</p>
+      <div class="actions">
+        <button type="button" class="primary" (click)="analizar()" [disabled]="!active || state.idsSeleccionados.length < 2">Analizar selección</button>
+        <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'analyzing'" class="flow-step centered" role="status">
+      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+      <strong>Comparando información clínica...</strong>
+      <span>Esta operación es únicamente de lectura.</span>
+      <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
+    </div>
+
+    <div *ngSwitchCase="'comparison'" class="flow-step comparison">
+      <span class="step-label">Resultado del análisis</span>
+      <article *ngFor="let historia of state.analisis?.historiasComparadas; trackBy: trackHistoria" class="analysis-card" [class.recommended]="esRecomendada(historia)">
+        <span *ngIf="esRecomendada(historia)" class="badge"><i class="pi pi-star-fill" aria-hidden="true"></i> Recomendada para conservar</span>
+        <strong>Historia clínica {{ historia.idHistoriaClinica }}</strong>
+        <small>Creada: {{ formatDate(historia.fechaCreacion) }}</small>
+        <dl>
+          <div><dt>Consultas</dt><dd>{{ historia.cantidadConsultas }}</dd></div>
+          <div><dt>Atendidas</dt><dd>{{ historia.cantidadConsultasAtendidas }}</dd></div>
+          <div><dt>Pendientes</dt><dd>{{ historia.cantidadConsultasPendientes }}</dd></div>
+          <div><dt>Riqueza clínica</dt><dd>{{ historia.puntajeRiquezaClinica }}</dd></div>
+          <div><dt>Consultas exclusivas</dt><dd>{{ historia.cantidadConsultasExclusivas }}</dd></div>
+        </dl>
+      </article>
+
+      <div class="recommendation-box">
+        <strong>Recomendación</strong>
+        <p>Conservar la historia clínica {{ state.analisis?.idHistoriaClinicaRecomendada }}.</p>
+        <ul><li *ngFor="let motivo of state.analisis?.motivosRecomendacion">{{ motivo }}</li></ul>
+      </div>
+
+      <div *ngIf="state.analisis?.posiblesCoincidencias?.length" class="warning-box" role="note">
+        <strong><i class="pi pi-info-circle" aria-hidden="true"></i> Posibles coincidencias</strong>
+        <p>Se detectaron {{ state.analisis?.posiblesCoincidencias?.length }} posibles coincidencias entre consultas.</p>
+        <p>Esto no significa que sean duplicadas definitivas. Todas se conservarían y requieren revisión.</p>
+      </div>
+
+      <div *ngIf="state.analisis?.advertenciasIntegridad?.length" class="integrity-box" role="alert">
+        <strong><i class="pi pi-exclamation-triangle" aria-hidden="true"></i> Advertencias de integridad</strong>
+        <ul><li *ngFor="let advertencia of state.analisis?.advertenciasIntegridad">{{ advertencia }}</li></ul>
+        <p>Por seguridad, estas historias no son aptas para una futura fusión.</p>
+      </div>
+
+      <div *ngIf="!state.analisis?.futuraFusionPermitida && !state.analisis?.advertenciasIntegridad?.length" class="blocked-box" role="note">
+        <strong>No aptas para fusión automática</strong>
+        <p>Estas historias comparten DNI, pero pertenecen a registros de paciente diferentes.</p>
+        <p>{{ state.analisis?.motivoBloqueo }}</p>
+      </div>
+
+      <p class="read-only-note"><i class="pi pi-eye" aria-hidden="true"></i> Este análisis no realizó cambios en los registros.</p>
+      <div class="actions">
+        <button *ngIf="state.analisis?.futuraFusionPermitida" type="button" class="primary" (click)="continuarConFusion()" [disabled]="!active">{{ textoBotonContinuar }}</button>
+        <button type="button" class="primary" (click)="finalizar()" [disabled]="!active">Finalizar análisis</button>
+        <button *ngIf="(state.deteccion?.duplicados?.length || 0) > 1" type="button" class="secondary" (click)="analizarOtroGrupo()" [disabled]="!active">Analizar otro grupo</button>
+      </div>
+    </div>
+
+    <div *ngSwitchCase="'principal-selection'" class="flow-step">
+      <span class="step-label">Seleccionar historias</span>
+      <p>Elige la historia principal y una secundaria. La recomendada aparece seleccionada inicialmente.</p>
+      <label *ngFor="let historia of state.analisis?.historiasComparadas" class="selection-row">
+        <input type="radio" name="principal" [checked]="state.idHistoriaPrincipal === historia.idHistoriaClinica" (change)="cambiarPrincipal(historia.idHistoriaClinica)" />
+        <span><b>Conservar HC {{ historia.idHistoriaClinica }}</b><small>{{ historia.cantidadConsultas }} consultas</small></span>
+      </label>
+      <label>Historia secundaria
+        <select [(ngModel)]="state.idHistoriaSecundaria">
+          <option *ngFor="let historia of secundariasDisponibles" [ngValue]="historia.idHistoriaClinica">HC {{ historia.idHistoriaClinica }}</option>
+        </select>
+      </label>
+      <div class="actions"><button class="primary" type="button" (click)="mostrarVistaPrevia()">Ver vista previa</button><button class="secondary" type="button" (click)="cancelar()">Cancelar</button></div>
+    </div>
+
+    <div *ngSwitchCase="'preview'" class="flow-step">
+      <span class="step-label">Vista previa de la fusión</span>
+      <div class="recommendation-box">
+        <ng-container *ngIf="hayConsultasParaTransferir; else eliminacionSinTransferencia">
+          <p><b>Historia que se conservará:</b> HC {{ principal?.idHistoriaClinica }}</p>
+          <p><b>Historia que se eliminará:</b> HC {{ secundaria?.idHistoriaClinica }}</p>
+          <p>Consultas actuales: {{ principal?.cantidadConsultas }}</p>
+          <p>Consultas que se transferirán: {{ cantidadConsultasATransferir }}</p>
+          <p><b>Total esperado:</b> {{ (principal?.cantidadConsultas || 0) + cantidadConsultasATransferir }}</p>
+          <p>La HC {{ secundaria?.idHistoriaClinica }} contiene {{ cantidadConsultasATransferir }} consultas que serán transferidas a la HC {{ principal?.idHistoriaClinica }} antes de eliminar la historia duplicada.</p>
+        </ng-container>
+        <ng-template #eliminacionSinTransferencia>
+          <p>Se conservará la historia clínica {{ principal?.idHistoriaClinica }}.</p>
+          <p>La historia clínica {{ secundaria?.idHistoriaClinica }} no contiene consultas asociadas.</p>
+          <p>Si continúas, la HC {{ secundaria?.idHistoriaClinica }} será eliminada como historia duplicada.</p>
+        </ng-template>
+      </div>
+      <div *ngIf="secundaria?.consultasExclusivas?.length" class="selection-list">
+        <div *ngFor="let consulta of secundaria?.consultasExclusivas" class="selection-row"><span><b>Consulta {{ consulta.idConsulta }} · {{ consulta.estado }}</b><small>{{ formatDate(consulta.fechaActividad) }} · {{ consulta.medico || 'Médico no registrado' }}</small><small>{{ consulta.diagnosticoResumen || 'Sin diagnóstico registrado' }}</small></span></div>
+      </div>
+      <div *ngIf="state.analisis?.posiblesCoincidencias?.length" class="warning-box"><p>Se detectaron {{ state.analisis?.posiblesCoincidencias?.length }} posibles coincidencias. Todas las consultas se conservarán.</p></div>
+      <p>{{ textoConfirmacion }}</p>
+      <div class="actions"><button class="primary" type="button" (click)="confirmarVistaPrevia()">Confirmar</button><button class="secondary" type="button" (click)="volverSeleccionPrincipal()">Cambiar historia principal</button><button class="secondary" type="button" (click)="cancelar()">Cancelar</button></div>
+    </div>
+
+    <div *ngSwitchCase="'password'" class="flow-step">
+      <span class="step-label">Confirmación de identidad</span>
+      <p>Ingresa tu contraseña para ejecutar la fusión. Intentos disponibles: {{ state.intentosRestantes }}</p>
+      <div class="selection-row"><input #passwordInput [type]="mostrarPassword ? 'text' : 'password'" autocomplete="current-password" aria-label="Contraseña para confirmar la fusión" [(ngModel)]="password" /><button type="button" class="secondary" (click)="alternarPassword()">{{ mostrarPassword ? 'Ocultar' : 'Mostrar' }}</button></div>
+      <div class="actions"><button class="primary" type="button" (click)="fusionar()" [disabled]="!password">Fusionar historias</button><button class="secondary" type="button" (click)="cancelar()">Cancelar</button></div>
+    </div>
+
+    <div *ngSwitchCase="'fusing'" class="flow-step centered" role="status"><i class="pi pi-spin pi-spinner"></i><strong>Fusionando historias clínicas de forma segura...</strong></div>
+    <div *ngSwitchCase="'success'" class="flow-step recommendation-box"><strong>Fusión completada</strong><p>{{ mensajeResultadoFusion }}</p><p>Consultas transferidas: {{ state.respuestaFusion?.cantidadConsultasTransferidas }}</p><p>Auditoría N.° {{ state.respuestaFusion?.idAuditoria }}</p></div>
+
+    <div *ngSwitchCase="'cancelled'" class="flow-step centered"><span>El análisis se canceló sin realizar cambios.</span></div>
+    <div *ngSwitchCase="'error'" class="flow-step centered error" role="alert"><i class="pi pi-times-circle" aria-hidden="true"></i><span>{{ state.mensajeError }}</span></div>
+  </ng-container>
+</section>
