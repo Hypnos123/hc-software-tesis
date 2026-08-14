@@ -15,6 +15,8 @@ import { PacienteListRefreshService } from '@app/modules/paciente/services/pacie
 import { ImportacionPacientesChatComponent } from '@app/modules/paciente/components/importacion-pacientes-chat/importacion-pacientes-chat.component';
 import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-chat.service';
 import { HistoriasClinicasFaltantesChatComponent } from '../../components/historias-clinicas-faltantes-chat/historias-clinicas-faltantes-chat.component';
+import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-clinica-duplicada-chat.service';
+import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clinica-duplicada-chat';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -32,6 +34,7 @@ describe('InterfazChatComponent', () => {
   let sessionChangedSubject: Subject<boolean>;
   let importacionService: jasmine.SpyObj<PacienteImportacionService>;
   let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
+  let historiasDuplicadasService: jasmine.SpyObj<HistoriaClinicaDuplicadaChatService>;
   let authServiceMock: any;
   const paciente = {
     idPaciente: 8, dni: DNI_PRUEBA, numDocumento: DNI_PRUEBA, nombres: 'NOMBRE PRUEBA',
@@ -64,6 +67,8 @@ describe('InterfazChatComponent', () => {
     router.navigate.and.returnValue(Promise.resolve(true));
     importacionService = jasmine.createSpyObj('PacienteImportacionService', ['descargarPlantilla', 'obtenerNombreArchivo', 'validarArchivo', 'confirmarImportacion']);
     duplicadosService = jasmine.createSpyObj('PacienteDuplicadoChatService', ['analizar', 'archivar']);
+    historiasDuplicadasService = jasmine.createSpyObj('HistoriaClinicaDuplicadaChatService', ['detectar', 'analizar']);
+    historiasDuplicadasService.detectar.and.returnValue(of({ hayDuplicados: false, totalGrupos: 0, duplicados: [], mensaje: 'Sin duplicados' }));
     authServiceMock = {
       logout$: logoutSubject.asObservable(),
       sessionChanged$: sessionChangedSubject.asObservable(),
@@ -79,6 +84,7 @@ describe('InterfazChatComponent', () => {
         { provide: Router, useValue: router },
         { provide: PacienteImportacionService, useValue: importacionService },
         { provide: PacienteDuplicadoChatService, useValue: duplicadosService },
+        { provide: HistoriaClinicaDuplicadaChatService, useValue: historiasDuplicadasService },
         { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
         { provide: AuthService, useValue: authServiceMock }
       ]
@@ -662,6 +668,96 @@ describe('InterfazChatComponent', () => {
     expect(menuHistorias.options.find((opcion: any) => opcion.label === 'Detectar historias clínicas duplicadas')?.description).toBeUndefined();
   });
 
+  it('inicia el análisis guiado desde la detección existente sin consultar al asistente general', () => {
+    const pendiente = new Subject<any>();
+    historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
+    const menuHistorias = abrirMenuHistorias();
+    const opcion = menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas');
+
+    component.selectHistoricalMenuOption(menuHistorias, opcion);
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.type === 'clinical-history-duplicate-management')).toBeTrue();
+    expect(component.gestionHistoriasDuplicadasActiva).toBeTrue();
+    expect(historiasDuplicadasService.detectar).toHaveBeenCalledTimes(1);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('limpia el análisis de historias duplicadas al minimizar', () => {
+    const pendiente = new Subject<any>();
+    historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
+    const menuHistorias = abrirMenuHistorias();
+    component.selectHistoricalMenuOption(menuHistorias,
+      menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas'));
+    fixture.detectChanges();
+    const tarjeta = component.historiasDuplicadasComponents.last;
+
+    component.minimizeChat();
+
+    expect(tarjeta.state.estado).toBe('CANCELADO');
+    expect(tarjeta.state.idsSeleccionados).toEqual([]);
+    expect(pendiente.observed).toBeFalse();
+    expect(component.gestionHistoriasDuplicadasActiva).toBeFalse();
+  });
+
+  it('ancla el inicio informativo del flujo y no desplaza el scroll al bloque de grupos', fakeAsync(() => {
+    component.openChat();
+    const pendiente = new Subject<any>();
+    historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
+    const menuHistorias = abrirMenuHistorias();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.selectHistoricalMenuOption(menuHistorias,
+      menuHistorias.options.find((item: any) => item.label === 'Detectar historias clínicas duplicadas'));
+    fixture.detectChanges();
+    const inicio = component.messages.find(mensaje => mensaje.text?.startsWith('Consultaré las historias clínicas duplicadas'))!;
+    pendiente.next({ hayDuplicados: true, totalGrupos: 1, mensaje: 'Se encontró un grupo.', duplicados: [{
+      tipo: 'dni', valorCoincidente: DNI_PRUEBA, cantidad: 2, historiasClinicas: [
+        { idHistoriaClinica: 7, idPaciente: 12, nombreCompleto: 'Paciente', cantidadConsultas: 0, estado: 'ACTIVA' },
+        { idHistoriaClinica: 8, idPaciente: 12, nombreCompleto: 'Paciente', cantidadConsultas: 0, estado: 'ACTIVA' }
+      ]
+    }] });
+    tick(10_000);
+    fixture.detectChanges();
+    const grupos = component.messages.find(mensaje => mensaje.duplicateHistoriesView === 'groups')!;
+
+    expect(scrollSpy).toHaveBeenCalledOnceWith(inicio.id);
+    expect(scrollSpy).not.toHaveBeenCalledWith(grupos.id);
+    expect(grupos.presentationState).toBe('visible');
+  }));
+
+  it('ancla el primer mensaje del resultado y la comparación aparece sin apropiarse del scroll', fakeAsync(() => {
+    component.openChat();
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'ANALIZANDO_HISTORIAS';
+    (component as any).addDuplicateHistoriesBlock(state, 'analyzing', true);
+    fixture.detectChanges();
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'He analizado las historias clínicas seleccionadas para Paciente.',
+      reemplazarVistaActiva: true, inicioGrupo: true
+    });
+    const primerMensaje = component.messages.at(-1)!;
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'Recomiendo conservar la historia clínica 7.'
+    });
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'No existen consultas para transferir en este caso.', vistaSiguiente: 'comparison'
+    });
+    const comparacion = component.messages.find(mensaje => mensaje.duplicateHistoriesView === 'comparison')!;
+    expect(comparacion.presentationState).toBe('pending');
+
+    tick(10_000);
+    fixture.detectChanges();
+
+    expect(scrollSpy).toHaveBeenCalledOnceWith(primerMensaje.id);
+    expect(scrollSpy).not.toHaveBeenCalledWith(comparacion.id);
+    expect(comparacion.presentationState).toBe('visible');
+    expect((component as any).interactionScrollAnchorId).toBeUndefined();
+    expect((component as any).autoFollowPresentation).toBeFalse();
+  }));
+
   it('debe mostrar e iniciar el registro desde Excel en Asistencia guiada sin usar Botpress', () => {
     const pacientes = abrirMenuAsistenciaPacientes();
     const opcion = pacientes.options.find((item: any) => item.label === 'Registrar pacientes desde Excel');
@@ -857,7 +953,8 @@ describe('InterfazChatComponent', () => {
     ]);
     expect(menus['asistencia-historias'].options).toEqual([
       jasmine.objectContaining({ label: 'Crear una historia clínica con el asistente', action: 'clinical-history-flow' }),
-      jasmine.objectContaining({ label: 'Crear historias clínicas faltantes', action: 'missing-clinical-histories-flow' })
+      jasmine.objectContaining({ label: 'Crear historias clínicas faltantes', action: 'missing-clinical-histories-flow' }),
+      jasmine.objectContaining({ label: 'Analizar historias clínicas duplicadas', action: 'clinical-history-duplicate-flow' })
     ]);
     expect(menus['pacientes'].options).toContain(jasmine.objectContaining({
       label: 'Detectar posibles pacientes duplicados', action: 'request'
