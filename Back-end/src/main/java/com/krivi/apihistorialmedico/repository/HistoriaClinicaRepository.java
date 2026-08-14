@@ -34,6 +34,9 @@ public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinic
   @Query("select h from HistoriaClinica h join fetch h.paciente p where p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO order by h.idHistoriaClinica")
   List<HistoriaClinica> findAllForIntegracion();
 
+  @Query("select h from HistoriaClinica h join fetch h.paciente p where h.idHistoriaClinica in :idsHistoria and p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO")
+  List<HistoriaClinica> findForAnalisisByIds(@Param("idsHistoria") Collection<Integer> idsHistoria);
+
   @Query(value = "select h.idpaciente from historiaclinica h where h.idpaciente is not null group by h.idpaciente having count(*) > 1 order by h.idpaciente", nativeQuery = true)
   List<Integer> findIdsPacienteConHistoriasDuplicadas();
 
