@@ -148,6 +148,61 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(fixture.nativeElement.querySelector('input[type="password"]')).toBeNull();
   });
 
+  it('ofrece eliminar la duplicada cuando la secundaria no tiene consultas para transferir', () => {
+    prepararComparacion(analisis());
+    const botones = textosBotones();
+
+    expect(botones).toContain('Continuar y eliminar duplicada');
+    expect(botones).not.toContain('Continuar con la fusión');
+  });
+
+  it('mantiene continuar con la fusión cuando la secundaria tiene consultas', () => {
+    const respuesta = analisisConConsultasSecundarias(2);
+    prepararComparacion(respuesta);
+
+    expect(textosBotones()).toContain('Continuar con la fusión');
+    expect(textosBotones()).not.toContain('Continuar y eliminar duplicada');
+  });
+
+  it('adapta la vista previa y la confirmación cuando no hay consultas para transferir', () => {
+    prepararComparacion(analisis());
+    component.continuarConFusion();
+    component.mostrarVistaPrevia();
+    component.view = 'preview';
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Se conservará la historia clínica 7.');
+    expect(texto).toContain('La historia clínica 8 no contiene consultas asociadas.');
+    expect(texto).toContain('la HC 8 será eliminada como historia duplicada.');
+    expect(texto).toContain('Confirmas que deseas conservar la HC 7 y eliminar la HC 8. No existen consultas para transferir.');
+  });
+
+  it('adapta la vista previa y la confirmación cuando existen consultas para transferir', () => {
+    prepararComparacion(analisisConConsultasSecundarias(2));
+    component.continuarConFusion();
+    component.mostrarVistaPrevia();
+    component.view = 'preview';
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Consultas que se transferirán: 2');
+    expect(texto).toContain('La HC 8 contiene 2 consultas que serán transferidas a la HC 7');
+    expect(texto).toContain('Confirmas que deseas conservar la HC 7, transferir 2 consultas desde la HC 8 y posteriormente eliminar la HC 8.');
+  });
+
+  it('adapta el mensaje final a la cantidad de consultas transferidas', () => {
+    component.state.respuestaFusion = { fusionada: true, idHistoriaPrincipal: 7, idHistoriaEliminada: 8,
+      cantidadConsultasTransferidas: 0, resultado: 'HISTORIAS_FUSIONADAS', mensaje: 'Respuesta genérica' };
+    component.view = 'success'; fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Se conservó la historia clínica 7 y se eliminó la historia clínica 8. No fue necesario transferir consultas.');
+
+    component.state.respuestaFusion = { fusionada: true, idHistoriaPrincipal: 7, idHistoriaEliminada: 8,
+      cantidadConsultasTransferidas: 2, resultado: 'HISTORIAS_FUSIONADAS', mensaje: 'Respuesta genérica' };
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Se conservó la historia clínica 7, se transfirieron 2 consultas desde la HC 8 y posteriormente se eliminó la HC 8.');
+  });
+
   it('preselecciona la recomendada y muestra la contraseña solo después de confirmar', () => {
     prepararComparacion(analisis());
     component.continuarConFusion();
@@ -207,5 +262,20 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     return { idHistoriaClinica: id, idPaciente: 12, dni: '74281635', nombreCompleto: 'Andrea Quispe', fechaCreacion: fecha,
       cantidadConsultas: 0, cantidadConsultasAtendidas: 0, cantidadConsultasPendientes: 0, camposClinicosInformados: 0,
       puntajeRiquezaClinica: 0, cantidadConsultasExclusivas: 0, consultasExclusivas: [] };
+  }
+
+  function analisisConConsultasSecundarias(cantidad: number): AnalisisHistoriasClinicasDuplicadas {
+    const respuesta = analisis();
+    respuesta.historiasComparadas[1].cantidadConsultas = cantidad;
+    respuesta.historiasComparadas[1].cantidadConsultasExclusivas = cantidad;
+    respuesta.historiasComparadas[1].consultasExclusivas = Array.from({ length: cantidad }, (_, indice) => ({
+      idConsulta: 20 + indice, estado: 'ATENDIDO', camposClinicosInformados: 1, puntajeRiquezaClinica: 3
+    }));
+    return respuesta;
+  }
+
+  function textosBotones(): string[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .map((boton: unknown) => (boton as HTMLButtonElement).textContent?.trim() ?? '');
   }
 });

@@ -104,7 +104,7 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.state.idHistoriaPrincipal = analisis.idHistoriaClinicaRecomendada;
     this.state.idHistoriaSecundaria = analisis.historiasComparadas.find(h => h.idHistoriaClinica !== analisis.idHistoriaClinicaRecomendada)?.idHistoriaClinica;
     this.state.estado = 'SELECCIONANDO_PRINCIPAL';
-    this.emitir('user', 'Continuar con la fusión', 'principal-selection', false, true);
+    this.emitir('user', this.textoBotonContinuar, 'principal-selection', false, true);
   }
 
   cambiarPrincipal(id: number): void {
@@ -127,6 +127,34 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
   }
   get principal(): HistoriaClinicaAnalisisDetallado | undefined { return this.historia(this.state.idHistoriaPrincipal); }
   get secundaria(): HistoriaClinicaAnalisisDetallado | undefined { return this.historia(this.state.idHistoriaSecundaria); }
+  get cantidadConsultasATransferir(): number {
+    return this.historiaSecundariaSeleccionada?.cantidadConsultasExclusivas ?? 0;
+  }
+  get hayConsultasParaTransferir(): boolean { return this.cantidadConsultasATransferir > 0; }
+  get textoBotonContinuar(): string {
+    return this.hayConsultasParaTransferir ? 'Continuar con la fusión' : 'Continuar y eliminar duplicada';
+  }
+  get textoConfirmacion(): string {
+    if (!this.principal || !this.secundaria) return '';
+    const principal = this.principal.idHistoriaClinica;
+    const secundaria = this.secundaria.idHistoriaClinica;
+    const cantidad = this.cantidadConsultasATransferir;
+    if (cantidad === 0) {
+      return `Confirmas que deseas conservar la HC ${principal} y eliminar la HC ${secundaria}. No existen consultas para transferir.`;
+    }
+    const consultas = cantidad === 1 ? '1 consulta' : `${cantidad} consultas`;
+    return `Confirmas que deseas conservar la HC ${principal}, transferir ${consultas} desde la HC ${secundaria} y posteriormente eliminar la HC ${secundaria}.`;
+  }
+  get mensajeResultadoFusion(): string {
+    const respuesta = this.state.respuestaFusion;
+    if (respuesta?.idHistoriaPrincipal == null || respuesta.idHistoriaEliminada == null) return respuesta?.mensaje ?? '';
+    const cantidad = respuesta.cantidadConsultasTransferidas ?? 0;
+    if (cantidad === 0) {
+      return `Se conservó la historia clínica ${respuesta.idHistoriaPrincipal} y se eliminó la historia clínica ${respuesta.idHistoriaEliminada}. No fue necesario transferir consultas.`;
+    }
+    const transferencia = cantidad === 1 ? 'se transfirió 1 consulta' : `se transfirieron ${cantidad} consultas`;
+    return `Se conservó la historia clínica ${respuesta.idHistoriaPrincipal}, ${transferencia} desde la HC ${respuesta.idHistoriaEliminada} y posteriormente se eliminó la HC ${respuesta.idHistoriaEliminada}.`;
+  }
   confirmarVistaPrevia(): void {
     if (!this.active || this.state.estado !== 'MOSTRANDO_VISTA_PREVIA') return;
     this.state.estado = 'SOLICITANDO_CONTRASENA';
@@ -150,7 +178,7 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
       request.contrasena = ''; this.solicitud = undefined;
     })).subscribe({ next: respuesta => {
       this.state.respuestaFusion = respuesta; this.state.estado = 'COMPLETADO'; this.state.intentosRestantes = 3;
-      this.emitir('bot', respuesta.mensaje, 'success', true, true);
+      this.emitir('bot', this.mensajeResultadoFusion, 'success', true, true);
     }, error: error => this.procesarErrorFusion(error) });
   }
   limpiarPassword(): void { this.password = ''; this.mostrarPassword = false; }
@@ -252,6 +280,11 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
   }
   private historia(id?: number): HistoriaClinicaAnalisisDetallado | undefined {
     return this.state.analisis?.historiasComparadas.find(h => h.idHistoriaClinica === id);
+  }
+  private get historiaSecundariaSeleccionada(): HistoriaClinicaAnalisisDetallado | undefined {
+    if (this.secundaria) return this.secundaria;
+    const analisis = this.state.analisis;
+    return analisis?.historiasComparadas.find(h => h.idHistoriaClinica !== analisis.idHistoriaClinicaRecomendada);
   }
   private procesarErrorFusion(error: HttpErrorResponse): void {
     this.limpiarPassword(); const codigo = error.error?.resultado;
