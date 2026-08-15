@@ -1445,7 +1445,7 @@ describe('InterfazChatComponent', () => {
     'Analiza posibles duplicados',
     'Busca pacientes duplicados'
   ].forEach(frase => {
-    it(`debe enviar al backend la consulta general de duplicados: ${frase}`, () => {
+    it(`debe enviar al backend la consulta general de duplicados: ${frase}`, fakeAsync(() => {
       asistenteService.preguntar.and.returnValue(of({
         intencion: 'ANALISIS_DUPLICADOS_PACIENTES',
         respuesta: 'Se encontraron posibles pacientes duplicados: ID: 1 DNI: (PONER DNI) ID: 2 DNI: (PONER DNI)',
@@ -1460,8 +1460,10 @@ describe('InterfazChatComponent', () => {
       expect(component.messages.some(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.')).toBeFalse();
       expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
       expect(component.messages.some(mensaje => mensaje.text?.includes('Se encontraron posibles pacientes duplicados'))).toBeTrue();
+      expect(component.messages.some(mensaje => mensaje.menuId === 'contextual-action')).toBeFalse();
+      tick(10_000);
       expect(component.messages.at(-1)?.options?.[0].label).toBe('Gestionar pacientes duplicados');
-    });
+    }));
   });
 
   [
@@ -1474,7 +1476,7 @@ describe('InterfazChatComponent', () => {
     'Busca historias repetidas del DNI (PONER DNI)',
     'Verifica historias clínicas del paciente con DNI (PONER DNI)'
   ].forEach(frase => {
-    it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, () => {
+    it(`debe consultar historias clínicas duplicadas sin activar archivado: ${frase}`, fakeAsync(() => {
       asistenteService.preguntar.and.returnValue(of({
         intencion: 'HISTORIAS_CLINICAS_DUPLICADAS',
         respuesta: 'Se encontraron 2 posibles historias clínicas duplicadas para el DNI (PONER DNI).\n\nID historia clínica: 12\nConsultas asociadas: 3\nEstado de la historia: ACTIVA\n\nSe recomienda conservar la historia clínica ID 12.',
@@ -1487,9 +1489,11 @@ describe('InterfazChatComponent', () => {
 
       expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
       expect(component.messages.some(mensaje => mensaje.text?.includes('ID historia clínica: 12'))).toBeTrue();
+      expect(component.messages.some(mensaje => mensaje.menuId === 'contextual-action')).toBeFalse();
+      tick(10_000);
       expect(component.messages.at(-1)?.options?.[0].label).toBe('Analizar historias clínicas duplicadas');
       expect(asistenteService.preguntar).toHaveBeenCalledOnceWith(frase);
-    });
+    }));
   });
 
   it('no ofrece acciones contextuales cuando no existen duplicados', () => {
@@ -1517,11 +1521,14 @@ describe('InterfazChatComponent', () => {
     component.userMessage = '¿Existen pacientes duplicados?';
     component.sendMessage();
     const ayuda = component.messages.find(mensaje => mensaje.text?.startsWith('Si deseas, puedo ayudarte'))!;
-    const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
-    expect(component.messages.indexOf(ayuda)).toBeLessThan(component.messages.indexOf(cta));
-    expect(cta.presentationState).toBe('pending');
+    expect(ayuda.presentationState).not.toBe('visible');
+    expect(component.asistenteEscribiendo).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.menuId === 'contextual-action')).toBeFalse();
 
     tick(10_000);
+    const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
+    expect(component.messages.indexOf(ayuda)).toBeLessThan(component.messages.indexOf(cta));
+    expect(component.asistenteEscribiendo).toBeFalse();
     component.selectHistoricalMenuOption(cta, cta.options![0]);
 
     expect(cta.presentationState).toBe('visible');
@@ -1537,8 +1544,14 @@ describe('InterfazChatComponent', () => {
 
     component.userMessage = '¿Existen historias clínicas duplicadas?';
     component.sendMessage();
+    const ayuda = component.messages.find(mensaje => mensaje.text?.startsWith('Puedo analizar estas historias'))!;
+    expect(ayuda.presentationState).not.toBe('visible');
+    expect(component.asistenteEscribiendo).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.menuId === 'contextual-action')).toBeFalse();
     tick(10_000);
     const cta = component.messages.find(mensaje => mensaje.menuId === 'contextual-action')!;
+    expect(ayuda.presentationState).toBe('visible');
+    expect(component.asistenteEscribiendo).toBeFalse();
     component.selectHistoricalMenuOption(cta, cta.options![0]);
     fixture.detectChanges();
 
@@ -1678,7 +1691,7 @@ describe('InterfazChatComponent', () => {
     expect(component.gestionDuplicadosActiva).toBeFalse();
   });
 
-  it('debe mantener solicitud, DNI, resultado y tarjetas en orden cronológico y anclar el resultado', () => {
+  it('debe mantener DNI, resultado y orientación en orden y revelar las tarjetas al terminar el mensaje', fakeAsync(() => {
     const respuestaPendiente = new Subject<any>();
     duplicadosService.analizar.and.returnValue(respuestaPendiente);
     component.userMessage = 'Gestionar duplicados';
@@ -1692,7 +1705,7 @@ describe('InterfazChatComponent', () => {
     tarjeta.consultarDni();
     fixture.detectChanges();
 
-    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Comencemos revisando un grupo específico de pacientes duplicados.');
     const dniIndexAntes = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     expect(solicitudIndex).toBeLessThan(dniIndexAntes);
     expect(duplicadosService.analizar).toHaveBeenCalledOnceWith(DNI_PRUEBA);
@@ -1712,16 +1725,26 @@ describe('InterfazChatComponent', () => {
 
     const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
-    const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
-    const mensajeResultado = component.messages[resultadoIndex];
+    const orientacionIndex = component.messages.findIndex(mensaje => mensaje.text?.startsWith('Revisa los pacientes encontrados.'));
     expect(dniMensajes.length).toBe(1);
     expect(dniIndexAntes).toBeLessThan(resultadoIndex);
-    expect(resultadoIndex).toBeLessThan(tarjetasIndex);
+    expect(resultadoIndex).toBeLessThan(orientacionIndex);
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results')).toBeFalse();
+    expect(component.messages[orientacionIndex].presentationState).not.toBe('visible');
+    expect(component.asistenteEscribiendo).toBeTrue();
+    expect(fixture.nativeElement.textContent).not.toContain('Pacientes encontrados');
+
+    tick(10_000);
+    fixture.detectChanges();
+    const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
+    expect(orientacionIndex).toBeLessThan(tarjetasIndex);
+    expect(component.messages[orientacionIndex].presentationState).toBe('visible');
+    expect(component.asistenteEscribiendo).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('Pacientes encontrados');
     expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
-    expect(scrollBlockSpy).toHaveBeenCalledWith(mensajeResultado.id);
+    expect(scrollBlockSpy).toHaveBeenCalledOnceWith(component.messages[dniIndexAntes].id);
     expect(scrollBottomSpy).not.toHaveBeenCalled();
-  });
+  }));
 
   it('debe conservar el orden solicitud, DNI y mensaje cuando solo existe un paciente', () => {
     duplicadosService.analizar.and.returnValue(of({
@@ -1737,7 +1760,7 @@ describe('InterfazChatComponent', () => {
     tarjeta.consultarDni();
     fixture.detectChanges();
 
-    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    const solicitudIndex = component.messages.findIndex(mensaje => mensaje.text === 'Comencemos revisando un grupo específico de pacientes duplicados.');
     const dniIndex = component.messages.findIndex(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Solo existe un paciente activo con ese DNI. No hay duplicados para gestionar.');
     expect(solicitudIndex).toBeLessThan(dniIndex);

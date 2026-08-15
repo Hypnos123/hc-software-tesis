@@ -45,7 +45,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -337,11 +337,22 @@ export class InterfazChatComponent implements OnDestroy {
       tarjetaActiva.duplicateActive = false;
     }
     const mensaje = evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
-    if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
-    if (evento.vistaSiguiente && !vistaActualizada) this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
+    const esResultadoConTarjetas = evento.remitente === 'bot' && evento.vistaSiguiente === 'results';
+    const mostrarVistaSiguiente = (): void => {
+      if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
+      if (evento.vistaSiguiente && !vistaActualizada) {
+        this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
+      }
+    };
+    if (esResultadoConTarjetas) {
+      const orientacion = this.addBotMessage('Revisa los pacientes encontrados. El registro recomendado para conservar aparecerá destacado. Si deseas continuar, selecciona “Archivar paciente” en el registro duplicado que deseas consolidar. No se realizará ningún cambio hasta que completes las confirmaciones posteriores.');
+      this.runAfterPresentation(orientacion, mostrarVistaSiguiente);
+    } else {
+      mostrarVistaSiguiente();
+    }
     if (state.estado === 'COMPLETADO') this.addMenuBlock('duplicados-final');
     if (evento.volverPacientes) this.addMenuBlock('asistencia-pacientes');
-    if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+    if (evento.inicioGrupo && evento.remitente === 'user') this.pinInteractionStart(mensaje.id);
   }
   manejarMensajeHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState, evento: HistoriasClinicasFaltantesEvento): void {
     const tarjetaActiva = this.messages.find(message => message.type === 'missing-clinical-histories'
@@ -527,12 +538,14 @@ export class InterfazChatComponent implements OnDestroy {
     this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
   }
   private addContextualAction(recommendation: ContextualActionRecommendation): void {
-    this.addBotMessage(recommendation.message);
-    this.addMessage(this.createBlockMessage('menu', {
-      menuId: 'contextual-action',
-      preserveInteractionAnchor: true,
-      options: [{ ...recommendation.option, id: `contextual-${this.messageSequence + 1}` }]
-    }));
+    const helpMessage = this.addBotMessage(recommendation.message);
+    this.runAfterPresentation(helpMessage, () => {
+      this.addMessage(this.createBlockMessage('menu', {
+        menuId: 'contextual-action',
+        preserveInteractionAnchor: true,
+        options: [{ ...recommendation.option, id: `contextual-${this.messageSequence + 1}` }]
+      }));
+    });
   }
   private addImportBlock(state: PacienteImportacionChatState, view: PacienteImportView, active: boolean): void {
     this.addMessage(this.createBlockMessage('patient-import', { importacion: state, importView: view, importActive: active }));
@@ -615,7 +628,17 @@ export class InterfazChatComponent implements OnDestroy {
     message.visibleText = message.text ?? '';
     message.presentationState = 'visible';
     this.activePresentationId = undefined;
+    const afterPresentation = message.afterPresentation;
+    message.afterPresentation = undefined;
+    afterPresentation?.();
     this.processPresentationQueue();
+  }
+  private runAfterPresentation(message: ChatMessage, callback: () => void): void {
+    if (message.presentationState === 'visible') {
+      callback();
+      return;
+    }
+    message.afterPresentation = callback;
   }
   private revealMessageImmediately(message: ChatMessage): void {
     if (message.type === 'text') message.visibleText = message.text ?? '';
@@ -815,7 +838,7 @@ export class InterfazChatComponent implements OnDestroy {
       return;
     }
     const state = crearGestionDuplicadosState();
-    this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    this.addBotMessage('Comencemos revisando un grupo específico de pacientes duplicados.');
     this.addDuplicateBlock(state, 'dni', true);
     if (selectionId) this.scrollToNewBlock(selectionId);
   }
