@@ -222,6 +222,51 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(component.state.estado).toBe('CANCELADO'); expect(component.password).toBe(''); expect(textos).not.toContain('secreta');
   });
 
+  it('vuelve a solicitar la contraseña sin perder la selección y permite reintentar la fusión', () => {
+    const respuesta = analisisConConsultasSecundarias(2);
+    prepararComparacion(respuesta); component.continuarConFusion(); component.mostrarVistaPrevia(); component.confirmarVistaPrevia();
+    const eventos: GestionHistoriasDuplicadasEvento[] = [];
+    component.mensajeConversacional.subscribe(evento => eventos.push(evento));
+    service.fusionar.and.returnValues(
+      throwError(() => new HttpErrorResponse({ status: 401, error: {
+        resultado: 'CONTRASENA_INCORRECTA', mensaje: 'La contraseña ingresada no es correcta.'
+      } })),
+      of({ fusionada: true, resultado: 'HISTORIAS_FUSIONADAS', mensaje: 'Fusión completada' })
+    );
+
+    component.password = 'incorrecta'; component.fusionar();
+
+    expect(component.state.estado).toBe('SOLICITANDO_CONTRASENA');
+    expect(component.password).toBe('');
+    expect(component.state.idHistoriaPrincipal).toBe(7);
+    expect(component.state.idHistoriaSecundaria).toBe(8);
+    expect(component.state.analisis).toBe(respuesta);
+    expect(eventos.at(-1)?.vistaSiguiente).toBe('password');
+    expect(eventos.at(-1)?.texto).toContain('La contraseña ingresada no es correcta. Inténtalo nuevamente.');
+
+    component.password = 'correcta'; component.fusionar();
+
+    expect(service.fusionar).toHaveBeenCalledTimes(2);
+    expect(component.state.estado).toBe('COMPLETADO');
+    expect(eventos.at(-1)?.vistaSiguiente).toBe('success');
+  });
+
+  it('finaliza el estado de fusión y prioriza el mensaje backend ante un error inesperado', () => {
+    prepararComparacion(analisis()); component.continuarConFusion(); component.mostrarVistaPrevia(); component.confirmarVistaPrevia();
+    const eventos: GestionHistoriasDuplicadasEvento[] = [];
+    component.mensajeConversacional.subscribe(evento => eventos.push(evento));
+    service.fusionar.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500, error: {
+      resultado: 'ERROR_INTERNO', mensaje: 'No fue posible procesar la operación.'
+    } })));
+
+    component.password = 'clave'; component.fusionar();
+
+    expect(component.state.estado).toBe('ERROR');
+    expect(component.state.mensajeError).toBe('No fue posible procesar la operación.');
+    expect(eventos.at(-1)?.vistaSiguiente).toBe('error');
+    expect(eventos.at(-1)?.reemplazarVistaActiva).toBeTrue();
+  });
+
   it('envía snapshot y conserva idPaciente de solo lectura en frontend', () => {
     const respuesta=analisis(); respuesta.historiasComparadas[1].consultasExclusivas=[{idConsulta:20,estado:'ATENDIDO',camposClinicosInformados:1,puntajeRiquezaClinica:3}]; respuesta.historiasComparadas[1].cantidadConsultas=1;
     prepararComparacion(respuesta); component.continuarConFusion(); component.mostrarVistaPrevia(); component.confirmarVistaPrevia();

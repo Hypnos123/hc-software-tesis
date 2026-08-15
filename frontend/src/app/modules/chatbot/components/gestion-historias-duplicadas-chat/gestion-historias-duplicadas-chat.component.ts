@@ -287,18 +287,21 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     return analisis?.historiasComparadas.find(h => h.idHistoriaClinica !== analisis.idHistoriaClinicaRecomendada);
   }
   private procesarErrorFusion(error: HttpErrorResponse): void {
-    this.limpiarPassword(); const codigo = error.error?.resultado;
+    this.limpiarPassword();
+    const codigo = error.error?.resultado;
+    const mensajeBackend = typeof error.error?.mensaje === 'string' ? error.error.mensaje.trim() : '';
     if (error.status === 401 && codigo === 'CONTRASENA_INCORRECTA') {
       this.state.intentosRestantes--;
       if (this.state.intentosRestantes <= 0) { this.limpiarFlujo(); this.emitir('bot', 'Se alcanzó el máximo de intentos. La fusión fue cancelada.', 'cancelled', true, true); return; }
       this.state.estado = 'SOLICITANDO_CONTRASENA';
-      this.emitir('bot', `La contraseña no es correcta. Te quedan ${this.state.intentosRestantes} intentos.`, 'password', true, true); return;
+      const mensaje = mensajeBackend || 'La contraseña ingresada no es correcta.';
+      this.emitir('bot', `${mensaje} Inténtalo nuevamente. Te quedan ${this.state.intentosRestantes} intentos.`, 'password', true, true); return;
     }
     if (codigo === 'ANALISIS_DESACTUALIZADO') {
       this.state.estado = 'CANCELADO'; this.emitir('bot', 'La información cambió. Debes volver a analizar antes de fusionar.', 'cancelled', true, true); return;
     }
     const mensajes: Record<string,string> = { CARGO_NO_AUTORIZADO: 'Tu cargo no permite fusionar historias clínicas.', HISTORIAS_DE_PACIENTES_DIFERENTES: 'Las historias pertenecen a pacientes diferentes.', CONSULTA_INCONSISTENTE: 'Se detectó una consulta inconsistente.', PACIENTE_INACTIVO: 'El paciente ya no está activo.' };
-    this.state.estado = 'ERROR'; this.state.mensajeError = mensajes[codigo] ?? 'No se pudo completar la fusión. No se realizaron cambios.';
+    this.state.estado = 'ERROR'; this.state.mensajeError = mensajeBackend || mensajes[codigo] || 'No se pudo completar la fusión. No se realizaron cambios.';
     this.emitir('bot', this.state.mensajeError, 'error', true, true);
   }
 

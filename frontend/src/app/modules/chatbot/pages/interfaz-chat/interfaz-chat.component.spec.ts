@@ -1,4 +1,5 @@
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Subject, of, throwError } from 'rxjs';
 
 import { AuthService } from '@app/auth/services/auth.service';
@@ -17,6 +18,7 @@ import { PacienteDuplicadoChatService } from '../../services/paciente-duplicado-
 import { HistoriasClinicasFaltantesChatComponent } from '../../components/historias-clinicas-faltantes-chat/historias-clinicas-faltantes-chat.component';
 import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-clinica-duplicada-chat.service';
 import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clinica-duplicada-chat';
+import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestion-historias-duplicadas-chat/gestion-historias-duplicadas-chat.component';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -764,6 +766,65 @@ describe('InterfazChatComponent', () => {
     expect((component as any).interactionScrollAnchorId).toBeUndefined();
     expect((component as any).autoFollowPresentation).toBeFalse();
   }));
+
+  it('mantiene el componente y la petición HTTP activos al cambiar de contraseña a fusión', () => {
+    component.openChat();
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'SOLICITANDO_CONTRASENA';
+    state.idHistoriaPrincipal = 19;
+    state.idHistoriaSecundaria = 16;
+    state.analisis = {
+      tipoDuplicidad: 'MISMO_PACIENTE', idHistoriaClinicaRecomendada: 19, motivosRecomendacion: [],
+      resumenComparativo: 'Comparación', futuraFusionPermitida: true, tokenAnalisis: 'token-vigente',
+      posiblesCoincidencias: [], advertenciasIntegridad: [], mensaje: 'Listo', historiasComparadas: [
+        { idHistoriaClinica: 19, idPaciente: 3, cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
+          cantidadConsultasPendientes: 0, camposClinicosInformados: 0, puntajeRiquezaClinica: 0,
+          cantidadConsultasExclusivas: 0, consultasExclusivas: [] },
+        { idHistoriaClinica: 16, idPaciente: 3, cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
+          cantidadConsultasPendientes: 0, camposClinicosInformados: 0, puntajeRiquezaClinica: 0,
+          cantidadConsultasExclusivas: 0, consultasExclusivas: [] }
+      ]
+    };
+    const respuestaPendiente = new Subject<any>();
+    historiasDuplicadasService.fusionar.and.returnValue(respuestaPendiente.asObservable());
+    (component as any).addDuplicateHistoriesBlock(state, 'password', true);
+    fixture.detectChanges();
+    const instanciaInicial = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance
+      as GestionHistoriasDuplicadasChatComponent;
+
+    instanciaInicial.password = 'incorrecta';
+    instanciaInicial.fusionar();
+    fixture.detectChanges();
+
+    const instanciaFusionando = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance;
+    expect(instanciaFusionando).toBe(instanciaInicial);
+    expect(respuestaPendiente.observed).toBeTrue();
+    expect(state.estado).toBe('FUSIONANDO');
+
+    respuestaPendiente.error({ status: 401, error: {
+      resultado: 'CONTRASENA_INCORRECTA', mensaje: 'La contraseña ingresada no es correcta.'
+    } });
+    fixture.detectChanges();
+
+    expect(state.estado).toBe('SOLICITANDO_CONTRASENA');
+    expect(fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance).toBe(instanciaInicial);
+    expect(component.messages.filter(mensaje => mensaje.historiasDuplicadas === state).length).toBe(1);
+  });
+
+  it('representa un error de fusión una sola vez en la tarjeta activa', () => {
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'ERROR'; state.mensajeError = 'No se pudo completar la fusión. No se realizaron cambios.';
+    (component as any).addDuplicateHistoriesBlock(state, 'fusing', true);
+    const cantidadInicial = component.messages.length;
+
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: state.mensajeError, vistaSiguiente: 'error', reemplazarVistaActiva: true
+    });
+
+    expect(component.messages.length).toBe(cantidadInicial);
+    expect(component.messages.filter(mensaje => mensaje.text === state.mensajeError).length).toBe(0);
+    expect(component.messages.find(mensaje => mensaje.historiasDuplicadas === state)?.duplicateHistoriesView).toBe('error');
+  });
 
   it('debe mostrar e iniciar el registro desde Excel en Asistencia guiada sin usar Botpress', () => {
     const pacientes = abrirMenuAsistenciaPacientes();

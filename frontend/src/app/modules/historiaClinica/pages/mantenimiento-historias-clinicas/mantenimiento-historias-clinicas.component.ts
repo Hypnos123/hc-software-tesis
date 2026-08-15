@@ -298,6 +298,12 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
   private obtenerMensajeError(error: any): string {
     if (error?.status === 400) return error?.error?.mensaje || 'Los datos ingresados no son válidos.';
     if (error?.status === 404) return error?.error?.mensaje || 'No se encontró el registro solicitado.';
+    if (error?.status === 409 && error?.error?.codigo === 'DNI_AMBIGUO') {
+      return '<strong>No es posible crear la historia clínica.</strong><br><br>' +
+        'Se detectaron pacientes duplicados asociados a este DNI y uno de los registros ya cuenta con una historia clínica.<br><br>' +
+        'Antes de continuar, debes revisar los pacientes duplicados y definir cuál registro se conservará.<br><br>' +
+        'El Chatbot puede ayudarte a gestionar este problema.';
+    }
     if (error?.status === 409) return error?.error?.mensaje || 'El DNI está asociado a varios pacientes y no se puede resolver automáticamente.';
     return error?.error?.mensaje || error?.error?.error || 'No se pudo crear la historia clínica.';
   }
