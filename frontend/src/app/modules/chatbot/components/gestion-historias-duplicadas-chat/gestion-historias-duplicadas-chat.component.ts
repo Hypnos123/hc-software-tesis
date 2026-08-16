@@ -80,9 +80,9 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
         this.state.cancelarSolicitud = undefined;
         this.state.analisis = analisis;
         this.state.estado = 'MOSTRANDO_COMPARACION';
-        this.emitir('bot', this.presentacionInicial(analisis.historiasComparadas), undefined, true, true);
+        this.emitir('bot', this.presentacionInicial(analisis.historiasComparadas), undefined, false, true);
         this.emitir('bot', `Recomiendo conservar la historia clínica ${analisis.idHistoriaClinicaRecomendada}.`, undefined);
-        this.emitir('bot', this.resumenFinal(), 'comparison');
+        this.emitir('bot', this.resumenFinal(), 'comparison', true);
       },
       error: () => this.manejarError('No fue posible analizar las historias clínicas seleccionadas.')
     });
@@ -176,6 +176,11 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.emitir('bot', 'Verificando identidad y fusionando las historias clínicas...', 'fusing', true, true);
     this.solicitud = this.service.fusionar(this.secundaria.idHistoriaClinica, request).pipe(finalize(() => {
       request.contrasena = ''; this.solicitud = undefined;
+      if (this.state.estado === 'FUSIONANDO') {
+        this.state.estado = 'ERROR';
+        this.state.mensajeError = 'No se pudo completar la fusión. No se realizaron cambios.';
+        this.emitir('bot', this.state.mensajeError, 'error', true, true);
+      }
     })).subscribe({ next: respuesta => {
       this.state.respuestaFusion = respuesta; this.state.estado = 'COMPLETADO'; this.state.intentosRestantes = 3;
       this.emitir('bot', this.mensajeResultadoFusion, 'success', true, true);
@@ -287,18 +292,21 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     return analisis?.historiasComparadas.find(h => h.idHistoriaClinica !== analisis.idHistoriaClinicaRecomendada);
   }
   private procesarErrorFusion(error: HttpErrorResponse): void {
-    this.limpiarPassword(); const codigo = error.error?.resultado;
+    this.limpiarPassword();
+    const codigo = error.error?.resultado;
+    const mensajeBackend = typeof error.error?.mensaje === 'string' ? error.error.mensaje.trim() : '';
     if (error.status === 401 && codigo === 'CONTRASENA_INCORRECTA') {
       this.state.intentosRestantes--;
       if (this.state.intentosRestantes <= 0) { this.limpiarFlujo(); this.emitir('bot', 'Se alcanzó el máximo de intentos. La fusión fue cancelada.', 'cancelled', true, true); return; }
       this.state.estado = 'SOLICITANDO_CONTRASENA';
-      this.emitir('bot', `La contraseña no es correcta. Te quedan ${this.state.intentosRestantes} intentos.`, 'password', true, true); return;
+      const mensaje = mensajeBackend || 'La contraseña ingresada no es correcta.';
+      this.emitir('bot', `${mensaje} Inténtalo nuevamente. Te quedan ${this.state.intentosRestantes} intentos.`, 'password', true, true); return;
     }
     if (codigo === 'ANALISIS_DESACTUALIZADO') {
       this.state.estado = 'CANCELADO'; this.emitir('bot', 'La información cambió. Debes volver a analizar antes de fusionar.', 'cancelled', true, true); return;
     }
     const mensajes: Record<string,string> = { CARGO_NO_AUTORIZADO: 'Tu cargo no permite fusionar historias clínicas.', HISTORIAS_DE_PACIENTES_DIFERENTES: 'Las historias pertenecen a pacientes diferentes.', CONSULTA_INCONSISTENTE: 'Se detectó una consulta inconsistente.', PACIENTE_INACTIVO: 'El paciente ya no está activo.' };
-    this.state.estado = 'ERROR'; this.state.mensajeError = mensajes[codigo] ?? 'No se pudo completar la fusión. No se realizaron cambios.';
+    this.state.estado = 'ERROR'; this.state.mensajeError = mensajeBackend || mensajes[codigo] || 'No se pudo completar la fusión. No se realizaron cambios.';
     this.emitir('bot', this.state.mensajeError, 'error', true, true);
   }
 

@@ -118,17 +118,73 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Analizar archivo');
   });
 
-  it('deshabilita confirmación cuando no hay filas válidas', () => {
+  it('con cero válidos no ofrece confirmación y permite volver a cargar un Excel', () => {
     const sinValidos = preview();
     sinValidos.filas = sinValidos.filas.filter(fila => fila.estado !== 'VALIDO');
     sinValidos.resumen.validos = 0;
-    component.state.previsualizacion = sinValidos;
-    component.state.estado = 'PREVISUALIZADA';
+    sinValidos.filas.forEach(fila => fila.errores = [{ codigo: 'PRIMER_ARCHIVO', mensaje: 'Error del primer archivo' }]);
+    service.validarArchivo.and.returnValue(of(sinValidos));
+    component.state.plantillaDescargada = true;
+    component.state.archivo = new File(['primer intento'], 'incorrecto.xlsx');
+    const transiciones: any[] = [];
+    component.mensajeConversacional.subscribe(mensaje => transiciones.push(mensaje));
+    component.analizarArchivo();
     component.view = 'analysis';
     fixture.detectChanges();
 
     expect(component.puedeConfirmar).toBeFalse();
-    expect(fixture.nativeElement.textContent).toContain('No hay pacientes disponibles');
+    expect(transiciones.at(-1)?.vistasSiguientes).toEqual(['analysis']);
+    expect(fixture.nativeElement.textContent).toContain('No se encontraron pacientes válidos para registrar');
+    expect(fixture.nativeElement.textContent).toContain('Volver a cargar Excel');
+    expect(fixture.nativeElement.textContent).toContain('Cancelar importación');
+    expect(fixture.nativeElement.textContent).not.toContain('Confirmar registro de 0 pacientes');
+
+    const botonRecargar = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((boton: unknown) => (boton as HTMLButtonElement).textContent?.includes('Volver a cargar Excel')) as HTMLButtonElement;
+    botonRecargar.click();
+
+    expect(component.state.estado).toBe('PLANTILLA_DESCARGADA');
+    expect(component.state.archivo).toBeUndefined();
+    expect(component.state.previsualizacion).toBeUndefined();
+    expect(component.state.confirmacion).toBeUndefined();
+    expect(component.state.mensaje).toBe('');
+    expect(transiciones.at(-1)?.vistasSiguientes).toEqual(['file-selection']);
+    expect(transiciones.at(-1)?.reemplazarVistaActiva).toBeTrue();
+
+    const segundoResultado = preview();
+    service.validarArchivo.and.returnValue(of(segundoResultado));
+    component.view = 'file-selection';
+    seleccionar(new File(['segundo intento'], 'corregido.xlsx'));
+    component.analizarArchivo();
+
+    expect(component.state.archivo?.name).toBe('corregido.xlsx');
+    expect(component.state.previsualizacion).toBe(segundoResultado);
+    expect(component.cantidadValidos).toBe(1);
+    expect(component.state.previsualizacion?.filas.some(fila => fila.errores.some(error => error.mensaje === 'Error del primer archivo'))).toBeFalse();
+    expect(transiciones.at(-1)?.vistasSiguientes).toEqual(['analysis', 'confirmation']);
+  });
+
+  it('mantiene la importación de válidos y permite reiniciar un resultado mixto', () => {
+    component.state.archivo = new File(['excel'], 'mixto.xlsx');
+    component.state.previsualizacion = preview();
+    component.state.confirmacion = { importacionId: 'anterior', estado: 'CONFIRMADA',
+      resumen: { filasValidasEnPrevisualizacion: 1, pacientesRegistrados: 1, omitidosPorDniExistente: 0, erroresAlRegistrar: 0 }, resultados: [] };
+    component.state.estado = 'PREVISUALIZADA';
+    component.view = 'confirmation';
+    fixture.detectChanges();
+
+    expect(component.puedeConfirmar).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Confirmar registro de 1 pacientes');
+    expect(fixture.nativeElement.textContent).toContain('Cargar otro archivo');
+
+    component.seleccionarOtroArchivo();
+
+    expect(component.state.estado).toBe('PLANTILLA_DESCARGADA');
+    expect(component.state.archivo).toBeUndefined();
+    expect(component.state.previsualizacion).toBeUndefined();
+    expect(component.state.confirmacion).toBeUndefined();
+    expect(service.confirmarImportacion).not.toHaveBeenCalled();
+    expect(component.state.mensajes.at(-1)?.vistasSiguientes).toEqual(['file-selection']);
   });
 
   it('confirma una vez, muestra el resultado y solicita actualizar pacientes', () => {

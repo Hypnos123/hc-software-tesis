@@ -241,32 +241,6 @@
   color: #ffffff;
 }
 
-.duplicate-flow-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 12px;
-  background: #ffffff;
-  border-top: 1px solid #e5e7eb;
-}
-
-.duplicate-flow-actions .cancel-action {
-  border: 0;
-  border-radius: 8px;
-  padding: 7px 12px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.duplicate-flow-actions .cancel-action:focus-visible {
-  outline: 3px solid rgba(220, 38, 38, 0.25);
-  outline-offset: 2px;
-}
-
-
-
-
 
 
 

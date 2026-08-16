@@ -19,8 +19,25 @@
 
     <div *ngSwitchCase="'results'" class="flow-section">
       <span class="step-label">Pacientes encontrados</span>
-      <div *ngFor="let paciente of state.analisis?.pacientes" class="patient-card" [class.recommended]="paciente.idPaciente === state.analisis?.idPacienteRecomendado">
+      <div class="review-guidance" aria-label="Orientación para revisar pacientes duplicados">
+        <strong>Revisa los pacientes encontrados</strong>
+        <p>El paciente marcado como <b>“Recomendado para conservar”</b> es el registro que el asistente considera más conveniente mantener.</p>
+        <div class="review-steps">
+          <strong>¿Qué debes hacer?</strong>
+          <ol>
+            <li>Revisa ambos registros.</li>
+            <li>Confirma cuál deseas conservar.</li>
+            <li>Haz clic en <b>“Archivar paciente”</b> en el registro duplicado que deseas retirar.</li>
+            <li>Completa las confirmaciones y credenciales solicitadas antes de ejecutar el cambio.</li>
+          </ol>
+        </div>
+        <p class="review-important"><b>Importante:</b> ningún paciente será archivado automáticamente. La decisión final siempre corresponde al usuario.</p>
+      </div>
+      <div *ngFor="let paciente of state.analisis?.pacientes" class="patient-card"
+        [class.recommended]="paciente.idPaciente === state.analisis?.idPacienteRecomendado"
+        [class.recommended-archive]="esRecomendadoParaArchivar(paciente)">
         <span *ngIf="paciente.idPaciente === state.analisis?.idPacienteRecomendado" class="recommended-badge">Recomendado para conservar</span>
+        <span *ngIf="esRecomendadoParaArchivar(paciente)" class="archive-badge">Recomendado para archivar</span>
         <strong>Paciente ID {{ paciente.idPaciente }}</strong>
         <span>{{ paciente.nombreCompleto }}</span>
         <small>DNI: {{ paciente.dni }}</small>

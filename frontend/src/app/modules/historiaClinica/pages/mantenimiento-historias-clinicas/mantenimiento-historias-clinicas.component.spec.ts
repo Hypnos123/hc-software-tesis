@@ -252,6 +252,22 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
     expect(feedbackService.emit).toHaveBeenCalledOnceWith('prefill-failure');
   });
 
+  it('debe explicar cómo resolver un DNI asociado a pacientes duplicados', () => {
+    const mensaje = (component as any).obtenerMensajeError({
+      status: 409,
+      error: {
+        codigo: 'DNI_AMBIGUO',
+        mensaje: 'El DNI está asociado a varios pacientes y no se puede resolver automáticamente.'
+      }
+    });
+
+    expect(mensaje).toContain('No es posible crear la historia clínica.');
+    expect(mensaje).toContain('uno de los registros ya cuenta con una historia clínica.');
+    expect(mensaje).toContain('debes revisar los pacientes duplicados y definir cuál registro se conservará.');
+    expect(mensaje).toContain('El Chatbot puede ayudarte a gestionar este problema.');
+    expect(mensaje).not.toContain('no se puede resolver automáticamente');
+  });
+
   it('debe manejar una transferencia inexistente sin completar datos parciales', () => {
     navigationState = { source: 'chatbot', transferId: 'transfer-inexistente' };
     recrearComponente();
