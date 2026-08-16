@@ -1826,22 +1826,21 @@ describe('InterfazChatComponent', () => {
 
     const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
-    const orientacionIndex = component.messages.findIndex(mensaje => mensaje.text?.startsWith('Revisa los pacientes encontrados.'));
     expect(dniMensajes.length).toBe(1);
     expect(dniIndexAntes).toBeLessThan(resultadoIndex);
-    expect(resultadoIndex).toBeLessThan(orientacionIndex);
-    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results')).toBeFalse();
-    expect(component.messages[orientacionIndex].presentationState).not.toBe('visible');
+    const tarjetaResultados = component.messages.find(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results')!;
+    expect(tarjetaResultados.presentationState).toBe('pending');
     expect(component.asistenteEscribiendo).toBeTrue();
     expect(fixture.nativeElement.textContent).not.toContain('Pacientes encontrados');
 
     tick(10_000);
     fixture.detectChanges();
     const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
-    expect(orientacionIndex).toBeLessThan(tarjetasIndex);
-    expect(component.messages[orientacionIndex].presentationState).toBe('visible');
+    expect(resultadoIndex).toBeLessThan(tarjetasIndex);
     expect(component.asistenteEscribiendo).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('Pacientes encontrados');
+    expect(fixture.nativeElement.textContent).toContain('¿Qué debes hacer?');
+    expect(fixture.nativeElement.textContent).toContain('Recomendado para archivar');
     expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
     expect(scrollBlockSpy).toHaveBeenCalledOnceWith(component.messages[dniIndexAntes].id);
     expect(scrollBottomSpy).not.toHaveBeenCalled();

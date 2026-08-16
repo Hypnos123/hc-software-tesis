@@ -337,19 +337,13 @@ export class InterfazChatComponent implements OnDestroy {
       tarjetaActiva.duplicateActive = false;
     }
     const mensaje = evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
-    const esResultadoConTarjetas = evento.remitente === 'bot' && evento.vistaSiguiente === 'results';
     const mostrarVistaSiguiente = (): void => {
       if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
       if (evento.vistaSiguiente && !vistaActualizada) {
         this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
       }
     };
-    if (esResultadoConTarjetas) {
-      const orientacion = this.addBotMessage('Revisa los pacientes encontrados. El registro recomendado para conservar aparecerá destacado. Si deseas continuar, selecciona “Archivar paciente” en el registro duplicado que deseas consolidar. No se realizará ningún cambio hasta que completes las confirmaciones posteriores.');
-      this.runAfterPresentation(orientacion, mostrarVistaSiguiente);
-    } else {
-      mostrarVistaSiguiente();
-    }
+    mostrarVistaSiguiente();
     if (state.estado === 'COMPLETADO') this.addMenuBlock('duplicados-final');
     if (evento.volverPacientes) this.addMenuBlock('asistencia-pacientes');
     if (evento.inicioGrupo && evento.remitente === 'user') this.pinInteractionStart(mensaje.id);
