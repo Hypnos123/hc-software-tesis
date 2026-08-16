@@ -578,16 +578,6 @@ export class InterfazChatComponent implements OnDestroy {
       }));
     });
   }
-  private addContextualAction(recommendation: ContextualActionRecommendation): void {
-    const helpMessage = this.addBotMessage(recommendation.message);
-    this.runAfterPresentation(helpMessage, () => {
-      this.addMessage(this.createBlockMessage('menu', {
-        menuId: 'contextual-action',
-        preserveInteractionAnchor: true,
-        options: [{ ...recommendation.option, id: `contextual-${this.messageSequence + 1}` }]
-      }));
-    });
-  }
   private addImportBlock(state: PacienteImportacionChatState, view: PacienteImportView, active: boolean): void {
     this.addMessage(this.createBlockMessage('patient-import', { importacion: state, importView: view, importActive: active }));
   }
