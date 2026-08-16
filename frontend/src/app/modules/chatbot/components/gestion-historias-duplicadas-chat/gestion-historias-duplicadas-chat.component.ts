@@ -176,6 +176,11 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.emitir('bot', 'Verificando identidad y fusionando las historias clínicas...', 'fusing', true, true);
     this.solicitud = this.service.fusionar(this.secundaria.idHistoriaClinica, request).pipe(finalize(() => {
       request.contrasena = ''; this.solicitud = undefined;
+      if (this.state.estado === 'FUSIONANDO') {
+        this.state.estado = 'ERROR';
+        this.state.mensajeError = 'No se pudo completar la fusión. No se realizaron cambios.';
+        this.emitir('bot', this.state.mensajeError, 'error', true, true);
+      }
     })).subscribe({ next: respuesta => {
       this.state.respuestaFusion = respuesta; this.state.estado = 'COMPLETADO'; this.state.intentosRestantes = 3;
       this.emitir('bot', this.mensajeResultadoFusion, 'success', true, true);
