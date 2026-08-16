@@ -111,23 +111,15 @@ describe('InterfazChatComponent', () => {
   }
 
   function iniciarFlujoHistoriaClinica(): void {
-    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
-    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
-    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
-    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
-    const menuHistorias = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
-    const opcionCrear = menuHistorias.options.find((opcion: any) => opcion.label === 'Crear una historia clínica con el asistente');
-    component.selectHistoricalMenuOption(menuHistorias, opcionCrear);
+    const opcionCrear = (component as any).menus['asistencia-historias'].options
+      .find((opcion: any) => opcion.label === 'Crear una historia clínica con el asistente');
+    (component as any).executeMenuOption(opcionCrear, 'test-clinical-history-selection');
   }
 
   function iniciarFlujoHistoriasFaltantes(): any {
-    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
-    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
-    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
-    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
-    const menuHistorias = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
-    const opcion = menuHistorias.options.find((item: any) => item.label === 'Crear historias clínicas faltantes');
-    component.selectHistoricalMenuOption(menuHistorias, opcion);
+    const opcion = (component as any).menus['asistencia-historias'].options
+      .find((item: any) => item.label === 'Crear historias clínicas faltantes');
+    (component as any).executeMenuOption(opcion, 'test-missing-histories-selection');
     fixture.detectChanges();
     return component.messages.find(mensaje => mensaje.type === 'missing-clinical-histories' && mensaje.missingHistoriesActive)!;
   }
@@ -157,11 +149,9 @@ describe('InterfazChatComponent', () => {
   }
 
   function abrirMenuAsistenciaHistorias(): any {
-    const menuPrincipal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
-    component.selectHistoricalMenuOption(menuPrincipal, menuPrincipal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
-    const menuAsistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
-    component.selectHistoricalMenuOption(menuAsistencia, menuAsistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
-    return component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
+    return {
+      options: (component as any).createMenuOptions('asistencia-historias')
+    };
   }
 
   function enviarDni(dni: string): void {
@@ -537,9 +527,11 @@ describe('InterfazChatComponent', () => {
     (component as any).clearFloatingMessageTimer();
   }));
 
-  it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', () => {
+  it('debe procesar una sola vez el feedback de precarga exitosa y volver al menú principal', fakeAsync(() => {
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
+    tick(30_000);
+    fixture.detectChanges();
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-success-1', type: 'prefill-success', createdAt: Date.now() };
@@ -550,6 +542,10 @@ describe('InterfazChatComponent', () => {
 
     const successMessage = 'Los datos del paciente se autocompletaron correctamente en Nueva Historia Clínica. Revísalos y pulsa Guardar para registrar la historia.';
     expect(component.messages.filter(message => message.text === successMessage).length).toBe(1);
+    expect(component.messages.some(message => message.text === '¿Necesitas ayuda con algo más?')).toBeFalse();
+    expect(component.messages.some(message => message.menuId === 'principal' && component.messages.indexOf(message) > 1)).toBeFalse();
+    tick(30_000);
+    fixture.detectChanges();
     expect(component.messages.filter(message => message.text === '¿Necesitas ayuda con algo más?').length).toBe(1);
     expect(component.messages.some(message => message.text === 'Historia clínica guardada correctamente')).toBeFalse();
     expect(component.clinicalHistoryFlow).toEqual({ step: 'idle' });
@@ -565,9 +561,9 @@ describe('InterfazChatComponent', () => {
     expect(historiaClinicaService.update).not.toHaveBeenCalled();
     expect(scrollBottomSpy).not.toHaveBeenCalled();
     expect(scrollNewBlockSpy).not.toHaveBeenCalled();
-  });
+  }));
 
-  it('debe mostrar ayuda manual y el menú principal ante un fallo de precarga', () => {
+  it('debe mostrar ayuda manual y el menú principal ante un fallo de precarga', fakeAsync(() => {
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
     const feedback: ClinicalHistoryFlowFeedback = { id: 'feedback-failure-1', type: 'prefill-failure', createdAt: Date.now() };
@@ -576,6 +572,9 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
 
     expect(component.messages.some(message => message.text === 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.')).toBeTrue();
+    expect(component.messages.some(message => message.text === '¿Necesitas ayuda con algo más?')).toBeFalse();
+    tick(30_000);
+    fixture.detectChanges();
     expect(component.messages.some(message => message.text === '¿Necesitas ayuda con algo más?')).toBeTrue();
     expect(component.messages.at(-1)).toEqual(jasmine.objectContaining({ type: 'menu', menuId: 'principal' }));
     expect(component.messages.at(-1)?.options?.length).toBe(3);
@@ -583,7 +582,7 @@ describe('InterfazChatComponent', () => {
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     expect(scrollBottomSpy).not.toHaveBeenCalled();
     expect(scrollNewBlockSpy).not.toHaveBeenCalled();
-  });
+  }));
 
   it('debe cancelar la suscripción de feedback en ngOnDestroy', () => {
     const messageCount = component.messages.length;
@@ -1069,6 +1068,32 @@ describe('InterfazChatComponent', () => {
     }));
   });
 
+  it('debe terminar la introducción antes de insertar las opciones de asistencia de historias', fakeAsync(() => {
+    const principal = component.messages.find(mensaje => mensaje.menuId === 'principal')!;
+    component.selectHistoricalMenuOption(principal, principal.options!.find(opcion => opcion.label === 'Asistencia guiada')!);
+    const asistencia = component.messages.find(mensaje => mensaje.menuId === 'asistencia')!;
+    const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
+
+    component.selectHistoricalMenuOption(asistencia, asistencia.options!.find(opcion => opcion.label === 'Historias clínicas')!);
+    fixture.detectChanges();
+
+    const seleccion = component.messages.find(mensaje => mensaje.sender === 'user' && mensaje.text === 'Historias clínicas')!;
+    const introduccion = component.messages.find(mensaje => mensaje.text === 'Selecciona una opción o escribe tu solicitud sobre historias clínicas.')!;
+    expect(introduccion.presentationState).not.toBe('visible');
+    expect(component.asistenteEscribiendo).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.menuId === 'asistencia-historias')).toBeFalse();
+    expect(scrollSpy).toHaveBeenCalledOnceWith(seleccion.id);
+
+    tick(10_000);
+    fixture.detectChanges();
+
+    const menu = component.messages.find(mensaje => mensaje.menuId === 'asistencia-historias')!;
+    expect(introduccion.presentationState).toBe('visible');
+    expect(component.asistenteEscribiendo).toBeFalse();
+    expect(menu.options?.map(opcion => opcion.icon)).toEqual(['pi pi-file-plus', 'pi pi-list-check', 'pi pi-clone']);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+  }));
+
   it('no debe contener datos personales de ejemplo en los textos configurados del frontend', () => {
     const textosMenus = JSON.stringify((component as any).menus);
     expect(textosMenus).not.toMatch(/\b\d{8}\b/);
@@ -1081,7 +1106,7 @@ describe('InterfazChatComponent', () => {
     iniciarFlujoHistoriaClinica();
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
-    expect(component.messages.at(-1)?.text).toBe('Ingresa el DNI de ocho dígitos del paciente existente.');
+    expect(component.messages.at(-1)?.text).toBe('Ingresa el DNI de ocho dígitos del paciente que deseas utilizar para crear la historia clínica. Puedes cancelar la asistencia en cualquier momento pulsando “Cancelar”.');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.clinical-history-flow-actions button')?.textContent).toContain('Cancelar');
@@ -1097,7 +1122,7 @@ describe('InterfazChatComponent', () => {
     const dniMessage = component.messages.find(message => message.sender === 'user' && message.text === DNI_PRUEBA)!;
     expect(scrollNewBlockSpy).toHaveBeenCalledOnceWith(dniMessage.id);
     expect(scrollBottomSpy).not.toHaveBeenCalled();
-    expect(component.messages.at(-1)?.text).toContain('Paciente encontrado:');
+    expect(component.messages.some(message => message.text?.includes('Paciente encontrado:'))).toBeTrue();
   });
 
   [
@@ -1149,7 +1174,7 @@ describe('InterfazChatComponent', () => {
     enviarDni(DNI_PRUEBA);
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
-    expect(component.messages.at(-1)?.text).toBe('No existe un paciente registrado con el DNI indicado.');
+    expect(component.messages.at(-1)?.text).toBe('No se encontró un paciente registrado con el DNI indicado. Verifica el número e inténtalo nuevamente con el DNI de un paciente existente.');
     expect(antecedentesService.getByPacienteId).not.toHaveBeenCalled();
     expect(historiaClinicaService.getByPaciente).not.toHaveBeenCalled();
 
@@ -1214,12 +1239,13 @@ describe('InterfazChatComponent', () => {
     expect(prefill.alergiaMedicamentos).toBeNull();
   });
 
-  it('debe mostrar cero historias, el resumen limitado y los botones estructurados', () => {
+  it('debe mostrar la orientación completa antes de habilitar los controles de confirmación', fakeAsync(() => {
     antecedentesService.getByPacienteId.and.returnValue(of({ enfermedadesPrevias: 'Asma severa', cirugiasPrevias: 'Apendicectomía', alergiaMedicamentos: 'Penicilina' }));
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
     fixture.detectChanges();
-    const resumen = component.messages.at(-1)?.text ?? '';
+    const resumen = component.messages.find(message => message.text?.startsWith('Paciente encontrado:'))?.text ?? '';
+    const orientacion = component.messages.find(message => message.text?.startsWith('Revisa los datos del paciente encontrado.'))!;
 
     expect(resumen).toContain('Nombre: NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS');
     expect(resumen).toContain('Fecha de nacimiento: 01/01/1992');
@@ -1228,16 +1254,22 @@ describe('InterfazChatComponent', () => {
     expect(resumen).not.toContain('Asma severa');
     expect(resumen).not.toContain('Apendicectomía');
     expect(resumen).not.toContain('Penicilina');
+    expect(orientacion.presentationState).not.toBe('visible');
+    expect(fixture.nativeElement.querySelector('.continue-action')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.cancel-action')).toBeNull();
+    tick(30_000);
+    fixture.detectChanges();
+    expect(orientacion.presentationState).toBe('visible');
     expect(fixture.nativeElement.querySelector('.continue-action')?.textContent).toContain('Continuar');
     expect(fixture.nativeElement.querySelector('.cancel-action')?.textContent).toContain('Cancelar');
-  });
+  }));
 
   it('debe mostrar la cantidad de varias historias existentes', () => {
     historiaClinicaService.getByPaciente.and.returnValue(of([{ idHistoriaClinica: 1 }, { idHistoriaClinica: 2 }, { idHistoriaClinica: 3 }]));
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
 
-    expect(component.messages.at(-1)?.text).toContain('Historias clínicas existentes: 3');
+    expect(component.messages.some(message => message.text?.includes('Historias clínicas existentes: 3'))).toBeTrue();
   });
 
   it('debe ignorar Continuar fuera de awaitingConfirmation', () => {
@@ -1253,6 +1285,8 @@ describe('InterfazChatComponent', () => {
     const createTransferSpy = spyOn(transferService, 'createTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
+    tick(30_000);
+    fixture.detectChanges();
     const scrollBottomSpy = spyOn(component, 'scrollToBottom');
     const scrollNewBlockSpy = spyOn(component as any, 'scrollToNewBlock');
 
@@ -1267,6 +1301,9 @@ describe('InterfazChatComponent', () => {
       fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
     }));
     expect(candidate as any).not.toEqual(jasmine.objectContaining({ nombreCompleto: jasmine.anything(), existingClinicalHistoryCount: jasmine.anything() }));
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(component.messages.at(-1)?.text).toBe('Abriré Nueva Historia Clínica con los datos del paciente seleccionado.');
+    tick(10_000);
     expect(router.navigate).toHaveBeenCalledOnceWith(
       ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
       { state: { source: 'chatbot', transferId } }
@@ -1291,10 +1328,12 @@ describe('InterfazChatComponent', () => {
     spyOn(transferService, 'revokeTransfer').and.callThrough();
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
+    tick(30_000);
+    fixture.detectChanges();
 
     component.continueClinicalHistoryFlow();
     const transferId = (component.clinicalHistoryFlow as any).transferId;
-    tick();
+    tick(10_000);
 
     expect(transferService.revokeTransfer).toHaveBeenCalledOnceWith(transferId);
     expect(transferService.peekTransfer(transferId)).toBeNull();
@@ -1838,17 +1877,20 @@ describe('InterfazChatComponent', () => {
 
     const dniMensajes = component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA);
     const resultadoIndex = component.messages.findIndex(mensaje => mensaje.text === 'Se encontraron 2 pacientes activos con el mismo DNI.');
+    const orientacionIndex = component.messages.findIndex(mensaje => mensaje.text?.startsWith('Revisa los pacientes encontrados.'));
     expect(dniMensajes.length).toBe(1);
     expect(dniIndexAntes).toBeLessThan(resultadoIndex);
-    const tarjetaResultados = component.messages.find(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results')!;
-    expect(tarjetaResultados.presentationState).toBe('pending');
+    expect(resultadoIndex).toBeLessThan(orientacionIndex);
+    expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results')).toBeFalse();
+    expect(component.messages[orientacionIndex].presentationState).not.toBe('visible');
     expect(component.asistenteEscribiendo).toBeTrue();
     expect(fixture.nativeElement.textContent).not.toContain('Pacientes encontrados');
 
     tick(10_000);
     fixture.detectChanges();
     const tarjetasIndex = component.messages.findIndex(mensaje => mensaje.type === 'duplicate-management' && mensaje.duplicateView === 'results');
-    expect(resultadoIndex).toBeLessThan(tarjetasIndex);
+    expect(orientacionIndex).toBeLessThan(tarjetasIndex);
+    expect(component.messages[orientacionIndex].presentationState).toBe('visible');
     expect(component.asistenteEscribiendo).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('Pacientes encontrados');
     expect(fixture.nativeElement.textContent).toContain('¿Qué debes hacer?');
