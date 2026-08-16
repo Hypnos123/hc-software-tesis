@@ -15,7 +15,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(37, 99, 235,
 .loading-state i { color: #2563eb; font-size: 20px; }
 .patient-card { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; overflow: hidden; }
 .patient-card.recommended { border: 2px solid #16a34a; background: #f0fdf4; }
+.patient-card.recommended-archive { border-color: #fdba74; background: #fffaf5; }
 .recommended-badge { align-self: flex-start; border-radius: 999px; padding: 3px 7px; background: #16a34a; color: #fff; font-size: 10px; font-weight: 700; }
+.archive-badge { align-self: flex-start; border-radius: 999px; padding: 3px 7px; background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; font-size: 10px; font-weight: 700; }
+.review-guidance { display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 11px; border: 1px solid #bfdbfe; border-radius: 10px; background: #f8fbff; }
+.review-guidance p { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+.review-steps { display: flex; flex-direction: column; gap: 5px; }
+.review-steps ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.review-important { padding: 8px; border-left: 3px solid #d97706; border-radius: 4px; background: #fffbeb; color: #78350f; }
 dl { margin: 6px 0; display: grid; gap: 3px; }
 dl div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 dt { color: #64748b; } dd { margin: 0; text-align: right; font-weight: 600; }

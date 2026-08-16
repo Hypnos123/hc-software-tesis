@@ -14,7 +14,7 @@
   </div>
 
   <div class="chatbot-body" #chatBody (scroll)="onChatBodyScroll()">
-    <ng-container *ngFor="let message of messages">
+    <ng-container *ngFor="let message of messages; trackBy: trackMessage">
       <div #conversationBlock *ngIf="message.type === 'text' && message.presentationState !== 'pending'" [attr.data-block-id]="message.id" [ngClass]="message.sender === 'bot' ? 'bot-message' : 'user-message'">{{ message.visibleText }}</div>
       <div #conversationBlock *ngIf="message.type === 'menu'" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="navigation-options" [class.main-categories]="message.menuId === 'principal'" aria-label="Opciones del asistente">
         <button *ngFor="let option of message.options || []" type="button" class="navigation-option" [class.category-card]="message.menuId === 'principal'" [disabled]="isLoading || gestionHistoriasDuplicadasActiva" [title]="option.description || option.label" (click)="selectHistoricalMenuOption(message, option)">

@@ -179,6 +179,14 @@ export class GestionDuplicadosChatComponent implements OnDestroy {
     return new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(date);
   }
 
+  esRecomendadoParaArchivar(paciente: PacienteDuplicadoDetalle): boolean {
+    const analisis = this.state.analisis;
+    return !!analisis?.idPacienteRecomendado
+      && analisis.pacientes.length === 2
+      && analisis.pacientes.some(item => item.idPaciente === analisis.idPacienteRecomendado)
+      && paciente.idPaciente !== analisis.idPacienteRecomendado;
+  }
+
   private procesarAnalisis(analisis: GestionDuplicadosChatState['analisis']): void {
     if (!analisis) return;
     this.state.analisis = analisis;
