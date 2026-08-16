@@ -48,10 +48,6 @@
     <button type="button" class="cancel-action" (click)="cancelClinicalHistoryFlow()" [disabled]="clinicalHistoryFlow.step === 'navigating'" title="Cancelar creación de historia clínica">Cancelar</button>
   </div>
 
-  <div *ngIf="gestionDuplicadosActiva" class="duplicate-flow-actions" aria-label="Acciones de gestión de pacientes duplicados">
-    <button type="button" class="cancel-action" (click)="cancelarGestionDuplicados()" title="Cancelar gestión de paciente duplicado">Cancelar</button>
-  </div>
-
   <div *ngIf="autenticado" class="chatbot-footer">
     <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva" />
     <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || !userMessage.trim()">Enviar</button>

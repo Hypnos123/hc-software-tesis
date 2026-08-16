@@ -1769,12 +1769,24 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
     expect(component.gestionDuplicadosActiva).toBeTrue();
     expect(component.messages.some(mensaje => mensaje.menuId === 'asistencia-pacientes')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.duplicate-flow-actions')).toBeNull();
+    const cancelarContextual = fixture.nativeElement.querySelector('.duplicate-message-block .link-action') as HTMLButtonElement;
+    expect(cancelarContextual.textContent).toContain('Cancelar y volver a Pacientes');
 
-    component.cancelarGestionDuplicados();
+    cancelarContextual.click();
     fixture.detectChanges();
 
     expect(component.gestionDuplicadosActiva).toBeFalse();
     expect(component.messages.at(-1)?.menuId).toBe('asistencia-pacientes');
+  });
+
+  it('mantiene el Cancelar inferior para la creación de historia clínica', () => {
+    iniciarFlujoHistoriaClinica();
+    fixture.detectChanges();
+
+    const cancelarCreacion = fixture.nativeElement.querySelector('.clinical-history-flow-actions .cancel-action') as HTMLButtonElement;
+    expect(cancelarCreacion).not.toBeNull();
+    expect(cancelarCreacion.textContent).toContain('Cancelar');
   });
 
   it('debe limpiar la contraseña al minimizar y todo el flujo al cerrar', () => {
