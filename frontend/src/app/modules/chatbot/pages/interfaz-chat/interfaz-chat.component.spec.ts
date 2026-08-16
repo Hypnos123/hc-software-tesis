@@ -745,17 +745,17 @@ describe('InterfazChatComponent', () => {
 
     component.manejarMensajeHistoriasDuplicadas(state, {
       remitente: 'bot', texto: 'He analizado las historias clínicas seleccionadas para Paciente.',
-      reemplazarVistaActiva: true, inicioGrupo: true
+      inicioGrupo: true
     });
     const primerMensaje = component.messages.at(-1)!;
     component.manejarMensajeHistoriasDuplicadas(state, {
       remitente: 'bot', texto: 'Recomiendo conservar la historia clínica 7.'
     });
     component.manejarMensajeHistoriasDuplicadas(state, {
-      remitente: 'bot', texto: 'No existen consultas para transferir en este caso.', vistaSiguiente: 'comparison'
+      remitente: 'bot', texto: 'No existen consultas para transferir en este caso.', vistaSiguiente: 'comparison', reemplazarVistaActiva: true
     });
     const comparacion = component.messages.find(mensaje => mensaje.duplicateHistoriesView === 'comparison')!;
-    expect(comparacion.presentationState).toBe('pending');
+    expect(component.messages.filter(mensaje => mensaje.historiasDuplicadas === state).length).toBe(1);
 
     tick(10_000);
     fixture.detectChanges();
@@ -791,6 +791,7 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
     const instanciaInicial = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance
       as GestionHistoriasDuplicadasChatComponent;
+    const destruccionSpy = spyOn(instanciaInicial, 'ngOnDestroy').and.callThrough();
 
     instanciaInicial.password = 'incorrecta';
     instanciaInicial.fusionar();
@@ -798,6 +799,7 @@ describe('InterfazChatComponent', () => {
 
     const instanciaFusionando = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance;
     expect(instanciaFusionando).toBe(instanciaInicial);
+    expect(destruccionSpy).not.toHaveBeenCalled();
     expect(respuestaPendiente.observed).toBeTrue();
     expect(state.estado).toBe('FUSIONANDO');
 
@@ -808,7 +810,45 @@ describe('InterfazChatComponent', () => {
 
     expect(state.estado).toBe('SOLICITANDO_CONTRASENA');
     expect(fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance).toBe(instanciaInicial);
+    expect(destruccionSpy).not.toHaveBeenCalled();
     expect(component.messages.filter(mensaje => mensaje.historiasDuplicadas === state).length).toBe(1);
+    expect(instanciaInicial.password).toBe('');
+    const posicionMensajeError = component.messages.findIndex(mensaje => mensaje.text?.includes('Inténtalo nuevamente'));
+    const posicionFormulario = component.messages.findIndex(mensaje => mensaje.historiasDuplicadas === state);
+    expect(posicionMensajeError).toBeGreaterThanOrEqual(0);
+    expect(posicionFormulario).toBeGreaterThan(posicionMensajeError);
+  });
+
+  it('reemplaza el loader de análisis sin conservarlo en la conversación', () => {
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'MOSTRANDO_COMPARACION';
+    (component as any).addDuplicateHistoriesBlock(state, 'analyzing', true);
+
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'Análisis finalizado.', vistaSiguiente: 'comparison', reemplazarVistaActiva: true
+    });
+
+    const tarjetas = component.messages.filter(mensaje => mensaje.historiasDuplicadas === state);
+    expect(tarjetas.length).toBe(1);
+    expect(tarjetas[0].duplicateHistoriesView).toBe('comparison');
+    expect(component.messages.some(mensaje => mensaje.duplicateHistoriesView === 'analyzing')).toBeFalse();
+  });
+
+  it('muestra una sola tarjeta tras una fusión exitosa y elimina la carga temporal', () => {
+    const state = crearGestionHistoriasDuplicadasState();
+    state.estado = 'COMPLETADO';
+    state.respuestaFusion = { fusionada: true, resultado: 'HISTORIAS_FUSIONADAS', mensaje: 'Fusión completada' };
+    (component as any).addDuplicateHistoriesBlock(state, 'fusing', true);
+    const cantidadInicial = component.messages.length;
+
+    component.manejarMensajeHistoriasDuplicadas(state, {
+      remitente: 'bot', texto: 'Se conservaron y fusionaron las historias.', vistaSiguiente: 'success', reemplazarVistaActiva: true
+    });
+
+    expect(component.messages.length).toBe(cantidadInicial);
+    expect(component.messages.filter(mensaje => mensaje.historiasDuplicadas === state).length).toBe(1);
+    expect(component.messages.some(mensaje => mensaje.duplicateHistoriesView === 'fusing')).toBeFalse();
+    expect(component.messages.some(mensaje => mensaje.text === 'Se conservaron y fusionaron las historias.')).toBeFalse();
   });
 
   it('representa un error de fusión una sola vez en la tarjeta activa', () => {

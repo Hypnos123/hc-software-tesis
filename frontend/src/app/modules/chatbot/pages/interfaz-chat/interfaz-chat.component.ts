@@ -390,14 +390,25 @@ export class InterfazChatComponent implements OnDestroy {
     } else if (tarjetaActiva && (evento.vistaSiguiente || ['COMPLETADO', 'CANCELADO', 'ERROR'].includes(state.estado))) {
       tarjetaActiva.duplicateHistoriesActive = false;
     }
-    const errorRepresentadoEnTarjeta = evento.remitente === 'bot' && evento.vistaSiguiente === 'error' && vistaActualizada;
-    const mensaje = errorRepresentadoEnTarjeta ? tarjetaActiva!
+    const vistasRepresentadasSinTexto: GestionHistoriasDuplicadasVista[] = ['loading', 'analyzing', 'fusing', 'success', 'error'];
+    const contenidoRepresentadoEnTarjeta = evento.remitente === 'bot' && vistaActualizada
+      && !!evento.vistaSiguiente && vistasRepresentadasSinTexto.includes(evento.vistaSiguiente);
+    const mensaje = contenidoRepresentadoEnTarjeta ? tarjetaActiva!
       : evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
+    if (vistaActualizada && tarjetaActiva && !contenidoRepresentadoEnTarjeta) {
+      const posicion = this.messages.indexOf(tarjetaActiva);
+      if (posicion >= 0 && posicion !== this.messages.length - 1) {
+        this.messages.splice(posicion, 1);
+        this.messages.push(tarjetaActiva);
+      }
+    }
     if (evento.vistaSiguiente && !vistaActualizada) this.addDuplicateHistoriesBlock(state, evento.vistaSiguiente,
       !['COMPLETADO', 'CANCELADO', 'ERROR'].includes(state.estado));
     if (evento.volverHistorias) this.addMenuBlock('historias');
     if (evento.inicioGrupo) this.pinInteractionStart(mensaje.id);
   }
+
+  trackMessage(_: number, message: ChatMessage): string { return message.id; }
 
   private ejecutarCreacionHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState): void {
     if (this.missingHistoriesRequest || state.estado !== 'CREANDO' || state.idsConfirmados.length === 0) return;

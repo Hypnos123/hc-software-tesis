@@ -80,9 +80,9 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
         this.state.cancelarSolicitud = undefined;
         this.state.analisis = analisis;
         this.state.estado = 'MOSTRANDO_COMPARACION';
-        this.emitir('bot', this.presentacionInicial(analisis.historiasComparadas), undefined, true, true);
+        this.emitir('bot', this.presentacionInicial(analisis.historiasComparadas), undefined, false, true);
         this.emitir('bot', `Recomiendo conservar la historia clínica ${analisis.idHistoriaClinicaRecomendada}.`, undefined);
-        this.emitir('bot', this.resumenFinal(), 'comparison');
+        this.emitir('bot', this.resumenFinal(), 'comparison', true);
       },
       error: () => this.manejarError('No fue posible analizar las historias clínicas seleccionadas.')
     });
