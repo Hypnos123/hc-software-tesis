@@ -57,19 +57,28 @@
           <small>{{ mensajeFila(fila) }}</small>
         </article>
       </div>
-      <p *ngIf="cantidadValidos === 0" class="no-valid">No hay pacientes disponibles para registrar.</p>
+      <ng-container *ngIf="cantidadValidos === 0">
+        <p class="no-valid">No se encontraron pacientes válidos para registrar. Revisa los errores indicados y vuelve a cargar el archivo corregido.</p>
+        <div class="actions">
+          <button type="button" (click)="volverACargarExcel()" [disabled]="!active || procesando">Volver a cargar Excel</button>
+          <button type="button" class="secondary cancel-import" (click)="noRegistrarPacientes()" [disabled]="!active || procesando">Cancelar importación</button>
+        </div>
+      </ng-container>
     </ng-container>
   </section>
 
   <section *ngSwitchCase="'confirmation'" class="import-step confirm-step">
-    <span class="step-label">Paso 4 de 4</span>
-    <strong>Confirmar registro</strong>
-    <button type="button" (click)="confirmar()" [disabled]="!active || !puedeConfirmar || procesando">
-      <i [class]="state.operacion === 'CONFIRMANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
-      {{ state.operacion === 'CONFIRMANDO' ? 'Registrando pacientes...' : 'Confirmar registro de ' + cantidadValidos + ' pacientes' }}
-    </button>
-    <button type="button" class="secondary cancel-import" (click)="noRegistrarPacientes()" [disabled]="!active || state.estado !== 'PREVISUALIZADA' || procesando">No registrar pacientes</button>
-    <p *ngIf="active && state.estado === 'EXPIRADA'" class="functional-detail error">La previsualización expiró.</p>
+    <ng-container *ngIf="cantidadValidos > 0">
+      <span class="step-label">Paso 4 de 4</span>
+      <strong>Confirmar registro</strong>
+      <button type="button" (click)="confirmar()" [disabled]="!active || !puedeConfirmar || procesando">
+        <i [class]="state.operacion === 'CONFIRMANDO' ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
+        {{ state.operacion === 'CONFIRMANDO' ? 'Registrando pacientes...' : 'Confirmar registro de ' + cantidadValidos + ' pacientes' }}
+      </button>
+      <button type="button" class="secondary" (click)="seleccionarOtroArchivo()" [disabled]="!active || procesando">Cargar otro archivo</button>
+      <button type="button" class="secondary cancel-import" (click)="noRegistrarPacientes()" [disabled]="!active || state.estado !== 'PREVISUALIZADA' || procesando">No registrar pacientes</button>
+      <p *ngIf="active && state.estado === 'EXPIRADA'" class="functional-detail error">La previsualización expiró.</p>
+    </ng-container>
   </section>
 
   <section *ngSwitchCase="'cancelled'" class="import-step cancelled-step">
