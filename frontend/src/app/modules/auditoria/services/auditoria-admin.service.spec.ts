@@ -28,4 +28,20 @@ describe('AuditoriaAdminService', () => {
     const request = http.expectOne(`${environment.URLTienda}api/admin/pacientes-archivados/13`);
     expect(request.request.headers.get('X-Usuario-Id')).toBe('7'); request.flush({ idPaciente: 13 });
   });
+
+  it('consulta fusiones paginadas con filtros y X-Usuario-Id', () => {
+    service.listarFusionesHistorias({ page: 0, size: 10, dni: '12345678', idHistoriaPrincipal: 19,
+      idHistoriaEliminada: 16 }).subscribe();
+    const request = http.expectOne((req) => req.url === `${environment.URLTienda}api/admin/auditoria/fusiones-historias-clinicas`);
+    expect(request.request.method).toBe('GET'); expect(request.request.headers.get('X-Usuario-Id')).toBe('7');
+    expect(request.request.params.get('dni')).toBe('12345678'); expect(request.request.params.get('idHistoriaPrincipal')).toBe('19');
+    expect(request.request.params.get('idHistoriaEliminada')).toBe('16');
+    request.flush({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 });
+  });
+
+  it('consulta el detalle de una fusión', () => {
+    service.obtenerFusionHistoria(3).subscribe();
+    const request = http.expectOne(`${environment.URLTienda}api/admin/auditoria/fusiones-historias-clinicas/3`);
+    expect(request.request.headers.get('X-Usuario-Id')).toBe('7'); request.flush({ idAuditoria: 3 });
+  });
 });
