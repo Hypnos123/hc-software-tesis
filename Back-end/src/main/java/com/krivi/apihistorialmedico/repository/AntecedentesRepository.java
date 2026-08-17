@@ -30,6 +30,7 @@ public interface AntecedentesRepository extends CrudRepository<Antecedentes, Int
   List<Object[]> resumirPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
 
   List<Antecedentes> findByPacienteIdPaciente(Integer idPaciente);
+  long countByPacienteIdPaciente(Integer idPaciente);
   List<Antecedentes> findAllByPacienteEstadoRegistro(EstadoRegistroPaciente estadoRegistro);
   List<Antecedentes> findByPacienteIdPacienteAndPacienteEstadoRegistro(Integer idPaciente, EstadoRegistroPaciente estadoRegistro);
   java.util.Optional<Antecedentes> findByIdAntecedentesAndPacienteEstadoRegistro(Integer idAntecedentes, EstadoRegistroPaciente estadoRegistro);
