@@ -5,6 +5,9 @@ import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -19,6 +22,23 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
   Optional<Paciente> findByIdPacienteAndEstadoRegistro(Integer idPaciente, EstadoRegistroPaciente estadoRegistro);
 
   List<Paciente> findAllByEstadoRegistroOrderByIdPacienteAsc(EstadoRegistroPaciente estadoRegistro);
+
+  @EntityGraph(attributePaths = {"pacientePrincipal", "archivadoPor"})
+  @Query("""
+      select p from Paciente p
+      where p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ARCHIVADO
+        and (:idPaciente is null or p.idPaciente = :idPaciente)
+        and (:dni is null or trim(p.numDocumento) = :dni)
+        and (:desde is null or p.fechaArchivado >= :desde)
+        and (:hasta is null or p.fechaArchivado <= :hasta)
+        and (:search is null
+          or lower(concat(coalesce(p.nombres, ''), ' ', coalesce(p.apellidos, ''))) like lower(concat('%', :search, '%'))
+          or lower(concat(coalesce(p.apellidos, ''), ' ', coalesce(p.nombres, ''))) like lower(concat('%', :search, '%'))
+          or trim(p.numDocumento) like concat('%', :search, '%'))
+      """)
+  Page<Paciente> buscarArchivados(@Param("search") String search, @Param("dni") String dni,
+      @Param("idPaciente") Integer idPaciente, @Param("desde") LocalDateTime desde,
+      @Param("hasta") LocalDateTime hasta, Pageable pageable);
 
   @Query("""
       select p

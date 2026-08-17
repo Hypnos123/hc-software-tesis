@@ -1,0 +1,38 @@
+<article class="audit-card">
+  <div class="section-title"><div><h2>Pacientes archivados</h2><p>Consulta de pacientes retirados de los listados activos.</p></div></div>
+
+  <form class="filters patient-filters" (ngSubmit)="applyFilters()" aria-label="Filtros de pacientes archivados">
+    <label class="filter-field search-field"><span>Buscar</span><span class="p-input-icon-left"><i class="pi pi-search"></i><input pInputText [(ngModel)]="searchValue" name="search" placeholder="Nombre, apellidos o DNI" /></span></label>
+    <label class="filter-field"><span>DNI</span><input pInputText [(ngModel)]="dni" name="dni" maxlength="15" placeholder="DNI exacto" /></label>
+    <label class="filter-field compact"><span>ID paciente</span><input pInputText type="number" [(ngModel)]="idPaciente" name="idPaciente" min="1" /></label>
+    <label class="filter-field"><span>Desde</span><input pInputText type="date" [(ngModel)]="desde" name="desde" /></label>
+    <label class="filter-field"><span>Hasta</span><input pInputText type="date" [(ngModel)]="hasta" name="hasta" /></label>
+    <div class="filter-actions"><button pButton type="submit" icon="pi pi-filter" label="Aplicar"></button><button pButton type="button" icon="pi pi-filter-slash" class="p-button-outlined" aria-label="Limpiar filtros" (click)="clearFilters()"></button></div>
+  </form>
+
+  @if (errorMessage && !loading) {
+    <div class="state-message error" role="alert"><i class="pi pi-exclamation-circle"></i><strong>No se pudo cargar la información</strong><span>{{ errorMessage }}</span><button pButton type="button" class="p-button-sm p-button-outlined" icon="pi pi-refresh" label="Reintentar" (click)="load()"></button></div>
+  } @else {
+    <p-table [value]="records" [loading]="loading" [lazy]="true" [paginator]="true" [rows]="size" [first]="page * size"
+      [totalRecords]="totalRecords" [rowsPerPageOptions]="[10, 25, 50]" [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}" (onLazyLoad)="onLazyLoad($event)"
+      responsiveLayout="scroll" styleClass="hc-table audit-table">
+      <ng-template pTemplate="header"><tr><th>ID</th><th>Nombre y apellidos</th><th>DNI</th><th>Fecha de archivado</th><th>Usuario</th><th>Motivo</th><th>Estado</th><th>Detalle</th></tr></ng-template>
+      <ng-template pTemplate="body" let-row><tr><td>{{ row.idPaciente }}</td><td>{{ row.nombreCompleto }}</td><td>{{ row.dni }}</td><td>{{ row.fechaArchivado | date:'dd/MM/yyyy HH:mm' }}</td><td>{{ row.usuarioResponsable || 'No disponible' }}</td><td>{{ row.motivoArchivado || 'No disponible' }}</td><td><p-tag value="ARCHIVADO" severity="warning"></p-tag></td><td class="detail-action"><button pButton type="button" icon="pi pi-eye" class="p-button-rounded p-button-text" aria-label="Ver detalle" (click)="openDetail(row.idPaciente)"></button></td></tr></ng-template>
+      <ng-template pTemplate="emptymessage"><tr><td colspan="8"><div class="state-message empty"><i class="pi pi-inbox"></i><strong>{{ hasFilters ? 'No se encontraron resultados con los filtros aplicados.' : 'No se encontraron pacientes archivados.' }}</strong></div></td></tr></ng-template>
+    </p-table>
+  }
+</article>
+
+<p-dialog header="Detalle del paciente archivado" [(visible)]="detailVisible" [modal]="true" [draggable]="false" [resizable]="false" [style]="{ width: 'min(860px, 94vw)' }" styleClass="audit-detail-dialog">
+  @if (detailLoading) { <div class="dialog-loading"><p-progressSpinner strokeWidth="4" ariaLabel="Cargando detalle"></p-progressSpinner><span>Cargando detalle...</span></div> }
+  @if (detail) {
+    <div class="detail-grid">
+      <section class="detail-block"><h3><i class="pi pi-user"></i> Datos del paciente</h3><dl><div><dt>ID</dt><dd>{{ detail.idPaciente }}</dd></div><div><dt>Nombre completo</dt><dd>{{ detail.nombres }} {{ detail.apellidos }}</dd></div><div><dt>DNI</dt><dd>{{ detail.dni }}</dd></div><div><dt>Estado</dt><dd><p-tag [value]="detail.estadoRegistro" severity="warning"></p-tag></dd></div><div><dt>Fecha de archivado</dt><dd>{{ detail.fechaArchivado | date:'dd/MM/yyyy HH:mm' }}</dd></div></dl></section>
+      <section class="detail-block"><h3><i class="pi pi-history"></i> Información del archivado</h3><dl><div><dt>Motivo</dt><dd>{{ detail.motivoArchivado || 'No disponible' }}</dd></div><div><dt>Detalle</dt><dd>{{ detail.detalleMotivoArchivado || 'No disponible' }}</dd></div><div><dt>Usuario</dt><dd>{{ detail.usuarioResponsable || 'No disponible' }}</dd></div><div><dt>Empleado</dt><dd>{{ detail.empleadoResponsable || 'No disponible' }}</dd></div><div><dt>Cargo / origen</dt><dd>{{ detail.cargo || 'No disponible' }} / {{ detail.origen || 'No disponible' }}</dd></div><div><dt>Auditoría</dt><dd>{{ detail.idAuditoria ? '#' + detail.idAuditoria : 'No disponible' }} · {{ detail.fechaAuditoria ? (detail.fechaAuditoria | date:'dd/MM/yyyy HH:mm') : 'Sin fecha' }}</dd></div><div><dt>Cambio de estado</dt><dd>{{ detail.estadoAnterior || '—' }} → {{ detail.estadoNuevo || detail.estadoRegistro }}</dd></div><div><dt>Revisión clínica</dt><dd>{{ detail.requirioRevisionClinica ? 'Requerida' : 'No requerida' }} · {{ detail.confirmoRevisionClinica ? 'Confirmada' : 'No confirmada' }}</dd></div></dl></section>
+      <section class="detail-block"><h3><i class="pi pi-check-circle"></i> Paciente principal conservado</h3>@if (detail.pacientePrincipal) { <dl><div><dt>ID</dt><dd>{{ detail.pacientePrincipal.idPaciente }}</dd></div><div><dt>Nombre</dt><dd>{{ detail.pacientePrincipal.nombreCompleto }}</dd></div><div><dt>DNI</dt><dd>{{ detail.pacientePrincipal.dni }}</dd></div><div><dt>Estado</dt><dd>{{ detail.pacientePrincipal.estadoRegistro }}</dd></div></dl> } @else { <p class="not-available">No hay un paciente principal asociado.</p> }</section>
+      <section class="detail-block"><h3><i class="pi pi-database"></i> Información relacionada</h3><div class="count-cards"><div><strong>{{ detail.cantidadHistoriasClinicas }}</strong><span>Historias clínicas</span></div><div><strong>{{ detail.cantidadConsultas }}</strong><span>Consultas</span></div><div><strong>{{ detail.cantidadAntecedentes }}</strong><span>Antecedentes</span></div></div></section>
+    </div>
+    <div class="preservation-note" role="note"><i class="pi pi-info-circle"></i><span>El archivado es lógico. Las historias clínicas y consultas asociadas al paciente permanecen conservadas.</span></div>
+  }
+</p-dialog>

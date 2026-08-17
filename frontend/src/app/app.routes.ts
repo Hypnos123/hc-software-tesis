@@ -3,6 +3,7 @@ import { LayoutComponent } from './shared/components/layout/layout.component';
 import { LoginComponent } from './auth/pages/login/login.component';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { PermissionGuard } from './auth/guards/permission.guard';
+import { AdminGuard } from './auth/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -53,6 +54,15 @@ export const routes: Routes = [
           ),
         canActivate: [AuthGuard, PermissionGuard],
         data: { permisoRuta: '/paciente' }
+      },
+      {
+        path: 'auditoria',
+        loadChildren: () =>
+          import('./modules/auditoria/auditoria.routes').then(
+            (r) => r.AUDITORIA_ROUTES
+          ),
+        canActivate: [AuthGuard, PermissionGuard, AdminGuard],
+        data: { permisoRuta: '/auditoria' }
       },
       {
         path: 'empleados',
