@@ -35,6 +35,11 @@ export class AuthService {
     return this.auth?.usuario;
   }
 
+  esAdministrador(): boolean {
+    const cargo = this.usuario?.cargo ?? this.usuario?.tipoUsuario ?? '';
+    return this.normalizarTexto(cargo) === 'ADMINISTRADOR';
+  }
+
   getRutaInicialPermitida(): string {
     const rutasPermitidas = this.detallePermisos
       .map((permiso) => permiso?.ruta)
@@ -88,6 +93,14 @@ export class AuthService {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[\s_-]+/g, '')
       .toLowerCase();
+  }
+
+  private normalizarTexto(valor?: string): string {
+    return (valor ?? '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
   }
 
   private conBarraInicial(ruta: string): string {

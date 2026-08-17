@@ -1,0 +1,10 @@
+.audit-page { display: grid; gap: 18px; }
+.audit-header { display: flex; align-items: center; gap: 16px; }
+.audit-header h1 { margin: 0 0 5px; color: #1f2937; font-size: 1.75rem; }
+.audit-header p { margin: 0; color: #667085; line-height: 1.45; }
+.audit-heading-icon { display: grid; place-items: center; flex: 0 0 48px; height: 48px; border-radius: 12px; color: #2563eb; background: #eff6ff; font-size: 1.4rem; }
+.audit-tabs { display: flex; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: #eef2f6; border-radius: 12px; }
+.audit-tabs a { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 9px; color: #52606d; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background-color .2s, color .2s, box-shadow .2s; }
+.audit-tabs a:hover { color: #2563eb; }
+.audit-tabs a.active { color: #1d4ed8; background: #fff; box-shadow: 0 2px 7px rgba(15, 23, 42, .08); }
+@media (max-width: 620px) { .audit-tabs { width: 100%; } .audit-tabs a { flex: 1; justify-content: center; white-space: normal; text-align: center; } .audit-header { align-items: flex-start; } }
