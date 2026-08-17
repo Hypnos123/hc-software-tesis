@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, map, Observable, of, Subscription, switchMap, throwError } from 'rxjs';
+import { forkJoin, map, Observable, of, Subscription, switchMap, throwError, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
@@ -45,10 +45,14 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
+interface ContextualActionRecommendation {
+  message: string;
+  option: MenuOption;
+}
 
 const VERIFY_CLINICAL_HISTORY_OPTION: MenuOption = {
   label: 'Verificar si un paciente tiene historia clínica',
@@ -127,7 +131,7 @@ export class InterfazChatComponent implements OnDestroy {
       { label: '¿Cuántas historias clínicas hay registradas?', action: 'request' },
       { label: 'Buscar si un paciente tiene historia clínica', action: 'prompt', text: 'Escribe el DNI o el nombre y los dos apellidos del paciente.\n\nEjemplos:\n- El paciente con DNI (PONER DNI) tiene historia clínica\n- El paciente (AGREGAR NOMBRE Y DOS APELLIDOS) tiene historia clínica' },
       { label: 'Historias clínicas creadas hoy', action: 'request' },
-      { label: 'Detectar historias clínicas duplicadas', action: 'clinical-history-duplicate-flow' }
+      { label: 'Detectar historias clínicas duplicadas', action: 'request' }
     ] },
     consultas: { question: 'Puedes realizar estas consultas médicas:', options: [
       { label: '¿Cuántas consultas médicas hay registradas?', action: 'request' },
@@ -142,11 +146,11 @@ export class InterfazChatComponent implements OnDestroy {
     ] },
     'asistencia-pacientes': { question: 'Selecciona una opción o escribe tu solicitud sobre la gestión de pacientes.', options: [
       { label: 'Registrar pacientes desde Excel', description: 'Importa pacientes mediante la plantilla oficial Excel.', icon: 'pi pi-file-excel', action: 'patient-import-flow' },
-      { label: 'Gestionar y eliminar pacientes duplicados', description: 'Compara y archiva de forma segura un registro repetido.', icon: 'pi pi-clone', action: 'patient-duplicate-flow' }
+      { label: 'Gestionar pacientes duplicados', description: 'Compara los registros y archiva de forma segura el duplicado.', icon: 'pi pi-clone', action: 'patient-duplicate-flow' }
     ] },
     'asistencia-historias': { question: 'Selecciona una opción o escribe tu solicitud sobre historias clínicas.', options: [
-      { label: 'Crear una historia clínica con el asistente', description: 'Completa una nueva historia usando los datos de un paciente existente.', action: 'clinical-history-flow' },
-      { label: 'Crear historias clínicas faltantes', description: 'Selecciona pacientes activos que todavía no tienen historia clínica.', action: 'missing-clinical-histories-flow' },
+      { label: 'Crear una historia clínica con el asistente', description: 'Completa una nueva historia usando los datos de un paciente existente.', icon: 'pi pi-file-plus', action: 'clinical-history-flow' },
+      { label: 'Crear historias clínicas faltantes', description: 'Selecciona pacientes activos que todavía no tienen historia clínica.', icon: 'pi pi-list-check', action: 'missing-clinical-histories-flow' },
       { label: 'Analizar historias clínicas duplicadas', description: 'Compara historias repetidas y revisa cuál convendría conservar, sin modificar datos.', icon: 'pi pi-clone', action: 'clinical-history-duplicate-flow' }
     ] },
     manejo: { question: '¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.', options: [
@@ -179,6 +183,10 @@ export class InterfazChatComponent implements OnDestroy {
   private activeRequest?: Subscription;
   private clinicalHistoryRequest?: Subscription;
   private missingHistoriesRequest?: Subscription;
+  private missingHistoriesSearchTimer?: ReturnType<typeof setTimeout>;
+  private missingHistoriesSearchReady = false;
+  private missingHistoriesSearchState?: HistoriasClinicasFaltantesChatState;
+  private pendingMissingHistoriesEvent?: { state: HistoriasClinicasFaltantesChatState; event: HistoriasClinicasFaltantesEvento };
   private logoutSubscription: Subscription;
   private sessionChangedSubscription: Subscription;
   private feedbackSubscription: Subscription;
@@ -208,6 +216,7 @@ export class InterfazChatComponent implements OnDestroy {
   mensajeFlotanteVisible = false;
   mensajeFlotante = '';
   isOpen = false; userMessage = ''; isLoading = false;
+  clinicalHistoryConfirmationActionsVisible = false;
   messages: ChatMessage[] = this.initializeMessages(this.getInitialMessages());
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
@@ -244,7 +253,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.cancelarHistoriasDuplicadasSilenciosamente(); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
@@ -333,13 +342,32 @@ export class InterfazChatComponent implements OnDestroy {
       tarjetaActiva.duplicateActive = false;
     }
     const mensaje = evento.remitente === 'user' ? this.addUserMessage(evento.texto) : this.addBotMessage(evento.texto);
-    if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
-    if (evento.vistaSiguiente && !vistaActualizada) this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
+    const esResultadoConTarjetas = evento.remitente === 'bot' && evento.vistaSiguiente === 'results';
+    const mostrarVistaSiguiente = (): void => {
+      if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
+      if (evento.vistaSiguiente && !vistaActualizada) {
+        this.addDuplicateBlock(state, evento.vistaSiguiente, !['COMPLETADO', 'CANCELADO'].includes(state.estado));
+      }
+    };
+    if (esResultadoConTarjetas) {
+      const orientacion = this.addBotMessage('Revisa los pacientes encontrados. El registro recomendado para conservar aparecerá destacado. Si deseas continuar, selecciona “Archivar paciente” en el registro duplicado que deseas consolidar. No se realizará ningún cambio hasta que completes las confirmaciones posteriores.');
+      this.runAfterPresentation(orientacion, mostrarVistaSiguiente);
+    } else {
+      mostrarVistaSiguiente();
+    }
     if (state.estado === 'COMPLETADO') this.addMenuBlock('duplicados-final');
     if (evento.volverPacientes) this.addMenuBlock('asistencia-pacientes');
-    if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+    if (evento.inicioGrupo && evento.remitente === 'user') this.pinInteractionStart(mensaje.id);
   }
   manejarMensajeHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState, evento: HistoriasClinicasFaltantesEvento): void {
+    if (this.shouldWaitForMissingHistoriesSearch(state, evento)) {
+      this.pendingMissingHistoriesEvent = { state, event: evento };
+      return;
+    }
+    if (this.missingHistoriesSearchState === state && this.missingHistoriesSearchReady
+        && evento.remitente === 'bot' && evento.vistaSiguiente) {
+      this.clearMissingHistoriesSearchPresentation();
+    }
     const tarjetaActiva = this.messages.find(message => message.type === 'missing-clinical-histories'
       && message.historiasFaltantes === state && message.missingHistoriesActive);
     let vistaActualizada = false;
@@ -357,12 +385,45 @@ export class InterfazChatComponent implements OnDestroy {
       if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
       return;
     }
-    if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
-    if (evento.vistaSiguiente && !vistaActualizada) this.addMissingHistoriesBlock(state, evento.vistaSiguiente, state.estado !== 'CANCELADO');
+    const showNextView = (): void => {
+      if (vistaActualizada && tarjetaActiva) this.messages.push(tarjetaActiva);
+      if (evento.vistaSiguiente && !vistaActualizada) this.addMissingHistoriesBlock(state, evento.vistaSiguiente, state.estado !== 'CANCELADO');
+    };
+    if (evento.remitente === 'bot' && evento.vistaSiguiente) this.runAfterPresentation(mensaje, showNextView);
+    else showNextView();
     if (evento.volverHistorias) this.addMenuBlock('asistencia-historias');
-    if (evento.inicioGrupo) this.scrollToNewBlock(mensaje.id);
+    if (evento.inicioGrupo && evento.remitente === 'user') this.pinInteractionStart(mensaje.id);
     if (evento.ejecutarCreacion) this.ejecutarCreacionHistoriasFaltantes(state);
   }
+
+  private shouldWaitForMissingHistoriesSearch(state: HistoriasClinicasFaltantesChatState,
+      event: HistoriasClinicasFaltantesEvento): boolean {
+    return this.missingHistoriesSearchState === state && !this.missingHistoriesSearchReady
+      && event.remitente === 'bot' && !!event.vistaSiguiente;
+  }
+
+  private startMissingHistoriesSearchPresentation(state: HistoriasClinicasFaltantesChatState): void {
+    this.clearMissingHistoriesSearchPresentation();
+    this.missingHistoriesSearchState = state;
+    this.missingHistoriesSearchReady = false;
+    this.missingHistoriesSearchTimer = setTimeout(() => {
+      this.missingHistoriesSearchTimer = undefined;
+      this.missingHistoriesSearchReady = true;
+      const pending = this.pendingMissingHistoriesEvent;
+      this.pendingMissingHistoriesEvent = undefined;
+      if (pending) this.manejarMensajeHistoriasFaltantes(pending.state, pending.event);
+    }, this.randomPresentationDuration());
+  }
+
+  private clearMissingHistoriesSearchPresentation(): void {
+    if (this.missingHistoriesSearchTimer !== undefined) clearTimeout(this.missingHistoriesSearchTimer);
+    this.missingHistoriesSearchTimer = undefined;
+    this.missingHistoriesSearchReady = false;
+    this.missingHistoriesSearchState = undefined;
+    this.pendingMissingHistoriesEvent = undefined;
+  }
+
+  private randomPresentationDuration(): number { return 3_000 + Math.floor(Math.random() * 3_001); }
 
   manejarMensajeHistoriasDuplicadas(state: GestionHistoriasDuplicadasState, evento: GestionHistoriasDuplicadasEvento): void {
     const tarjetaActiva = this.messages.find(message => message.type === 'clinical-history-duplicate-management'
@@ -383,37 +444,46 @@ export class InterfazChatComponent implements OnDestroy {
   private ejecutarCreacionHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState): void {
     if (this.missingHistoriesRequest || state.estado !== 'CREANDO' || state.idsConfirmados.length === 0) return;
     const idsConfirmados = [...state.idsConfirmados];
-    const solicitud = this.historiaClinicaService.crearHistoriasClinicasFaltantes(idsConfirmados)
+    const solicitud = forkJoin({
+      resultado: this.historiaClinicaService.crearHistoriasClinicasFaltantes(idsConfirmados),
+      presentacionMinima: timer(this.randomPresentationDuration())
+    })
       .pipe(finalize(() => { this.missingHistoriesRequest = undefined; }))
       .subscribe({
-        next: resultado => {
+        next: ({ resultado }) => {
           state.resultado = resultado;
           state.estado = 'COMPLETADO';
-          this.mostrarFinHistoriasFaltantes(state, 'Proceso finalizado.', 'result');
+          this.mostrarFinHistoriasFaltantes(state, 'result');
         },
         error: () => {
           state.estado = 'ERROR_CREACION';
           state.mensajeError = 'No se pudo completar la creación de historias clínicas.';
-          this.mostrarFinHistoriasFaltantes(state, state.mensajeError, 'creation-error');
+          this.mostrarFinHistoriasFaltantes(state, 'creation-error');
         }
       });
     this.missingHistoriesRequest = solicitud.closed ? undefined : solicitud;
   }
 
-  private mostrarFinHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState, texto: string,
+  private mostrarFinHistoriasFaltantes(state: HistoriasClinicasFaltantesChatState,
       vista: HistoriasClinicasFaltantesVista): void {
     const tarjetaProcesando = this.messages.find(message => message.type === 'missing-clinical-histories'
       && message.historiasFaltantes === state && message.missingHistoriesActive);
-    if (tarjetaProcesando) tarjetaProcesando.missingHistoriesActive = false;
-    const mensaje = this.addBotMessage(texto);
-    this.addMissingHistoriesBlock(state, vista, true);
-    this.scrollToNewBlock(mensaje.id);
+    if (tarjetaProcesando) {
+      this.removeMessageFromPresentation(tarjetaProcesando);
+      this.messages = this.messages.filter(message => message !== tarjetaProcesando);
+    }
+    const mensaje = this.addBotMessage(vista === 'result' ? '✓ Procesamiento completado' : state.mensajeError ?? 'No se pudo completar el proceso.');
+    this.runAfterPresentation(mensaje, () => this.addMissingHistoriesBlock(state, vista, true));
   }
 
   private procesarAccionPosteriorHistoriasFaltantes(accion: 'REVISAR' | 'HISTORIAS' | 'PRINCIPAL'): void {
     if (accion === 'REVISAR') {
-      this.addBotMessage('Consultaré nuevamente los pacientes activos que todavía no tienen historia clínica.');
-      this.addMissingHistoriesBlock(crearHistoriasClinicasFaltantesState(), 'loading', true);
+      const state = crearHistoriasClinicasFaltantesState();
+      const message = this.addBotMessage('Consultaré nuevamente los pacientes activos que todavía no tienen historia clínica.');
+      this.runAfterPresentation(message, () => {
+        this.startMissingHistoriesSearchPresentation(state);
+        this.addMissingHistoriesBlock(state, 'loading', true);
+      });
       return;
     }
     this.addMenuBlock(accion === 'HISTORIAS' ? 'asistencia-historias' : 'principal');
@@ -431,13 +501,19 @@ export class InterfazChatComponent implements OnDestroy {
     this.scrollToBottom();
   }
   continueClinicalHistoryFlow(): void {
-    if (this.clinicalHistoryFlow.step !== 'awaitingConfirmation') return;
+    if (this.clinicalHistoryFlow.step !== 'awaitingConfirmation' || !this.clinicalHistoryConfirmationActionsVisible) return;
     const { dni, patient, prefill } = this.clinicalHistoryFlow;
     const transferId = this.clinicalHistoryTransferService.createTransfer(this.toTransferCandidate(prefill));
     this.clinicalHistoryFlow = { step: 'navigating', dni, patient, prefill, transferId };
+    this.clinicalHistoryConfirmationActionsVisible = false;
     this.isLoading = true;
     const selection = this.addUserMessage('Continuar');
-    this.scrollToNewBlock(selection.id);
+    this.pinInteractionStart(selection.id);
+    const transitionMessage = this.addBotMessage('Abriré Nueva Historia Clínica con los datos del paciente seleccionado.');
+    this.runAfterPresentation(transitionMessage, () => this.navigateToClinicalHistory(dni, patient, prefill, transferId));
+  }
+  private navigateToClinicalHistory(dni: string, patient: PatientClinicalHistorySummary,
+      prefill: ClinicalHistoryCandidateData, transferId: string): void {
     void this.router.navigate(
       ['/historiaClinica', 'mantenimiento-historias-clinicas', 'nuevo'],
       { state: { source: 'chatbot', transferId } }
@@ -517,10 +593,29 @@ export class InterfazChatComponent implements OnDestroy {
   private restoreScrollPosition(): void { requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.scrollPosition; }); }
   private addUserMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('user', text)); }
   private addBotMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('bot', text)); }
-  private addMenuBlock(menuId: string): void {
+  private addMenuBlock(menuId: string, waitForQuestion = false): void {
     const menu = this.menus[menuId];
-    if (menuId !== 'principal' && menu.question) this.addBotMessage(menu.question);
-    this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
+    const addOptions = (): void => {
+      this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
+    };
+    if (menuId !== 'principal' && menu.question) {
+      const question = this.addBotMessage(menu.question);
+      if (waitForQuestion) {
+        this.runAfterPresentation(question, addOptions);
+        return;
+      }
+    }
+    addOptions();
+  }
+  private addContextualAction(recommendation: ContextualActionRecommendation): void {
+    const helpMessage = this.addBotMessage(recommendation.message);
+    this.runAfterPresentation(helpMessage, () => {
+      this.addMessage(this.createBlockMessage('menu', {
+        menuId: 'contextual-action',
+        preserveInteractionAnchor: true,
+        options: [{ ...recommendation.option, id: `contextual-${this.messageSequence + 1}` }]
+      }));
+    });
   }
   private addImportBlock(state: PacienteImportacionChatState, view: PacienteImportView, active: boolean): void {
     this.addMessage(this.createBlockMessage('patient-import', { importacion: state, importView: view, importActive: active }));
@@ -603,7 +698,17 @@ export class InterfazChatComponent implements OnDestroy {
     message.visibleText = message.text ?? '';
     message.presentationState = 'visible';
     this.activePresentationId = undefined;
+    const afterPresentation = message.afterPresentation;
+    message.afterPresentation = undefined;
+    afterPresentation?.();
     this.processPresentationQueue();
+  }
+  private runAfterPresentation(message: ChatMessage, callback: () => void): void {
+    if (message.presentationState === 'visible') {
+      callback();
+      return;
+    }
+    message.afterPresentation = callback;
   }
   private revealMessageImmediately(message: ChatMessage): void {
     if (message.type === 'text') message.visibleText = message.text ?? '';
@@ -666,8 +771,10 @@ export class InterfazChatComponent implements OnDestroy {
       next: (response) => {
         this.removeTypingMessage();
         const resultado = this.addBotMessage(this.formatResponse(response));
-        if (this.esResultadoDuplicadoExtenso(response)) {
-          this.scrollToNewBlock(resultado.id);
+        const recommendation = this.getContextualAction(response);
+        if (recommendation) this.addContextualAction(recommendation);
+        if (this.esResultadoDuplicadoExtenso(response) || recommendation) {
+          this.pinInteractionStart(resultado.id);
         } else if (scrollAfterResponse) {
           this.scrollToBottom();
         }
@@ -675,12 +782,41 @@ export class InterfazChatComponent implements OnDestroy {
       error: () => { this.removeTypingMessage(); this.addBotMessage('No pude obtener la información en este momento. Inténtalo nuevamente.'); if (scrollAfterResponse) this.scrollToBottom(); }
     });
   }
+  private getContextualAction(response: IAsistenteResponse): ContextualActionRecommendation | undefined {
+    if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES'
+        || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') {
+      const resultados = response.datos?.['resultados'];
+      const cantidad = Number(response.datos?.['cantidad'] ?? (Array.isArray(resultados) ? resultados.length : 0));
+      if (cantidad < 2 && (!Array.isArray(resultados) || resultados.length < 2)) return undefined;
+      return {
+        message: 'Si deseas, puedo ayudarte a revisar estos registros y determinar cuál conviene conservar y archivar.',
+        option: {
+          label: 'Gestionar pacientes duplicados',
+          description: 'Compara los registros y archiva de forma segura el duplicado.',
+          icon: 'pi pi-clone',
+          action: 'patient-duplicate-flow'
+        }
+      };
+    }
+    if (response.intencion === 'HISTORIAS_CLINICAS_DUPLICADAS' && response.datos?.['hayDuplicados'] === true) {
+      return {
+        message: 'Puedo analizar estas historias para determinar cuál contiene mayor información clínica y recomendar cuál conservar.',
+        option: {
+          label: 'Analizar historias clínicas duplicadas',
+          description: 'Compara las historias repetidas y revisa cuál conviene conservar.',
+          icon: 'pi pi-clone',
+          action: 'clinical-history-duplicate-flow'
+        }
+      };
+    }
+    return undefined;
+  }
   private esResultadoDuplicadoExtenso(response: IAsistenteResponse): boolean {
     if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES' || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') return true;
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void {
     const message = this.messages[this.messages.length - 1];
     if (message?.text !== 'Escribiendo...') return;
@@ -706,7 +842,8 @@ export class InterfazChatComponent implements OnDestroy {
     if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selectionId); return; }
     if (option.action === 'clinical-history-flow') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
-      this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente existente.');
+      this.clinicalHistoryConfirmationActionsVisible = false;
+      this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente que deseas utilizar para crear la historia clínica. Puedes cancelar la asistencia en cualquier momento pulsando “Cancelar”.');
       this.scrollToNewBlock(selectionId);
       return;
     }
@@ -732,12 +869,21 @@ export class InterfazChatComponent implements OnDestroy {
         this.scrollToNewBlock(selectionId);
         return;
       }
-      this.addBotMessage('Consultaré los pacientes activos que todavía no tienen historia clínica. Nada se creará sin una confirmación explícita.');
-      this.addMissingHistoriesBlock(crearHistoriasClinicasFaltantesState(), 'loading', true);
-      this.scrollToNewBlock(selectionId);
+      const state = crearHistoriasClinicasFaltantesState();
+      const message = this.addBotMessage('Consultaré los pacientes activos que todavía no tienen historia clínica. Nada se creará sin una confirmación explícita.');
+      this.runAfterPresentation(message, () => {
+        this.startMissingHistoriesSearchPresentation(state);
+        this.addMissingHistoriesBlock(state, 'loading', true);
+      });
+      this.pinInteractionStart(selectionId);
       return;
     }
     if (option.action === 'clinical-history-duplicate-flow') {
+      if (!this.puedeGestionarDuplicados()) {
+        this.addBotMessage('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
+        this.scrollToNewBlock(selectionId);
+        return;
+      }
       if (this.hayGestionHistoriasDuplicadasActiva() || this.hayGestionDuplicadosActiva() || this.clinicalHistoryFlow.step !== 'idle') {
         this.addBotMessage('Ya existe una operación guiada activa. Complétala o cancélala antes de iniciar otra.');
         this.scrollToNewBlock(selectionId);
@@ -748,13 +894,16 @@ export class InterfazChatComponent implements OnDestroy {
       this.pinInteractionStart(inicio.id);
       return;
     }
-    this.addMenuBlock(option.target || 'principal');
-    this.scrollToNewBlock(selectionId);
+    const target = option.target || 'principal';
+    const waitForQuestion = target === 'asistencia-historias';
+    this.addMenuBlock(target, waitForQuestion);
+    if (waitForQuestion) this.pinInteractionStart(selectionId);
+    else this.scrollToNewBlock(selectionId);
   }
-  private resetClinicalHistoryFlow(): void { this.clinicalHistoryFlow = { step: 'idle' }; }
+  private resetClinicalHistoryFlow(): void { this.clinicalHistoryFlow = { step: 'idle' }; this.clinicalHistoryConfirmationActionsVisible = false; }
   private iniciarGestionDuplicados(selectionId?: string): void {
     if (!this.puedeGestionarDuplicados()) {
-      this.addBotMessage('Tu cargo no tiene permiso para archivar pacientes.');
+      this.addBotMessage('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
       if (selectionId) this.scrollToNewBlock(selectionId);
       return;
     }
@@ -767,7 +916,7 @@ export class InterfazChatComponent implements OnDestroy {
       return;
     }
     const state = crearGestionDuplicadosState();
-    this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.');
+    this.addBotMessage('Comencemos revisando un grupo específico de pacientes duplicados.');
     this.addDuplicateBlock(state, 'dni', true);
     if (selectionId) this.scrollToNewBlock(selectionId);
   }
@@ -809,7 +958,8 @@ export class InterfazChatComponent implements OnDestroy {
     return ['ENFERMERA', 'ENFERMERA(O)', 'ENFERMERO(A)', 'ENFERMERIA'].includes(normalizado) ? 'ENFERMERO' : normalizado;
   }
   private captureAndSearchDni(dni: string, messageId?: string): void {
-    if (messageId) this.scrollToNewBlock(messageId);
+    if (messageId) this.pinInteractionStart(messageId);
+    this.clinicalHistoryConfirmationActionsVisible = false;
     if (!/^\d{8}$/.test(dni)) {
       this.addBotMessage('El DNI debe contener exactamente ocho dígitos. Inténtalo nuevamente o cancela la operación.');
       return;
@@ -850,7 +1000,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.removeClinicalHistoryLoadingMessage();
     if (resolution.kind === 'none') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
-      this.addBotMessage('No existe un paciente registrado con el DNI indicado.');
+      this.addBotMessage('No se encontró un paciente registrado con el DNI indicado. Verifica el número e inténtalo nuevamente con el DNI de un paciente existente.');
       return;
     }
     if (resolution.kind === 'multiple') {
@@ -869,7 +1019,14 @@ export class InterfazChatComponent implements OnDestroy {
       existingClinicalHistoryCount
     };
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient: summary, prefill };
+    this.clinicalHistoryConfirmationActionsVisible = false;
     this.addBotMessage(this.formatPatientSummary(summary));
+    const orientation = this.addBotMessage('Revisa los datos del paciente encontrado. Si corresponde al paciente que deseas utilizar, pulsa “Continuar”. Si deseas salir de este proceso, pulsa “Cancelar”.');
+    this.runAfterPresentation(orientation, () => {
+      if (this.clinicalHistoryFlow.step === 'awaitingConfirmation' && this.clinicalHistoryFlow.dni === dni) {
+        this.clinicalHistoryConfirmationActionsVisible = true;
+      }
+    });
   }
   private createCandidateData(dni: string, patient: IPacienteBusqueda, antecedentes?: IPaciente): ClinicalHistoryCandidateData {
     return {
@@ -883,7 +1040,7 @@ export class InterfazChatComponent implements OnDestroy {
     };
   }
   private formatPatientSummary(patient: PatientClinicalHistorySummary): string {
-    return `Paciente encontrado:\n\nNombre: ${patient.nombreCompleto}\nDNI: ${patient.dni}\nFecha de nacimiento: ${this.formatDate(patient.fechaNacimiento)}\nEstado civil: ${this.formatCivilStatus(patient.estadoCivil)}\nHistorias clínicas existentes: ${patient.existingClinicalHistoryCount}\n\n¿Deseas continuar a la creación de una nueva historia clínica?`;
+    return `Paciente encontrado:\n\nNombre: ${patient.nombreCompleto}\nDNI: ${patient.dni}\nFecha de nacimiento: ${this.formatDate(patient.fechaNacimiento)}\nEstado civil: ${this.formatCivilStatus(patient.estadoCivil)}\nHistorias clínicas existentes: ${patient.existingClinicalHistoryCount}`;
   }
   private formatDate(value: string | Date): string {
     if (!value) return 'No registrada';
@@ -930,18 +1087,25 @@ export class InterfazChatComponent implements OnDestroy {
     this.clinicalHistoryTransferService.revokeTransfer(transferId);
     if (this.clinicalHistoryFlow.step !== 'navigating' || this.clinicalHistoryFlow.transferId !== transferId) return;
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient, prefill };
-    this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
+    const errorMessage = this.addBotMessage('No se pudo abrir el formulario de Nueva Historia Clínica. Inténtalo nuevamente.');
+    this.runAfterPresentation(errorMessage, () => {
+      if (this.clinicalHistoryFlow.step === 'awaitingConfirmation' && this.clinicalHistoryFlow.dni === dni) {
+        this.clinicalHistoryConfirmationActionsVisible = true;
+      }
+    });
   }
   private handleClinicalHistoryFeedback(feedback: ClinicalHistoryFlowFeedback): void {
     if (this.processedFeedbackIds.has(feedback.id)) return;
     this.processedFeedbackIds.add(feedback.id);
     this.stopClinicalHistoryRequest();
     this.resetClinicalHistoryFlow();
-    this.addBotMessage(feedback.type === 'prefill-success'
+    const resultMessage = this.addBotMessage(feedback.type === 'prefill-success'
       ? 'Los datos del paciente se autocompletaron correctamente en Nueva Historia Clínica. Revísalos y pulsa Guardar para registrar la historia.'
       : 'No fue posible autocompletar los datos. Puedes completar el formulario manualmente.');
-    this.addBotMessage('¿Necesitas ayuda con algo más?');
-    this.addMenuBlock('principal');
+    this.runAfterPresentation(resultMessage, () => {
+      const nextHelp = this.addBotMessage('¿Necesitas ayuda con algo más?');
+      this.runAfterPresentation(nextHelp, () => this.addMenuBlock('principal'));
+    });
   }
   private handleClinicalHistoryError(): void {
     this.removeClinicalHistoryLoadingMessage();
