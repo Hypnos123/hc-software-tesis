@@ -1,0 +1,24 @@
+<section class="audit-page">
+  <header class="audit-header">
+    <div class="audit-heading-icon" aria-hidden="true"><i class="pi pi-history"></i></div>
+    <div>
+      <h1>Archivo y auditoría</h1>
+      <p>Consulta pacientes archivados y el historial de fusiones realizadas sobre historias clínicas.</p>
+    </div>
+  </header>
+
+  <nav class="audit-tabs" aria-label="Secciones de archivo y auditoría">
+    <a routerLink="pacientes-archivados" routerLinkActive="active" #pacientesTab="routerLinkActive"
+       [attr.aria-current]="pacientesTab.isActive ? 'page' : null">
+      <i class="pi pi-users" aria-hidden="true"></i>
+      <span>Pacientes archivados</span>
+    </a>
+    <a routerLink="fusiones-historias" routerLinkActive="active" #fusionesTab="routerLinkActive"
+       [attr.aria-current]="fusionesTab.isActive ? 'page' : null">
+      <i class="pi pi-file-check" aria-hidden="true"></i>
+      <span>Historial de fusiones</span>
+    </a>
+  </nav>
+
+  <router-outlet></router-outlet>
+</section>
