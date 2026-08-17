@@ -20,8 +20,6 @@ import { AuditoriaAdminService } from '../../services/auditoria-admin.service';
 })
 export class FusionesHistoriasComponent implements OnInit {
   searchValue = '';
-  dni = '';
-  idPaciente: number | null = null;
   idHistoriaPrincipal: number | null = null;
   idHistoriaEliminada: number | null = null;
   desde = '';
@@ -44,8 +42,8 @@ export class FusionesHistoriasComponent implements OnInit {
   load(): void {
     this.loading = true; this.errorMessage = '';
     this.service.listarFusionesHistorias({ page: this.page, size: this.size, sort: this.sort,
-      search: this.searchValue.trim(), dni: this.dni.trim(), idPaciente: this.idPaciente ?? undefined,
-      idHistoriaPrincipal: this.idHistoriaPrincipal ?? undefined, idHistoriaEliminada: this.idHistoriaEliminada ?? undefined,
+      search: this.searchValue.trim(), idHistoriaPrincipal: this.idHistoriaPrincipal ?? undefined,
+      idHistoriaEliminada: this.idHistoriaEliminada ?? undefined,
       desde: this.desde ? `${this.desde}T00:00:00` : undefined, hasta: this.hasta ? `${this.hasta}T23:59:59` : undefined })
       .pipe(finalize(() => this.loading = false)).subscribe({
         next: (response) => { this.records = response.content; this.totalRecords = response.totalElements; },
@@ -55,7 +53,7 @@ export class FusionesHistoriasComponent implements OnInit {
 
   applyFilters(): void { this.page = 0; this.load(); }
   clearFilters(): void {
-    this.searchValue = ''; this.dni = ''; this.idPaciente = null; this.idHistoriaPrincipal = null;
+    this.searchValue = ''; this.idHistoriaPrincipal = null;
     this.idHistoriaEliminada = null; this.desde = ''; this.hasta = ''; this.page = 0; this.load();
   }
   onLazyLoad(event: TableLazyLoadEvent): void {
@@ -71,7 +69,6 @@ export class FusionesHistoriasComponent implements OnInit {
     });
   }
   get hasFilters(): boolean {
-    return !!(this.searchValue.trim() || this.dni.trim() || this.idPaciente || this.idHistoriaPrincipal
-      || this.idHistoriaEliminada || this.desde || this.hasta);
+    return !!(this.searchValue.trim() || this.idHistoriaPrincipal || this.idHistoriaEliminada || this.desde || this.hasta);
   }
 }

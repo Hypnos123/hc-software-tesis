@@ -37,12 +37,14 @@ describe('FusionesHistoriasComponent', () => {
 
   it('envía filtros y reinicia la página', () => {
     fixture.detectChanges(); service.listarFusionesHistorias.calls.reset(); component.page = 2;
-    component.searchValue = 'Ana'; component.dni = '12345678'; component.idPaciente = 4;
+    component.searchValue = 'Ana';
     component.idHistoriaPrincipal = 19; component.idHistoriaEliminada = 16;
     component.desde = '2026-08-01'; component.hasta = '2026-08-31'; component.applyFilters();
     expect(service.listarFusionesHistorias).toHaveBeenCalledWith(jasmine.objectContaining({ page: 0, search: 'Ana',
-      dni: '12345678', idPaciente: 4, idHistoriaPrincipal: 19, idHistoriaEliminada: 16,
+      idHistoriaPrincipal: 19, idHistoriaEliminada: 16,
       desde: '2026-08-01T00:00:00', hasta: '2026-08-31T23:59:59' }));
+    const filtros = service.listarFusionesHistorias.calls.mostRecent().args[0];
+    expect(filtros.dni).toBeUndefined(); expect(filtros.idPaciente).toBeUndefined();
   });
 
   it('solicita la página elegida', () => {
@@ -53,8 +55,16 @@ describe('FusionesHistoriasComponent', () => {
   it('distingue vacío general y sin resultados', () => {
     service.listarFusionesHistorias.and.returnValue(of({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 }));
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('No se encontraron fusiones registradas');
-    component.dni = '00000000'; component.applyFilters(); fixture.detectChanges();
+    component.searchValue = '00000000'; component.applyFilters(); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No se encontraron resultados con los filtros aplicados');
+  });
+
+  it('no muestra filtros separados de DNI ni ID paciente', () => {
+    fixture.detectChanges();
+    const filtros = fixture.nativeElement.querySelector('form');
+    expect(filtros.querySelector('input[name="dni"]')).toBeNull();
+    expect(filtros.querySelector('input[name="idPaciente"]')).toBeNull();
+    expect(filtros.querySelector('input[name="search"]').placeholder).toBe('Paciente, DNI o usuario');
   });
 
   it('muestra error y permite reintentar', () => {

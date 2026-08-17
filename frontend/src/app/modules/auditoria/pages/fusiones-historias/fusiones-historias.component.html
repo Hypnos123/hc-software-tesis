@@ -4,8 +4,6 @@
 
   <form class="filters fusion-filters" (ngSubmit)="applyFilters()" aria-label="Filtros del historial de fusiones">
     <label class="filter-field search-field"><span>Buscar</span><span class="p-input-icon-left"><i class="pi pi-search"></i><input pInputText [(ngModel)]="searchValue" name="search" placeholder="Paciente, DNI o usuario" /></span></label>
-    <label class="filter-field"><span>DNI</span><input pInputText [(ngModel)]="dni" name="dni" placeholder="DNI exacto" /></label>
-    <label class="filter-field compact"><span>ID paciente</span><input pInputText type="number" [(ngModel)]="idPaciente" name="idPaciente" min="1" /></label>
     <label class="filter-field compact"><span>HC conservada</span><input pInputText type="number" [(ngModel)]="idHistoriaPrincipal" name="idHistoriaPrincipal" min="1" /></label>
     <label class="filter-field compact"><span>HC fusionada</span><input pInputText type="number" [(ngModel)]="idHistoriaEliminada" name="idHistoriaEliminada" min="1" /></label>
     <label class="filter-field"><span>Desde</span><input pInputText type="date" [(ngModel)]="desde" name="desde" /></label>

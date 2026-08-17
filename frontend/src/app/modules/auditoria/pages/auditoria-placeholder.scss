@@ -6,7 +6,7 @@
 .filters { display: flex; align-items: center; gap: 10px; padding: 14px; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafbfc; }
 .search-field { flex: 1; max-width: 360px; }.search-field input { width: 100%; }
 .patient-filters { display: grid; grid-template-columns: minmax(210px, 1.5fr) repeat(4, minmax(115px, .7fr)) auto; align-items: end; }
-.fusion-filters { display: grid; grid-template-columns: minmax(210px, 1.4fr) repeat(6, minmax(110px, .65fr)) auto; align-items: end; }
+.fusion-filters { display: grid; grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(125px, .65fr)) auto; align-items: end; }
 .filter-field { display: grid; gap: 5px; min-width: 0; color: #475467; font-size: .8rem; font-weight: 600; }.filter-field input,.filter-field > span { width: 100%; }.filter-field.compact { max-width: 130px; }.filter-actions { display: flex; gap: 6px; }
 .audit-note { display: flex; gap: 12px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #bfdbfe; border-radius: 10px; color: #1e40af; background: #eff6ff; line-height: 1.4; }.audit-note > i { margin-top: 2px; font-size: 1.2rem; }.audit-note p { margin: 3px 0 0; }
 :host ::ng-deep .audit-table .p-datatable-wrapper { max-width: 100%; overflow-x: auto; }:host ::ng-deep .audit-table th { white-space: nowrap; color: #344054; background: #f8fafc; }
