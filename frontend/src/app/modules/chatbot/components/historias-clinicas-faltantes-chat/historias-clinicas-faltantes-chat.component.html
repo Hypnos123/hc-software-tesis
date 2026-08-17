@@ -1,7 +1,7 @@
 <div class="missing-histories-chat" [ngSwitch]="view" aria-label="Creación de historias clínicas faltantes">
   <section *ngSwitchCase="'loading'" class="missing-step loading-step" aria-live="polite">
     <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
-    <strong>Buscando pacientes sin historia clínica...</strong>
+    <strong>Buscando historias clínicas faltantes...</strong>
   </section>
 
   <section *ngSwitchCase="'selection'" class="missing-step selection-step">
@@ -60,19 +60,13 @@
   </section>
 
   <section *ngSwitchCase="'creating'" class="missing-step loading-step" aria-live="polite">
-    <ng-container *ngIf="state.estado === 'CREANDO'; else procesamientoFinalizado">
-      <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
-      <strong>Procesando historias clínicas...</strong>
-      <p>Se están creando las historias clínicas seleccionadas.</p>
-    </ng-container>
-    <ng-template #procesamientoFinalizado>
-      <i class="pi" [ngClass]="state.estado === 'COMPLETADO' ? 'pi-check-circle' : 'pi-exclamation-circle'" aria-hidden="true"></i>
-      <strong>{{ state.estado === 'COMPLETADO' ? 'Procesamiento finalizado.' : 'El procesamiento terminó con un error.' }}</strong>
-    </ng-template>
+    <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+    <strong>Creando las historias clínicas seleccionadas...</strong>
+    <p>Procesando la información de los pacientes de forma segura.</p>
   </section>
 
   <section *ngSwitchCase="'result'" class="missing-step result-step">
-    <span class="step-label">Proceso finalizado</span>
+    <span class="step-label">Resumen del proceso</span>
     <ng-container *ngIf="state.resultado as resultado">
       <div class="result-summary">
         <span><b>{{ resultado.totalSolicitados }}</b> Pacientes seleccionados</span>

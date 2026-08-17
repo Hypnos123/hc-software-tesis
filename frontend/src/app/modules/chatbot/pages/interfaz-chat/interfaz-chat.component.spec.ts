@@ -119,7 +119,9 @@ describe('InterfazChatComponent', () => {
   function iniciarFlujoHistoriasFaltantes(): any {
     const opcion = (component as any).menus['asistencia-historias'].options
       .find((item: any) => item.label === 'Crear historias clínicas faltantes');
-    (component as any).executeMenuOption(opcion, 'test-missing-histories-selection');
+    const selection = (component as any).addUserMessage(opcion.label);
+    (component as any).executeMenuOption(opcion, selection.id);
+    tick(20_000);
     fixture.detectChanges();
     return component.messages.find(mensaje => mensaje.type === 'missing-clinical-histories' && mensaje.missingHistoriesActive)!;
   }
@@ -1922,11 +1924,34 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.filter(mensaje => mensaje.sender === 'user' && mensaje.text === DNI_PRUEBA).length).toBe(1);
   });
 
-  it('inicia el flujo especializado de historias faltantes con un único GET y sin alterar el flujo individual', () => {
+  it('presenta introducción, búsqueda y selección en orden con un único GET y sin saltar el scroll', fakeAsync(() => {
     const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
-    const tarjeta = iniciarFlujoHistoriasFaltantes();
-    const seleccionInicial = component.messages.find(mensaje => mensaje.sender === 'user'
-      && mensaje.text === 'Crear historias clínicas faltantes')!;
+    const opcion = (component as any).menus['asistencia-historias'].options
+      .find((item: any) => item.label === 'Crear historias clínicas faltantes');
+    const seleccionInicial = (component as any).addUserMessage(opcion.label);
+
+    (component as any).executeMenuOption(opcion, seleccionInicial.id);
+    fixture.detectChanges();
+
+    expect(historiaClinicaService.getHistoriasClinicasFaltantes).not.toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.type === 'missing-clinical-histories')).toBeFalse();
+    expect(scrollSpy).toHaveBeenCalledOnceWith(seleccionInicial.id);
+
+    tick(3_000);
+    fixture.detectChanges();
+    expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.textContent).toContain('Buscando historias clínicas faltantes...');
+    expect(component.messages.some(mensaje => mensaje.missingHistoriesView === 'selection')).toBeFalse();
+
+    tick(6_001);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Buscando historias clínicas faltantes...');
+    expect(component.messages.some(mensaje => mensaje.text?.startsWith('Se encontraron 2 pacientes activos'))).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.missingHistoriesView === 'selection')).toBeFalse();
+
+    tick(3_000);
+    fixture.detectChanges();
+    const tarjeta = component.messages.find(mensaje => mensaje.missingHistoriesView === 'selection')!;
 
     expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
     expect(tarjeta.historiasFaltantes.preview?.pacientes.length).toBe(2);
@@ -1934,11 +1959,9 @@ describe('InterfazChatComponent', () => {
     expect(component.clinicalHistoryFlow.step).toBe('idle');
     expect(fixture.nativeElement.textContent).toContain('******00');
     expect(fixture.nativeElement.textContent).not.toContain(DNI_PRUEBA);
-    expect(scrollSpy).toHaveBeenCalledTimes(3);
-    expect(scrollSpy.calls.mostRecent().args).toEqual([seleccionInicial.id]);
-  });
-
-  it('mantiene el scroll actual al continuar hacia la confirmación', () => {
+    expect(scrollSpy).toHaveBeenCalledOnceWith(seleccionInicial.id);
+  }));
+  it('mantiene el scroll actual al continuar hacia la confirmación', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     const scrollSpy = spyOn(component as any, 'scrollToNewBlock');
     const tarjeta = component.historiasFaltantesComponents.last;
@@ -1949,9 +1972,8 @@ describe('InterfazChatComponent', () => {
     const mensajeContinuar = component.messages.find(mensaje => mensaje.sender === 'user'
       && mensaje.text === 'Continuar con 1 pacientes')!;
     expect(scrollSpy).toHaveBeenCalledOnceWith(mensajeContinuar.id);
-  });
-
-  it('conserva selección al minimizar y reabrir sin repetir el GET', () => {
+  }));
+  it('conserva selección al minimizar y reabrir sin repetir el GET', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     const tarjeta = component.historiasFaltantesComponents.last;
     tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
@@ -1966,9 +1988,8 @@ describe('InterfazChatComponent', () => {
     expect(tarjetaRestaurada.state.idsSeleccionados).toEqual([8]);
     expect(tarjetaRestaurada.estaSeleccionado(8)).toBeTrue();
     expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
-  });
-
-  it('mantiene la selección al confirmar y volver, dejando las tarjetas históricas inactivas', () => {
+  }));
+  it('mantiene la selección al confirmar y volver, dejando las tarjetas históricas inactivas', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     let tarjeta = component.historiasFaltantesComponents.last;
     tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
@@ -1988,9 +2009,8 @@ describe('InterfazChatComponent', () => {
     expect(tarjetasFinales.at(-2)?.missingHistoriesActive).toBeFalse();
     expect(tarjetasFinales.at(-1)?.missingHistoriesView).toBe('selection');
     expect(tarjetasFinales.at(-1)?.historiasFaltantes?.idsSeleccionados).toEqual([8]);
-  });
-
-  it('cancela sin POST, limpia la selección y vuelve a Asistencia guiada Historias clínicas', () => {
+  }));
+  it('cancela sin POST, limpia la selección y vuelve a Asistencia guiada Historias clínicas', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     const tarjeta = component.historiasFaltantesComponents.last;
     tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
@@ -2005,9 +2025,8 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.text === 'La creación de historias clínicas faltantes fue cancelada.')).toBeTrue();
     expect(component.messages.at(-1)?.menuId).toBe('asistencia-historias');
     expect(component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories' && mensaje.missingHistoriesActive).length).toBe(0);
-  });
-
-  it('cierra y reinicia limpiando por completo el nuevo flujo', () => {
+  }));
+  it('cierra y reinicia limpiando por completo el nuevo flujo', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     component.historiasFaltantesComponents.last.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
 
@@ -2015,9 +2034,8 @@ describe('InterfazChatComponent', () => {
 
     expect(component.messages.length).toBe(2);
     expect(component.messages.some(mensaje => mensaje.type === 'missing-clinical-histories')).toBeFalse();
-  });
-
-  it('envía una sola vez exclusivamente los ids confirmados y deja las tarjetas previas inactivas', () => {
+  }));
+  it('envía una sola vez exclusivamente los ids confirmados y deja las tarjetas previas inactivas', fakeAsync(() => {
     iniciarFlujoHistoriasFaltantes();
     let tarjeta = component.historiasFaltantesComponents.last;
     tarjeta.cambiarSeleccion(8, { target: { checked: true } } as unknown as Event);
@@ -2032,13 +2050,26 @@ describe('InterfazChatComponent', () => {
 
     expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledOnceWith([8]);
     expect(historiaClinicaService.insert).not.toHaveBeenCalled();
+    const crear = component.messages.find(mensaje => mensaje.sender === 'user'
+      && mensaje.text === 'Crear las 1 historias clínicas')!;
+    expect(component.messages.at(-1)?.missingHistoriesView).toBe('creating');
+    expect(fixture.nativeElement.textContent).toContain('Creando las historias clínicas seleccionadas...');
+    expect(component.messages.some(mensaje => mensaje.missingHistoriesView === 'result')).toBeFalse();
+
+    tick(10_000);
+    fixture.detectChanges();
     const tarjetas = component.messages.filter(mensaje => mensaje.type === 'missing-clinical-histories');
     expect(tarjetas.at(-1)?.missingHistoriesView).toBe('result');
     expect(tarjetas.slice(0, -1).every(mensaje => !mensaje.missingHistoriesActive)).toBeTrue();
     expect(tarjetas.at(-1)?.historiasFaltantes?.resultado?.creadas).toBe(1);
-  });
-
-  it('impide doble POST mientras procesa y conserva resultados parciales del backend', () => {
+    expect(component.messages.filter(mensaje => mensaje.text?.includes('Proceso finalizado')).length).toBe(0);
+    expect(component.messages.filter(mensaje => mensaje.text === '✓ Procesamiento completado').length).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('Resumen del proceso');
+    expect(fixture.nativeElement.textContent).toContain('1 Historias clínicas creadas');
+    expect(fixture.nativeElement.textContent).not.toContain('Creando las historias clínicas seleccionadas...');
+    expect((component as any).interactionScrollAnchorId).toBe(crear.id);
+  }));
+  it('impide doble POST mientras procesa y conserva resultados parciales del backend', fakeAsync(() => {
     const respuesta = new Subject<any>();
     historiaClinicaService.crearHistoriasClinicasFaltantes.and.returnValue(respuesta);
     iniciarFlujoHistoriasFaltantes();
@@ -2056,18 +2087,25 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.missingHistoriesView).toBe('creating');
     expect(fixture.nativeElement.querySelectorAll('.missing-step button').length).toBe(0);
 
+    tick(7_000);
+    fixture.detectChanges();
+    expect(component.messages.at(-1)?.missingHistoriesView).toBe('creating');
+    expect(component.messages.some(mensaje => mensaje.missingHistoriesView === 'result')).toBeFalse();
+
     respuesta.next({ totalSolicitados: 2, totalProcesados: 2, creadas: 1, omitidas: 1,
       noEncontrados: 0, inactivos: 0, errores: 0,
       resultados: [{ idPaciente: 8, estado: 'CREADA' }, { idPaciente: 9, estado: 'OMITIDA_YA_TIENE_HISTORIA' }] });
     respuesta.complete();
     fixture.detectChanges();
 
+    expect(component.messages.at(-1)?.text).toBe('✓ Procesamiento completado');
+    tick(3_000);
+    fixture.detectChanges();
     const resultado = component.messages.at(-1)?.historiasFaltantes?.resultado;
     expect(resultado).toEqual(jasmine.objectContaining({ creadas: 1, omitidas: 1, errores: 0 }));
     expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
-  });
-
-  it('ante error HTTP no reintenta y revisar nuevamente ejecuta un GET nuevo con estado nuevo', () => {
+  }));
+  it('ante error HTTP no reintenta y revisar nuevamente ejecuta un GET nuevo con estado nuevo', fakeAsync(() => {
     historiaClinicaService.crearHistoriasClinicasFaltantes.and.returnValue(throwError(() => new Error('red')));
     iniciarFlujoHistoriasFaltantes();
     const estadoAnterior = component.historiasFaltantesComponents.last.state;
@@ -2078,12 +2116,15 @@ describe('InterfazChatComponent', () => {
     fixture.detectChanges();
 
     expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
+    tick(5_000);
+    fixture.detectChanges();
     expect(component.messages.at(-1)?.missingHistoriesView).toBe('creation-error');
     component.historiasFaltantesComponents.last.revisarNuevamente();
+    tick(20_000);
     fixture.detectChanges();
 
     expect(historiaClinicaService.getHistoriasClinicasFaltantes).toHaveBeenCalledTimes(2);
     expect(component.historiasFaltantesComponents.last.state).not.toBe(estadoAnterior);
     expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
-  });
+  }));
 });

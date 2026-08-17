@@ -129,27 +129,11 @@ describe('HistoriasClinicasFaltantesChatComponent', () => {
     fixture.componentRef.setInput('view', 'creating');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Procesando historias clínicas');
+    expect(fixture.nativeElement.textContent).toContain('Creando las historias clínicas seleccionadas');
+    expect(fixture.nativeElement.textContent).toContain('Procesando la información de los pacientes de forma segura');
     expect(fixture.nativeElement.querySelector('.pi-spin.pi-spinner')).not.toBeNull();
     expect(fixture.nativeElement.querySelectorAll('button').length).toBe(0);
     expect(fixture.nativeElement.querySelectorAll('input').length).toBe(0);
-  });
-
-  it('detiene el spinner histórico al completar o terminar con error', () => {
-    fixture.componentRef.setInput('view', 'creating');
-    state.estado = 'COMPLETADO';
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.pi-spin')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.pi-check-circle')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Procesamiento finalizado');
-
-    state.estado = 'ERROR_CREACION';
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.pi-spin')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.pi-exclamation-circle')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('terminó con un error');
   });
 
   it('representa los contadores y todos los estados sin exponer datos personales', () => {
@@ -169,6 +153,8 @@ describe('HistoriasClinicasFaltantesChatComponent', () => {
     fixture.detectChanges();
 
     const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Resumen del proceso');
+    expect(texto).not.toContain('Proceso finalizado');
     expect(texto).toContain('Omitida: ya tenía historia');
     expect(texto).toContain('Paciente no encontrado');
     expect(texto).toContain('Paciente inactivo');
