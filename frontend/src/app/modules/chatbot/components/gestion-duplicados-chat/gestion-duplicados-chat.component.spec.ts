@@ -58,7 +58,14 @@ describe('GestionDuplicadosChatComponent', () => {
     expect(service.analizar).toHaveBeenCalledOnceWith('12345678');
     expect(fixture.nativeElement.querySelectorAll('.patient-card').length).toBe(2);
     expect(fixture.nativeElement.textContent).toContain('Recomendado para conservar');
+    expect(fixture.nativeElement.textContent).toContain('Recomendado para archivar');
     expect(fixture.nativeElement.textContent).toContain('Tiene 2 consultas registradas');
+    expect(fixture.nativeElement.textContent).toContain('Revisa los pacientes encontrados');
+    expect(fixture.nativeElement.textContent).toContain('¿Qué debes hacer?');
+    expect(fixture.nativeElement.textContent).toContain('ningún paciente será archivado automáticamente');
+    expect(fixture.nativeElement.querySelector('.review-guidance p')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.review-steps li').length).toBe(4);
+    expect(component.state.pacienteArchivado).toBeUndefined();
     expect(fixture.nativeElement.textContent).not.toContain('Antecedentes');
     expect(fixture.nativeElement.textContent).not.toContain('Grupos clínicos');
   });
@@ -96,6 +103,7 @@ describe('GestionDuplicadosChatComponent', () => {
 
   it('selecciona pacientes distintos y permite cambiar la selección', () => {
     prepararResultados(false);
+    expect(component.state.pacienteArchivado).toBeUndefined();
     component.seleccionarParaArchivar(archivado);
     expect(component.state.pacienteArchivado?.idPaciente).toBe(13);
     expect(component.state.pacientePrincipal?.idPaciente).toBe(10);

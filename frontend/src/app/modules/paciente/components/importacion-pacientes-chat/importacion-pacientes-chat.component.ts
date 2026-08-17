@@ -178,7 +178,12 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
       next: previsualizacion => {
         this.state.previsualizacion = previsualizacion;
         this.state.estado = previsualizacion.estado === 'EXPIRADA' ? 'EXPIRADA' : 'PREVISUALIZADA';
-        this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', 'Análisis completado. Estos son los resultados encontrados en el archivo.', { vistasSiguientes: ['analysis', 'confirmation'] });
+        const tieneValidos = previsualizacion.filas.some(fila => fila.estado === 'VALIDO');
+        const texto = tieneValidos
+          ? 'Análisis completado. Estos son los resultados encontrados en el archivo.'
+          : 'No se encontraron pacientes válidos para registrar. Revisa los errores indicados y vuelve a cargar el archivo corregido.';
+        this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', texto,
+          { vistasSiguientes: tieneValidos ? ['analysis', 'confirmation'] : ['analysis'] });
         this.programarExpiracion(previsualizacion.expiraEn);
       },
       error: errorHttp => {
@@ -222,14 +227,27 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   seleccionarOtroArchivo(): void {
-    if (this.procesando) return;
+    this.reiniciarIntento('Cargar otro archivo');
+  }
+
+  volverACargarExcel(): void {
+    this.reiniciarIntento('Volver a cargar Excel');
+  }
+
+  private reiniciarIntento(textoAccion: string): void {
+    if (!this.active || this.procesando) return;
+    this.state.cancelarSolicitud = undefined;
+    this.solicitud = undefined;
     this.state.archivo = undefined;
     this.state.previsualizacion = undefined;
     this.state.confirmacion = undefined;
+    this.state.mensajes = this.state.mensajes.filter(mensaje => mensaje.etapa === 'PLANTILLA');
     this.state.estado = 'PLANTILLA_DESCARGADA';
     this.state.mensaje = '';
     if (this.archivoInput) this.archivoInput.nativeElement.value = '';
     this.limpiarTemporizador();
+    this.agregarMensaje(`reiniciar-importacion-${Date.now()}`, 'ARCHIVO', 'user', textoAccion,
+      { vistasSiguientes: ['file-selection'], reemplazarVistaActiva: true, inicioGrupo: true });
   }
 
   mensajeFila(fila: IPacienteImportacionFila): string {
