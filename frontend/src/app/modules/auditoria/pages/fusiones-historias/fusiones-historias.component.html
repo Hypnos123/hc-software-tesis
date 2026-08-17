@@ -1,0 +1,41 @@
+<article class="audit-card">
+  <div class="section-title"><div><h2>Historial de fusiones</h2><p>Registro administrativo de historias clínicas consolidadas.</p></div></div>
+  <div class="audit-note" role="note"><i class="pi pi-info-circle" aria-hidden="true"></i><div><strong>Operaciones históricas e irreversibles</strong><p>La HC secundaria ya fue fusionada y sus consultas fueron transferidas a la HC conservada. La historia clínica fusionada no puede restaurarse.</p></div></div>
+
+  <form class="filters fusion-filters" (ngSubmit)="applyFilters()" aria-label="Filtros del historial de fusiones">
+    <label class="filter-field search-field"><span>Buscar</span><span class="p-input-icon-left"><i class="pi pi-search"></i><input pInputText [(ngModel)]="searchValue" name="search" placeholder="Paciente, DNI o usuario" /></span></label>
+    <label class="filter-field compact"><span>HC conservada</span><input pInputText type="number" [(ngModel)]="idHistoriaPrincipal" name="idHistoriaPrincipal" min="1" /></label>
+    <label class="filter-field compact"><span>HC fusionada</span><input pInputText type="number" [(ngModel)]="idHistoriaEliminada" name="idHistoriaEliminada" min="1" /></label>
+    <label class="filter-field"><span>Desde</span><input pInputText type="date" [(ngModel)]="desde" name="desde" /></label>
+    <label class="filter-field"><span>Hasta</span><input pInputText type="date" [(ngModel)]="hasta" name="hasta" /></label>
+    <div class="filter-actions"><button pButton type="submit" icon="pi pi-filter" label="Aplicar"></button><button pButton type="button" icon="pi pi-filter-slash" class="p-button-outlined" aria-label="Limpiar filtros" (click)="clearFilters()"></button></div>
+  </form>
+
+  @if (errorMessage && !loading) {
+    <div class="state-message error" role="alert"><i class="pi pi-exclamation-circle"></i><strong>No se pudo cargar la información</strong><span>{{ errorMessage }}</span><button pButton type="button" class="p-button-sm p-button-outlined" icon="pi pi-refresh" label="Reintentar" (click)="load()"></button></div>
+  } @else {
+    <p-table [value]="records" [loading]="loading" [lazy]="true" [paginator]="true" [rows]="size" [first]="page * size"
+      [totalRecords]="totalRecords" [rowsPerPageOptions]="[10, 25, 50]" [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}" (onLazyLoad)="onLazyLoad($event)"
+      responsiveLayout="scroll" styleClass="hc-table audit-table">
+      <ng-template pTemplate="header"><tr><th>ID auditoría</th><th>Paciente</th><th>DNI</th><th>HC conservada</th><th>HC fusionada</th><th>Consultas transferidas</th><th>Fecha</th><th>Usuario</th><th>Resultado</th><th>Detalle</th></tr></ng-template>
+      <ng-template pTemplate="body" let-row><tr><td>{{ row.idAuditoria }}</td><td>{{ row.nombrePaciente }}</td><td>{{ row.dni }}</td><td>{{ row.idHistoriaPrincipal }}</td><td>{{ row.idHistoriaEliminada }}</td><td>{{ row.consultasTransferidas }}</td><td>{{ row.fecha | date:'dd/MM/yyyy HH:mm' }}</td><td>{{ row.usuarioResponsable }}</td><td><p-tag [value]="row.resultado" severity="success"></p-tag></td><td class="detail-action"><button pButton type="button" icon="pi pi-eye" class="p-button-rounded p-button-text" aria-label="Ver detalle de fusión" (click)="openDetail(row.idAuditoria)"></button></td></tr></ng-template>
+      <ng-template pTemplate="emptymessage"><tr><td colspan="10"><div class="state-message empty"><i class="pi pi-history"></i><strong>{{ hasFilters ? 'No se encontraron resultados con los filtros aplicados.' : 'No se encontraron fusiones registradas.' }}</strong></div></td></tr></ng-template>
+    </p-table>
+  }
+</article>
+
+<p-dialog header="Detalle de la fusión de historias clínicas" [(visible)]="detailVisible" [modal]="true" [draggable]="false" [resizable]="false" [style]="{ width: 'min(900px, 94vw)' }" styleClass="audit-detail-dialog">
+  @if (detailLoading) { <div class="dialog-loading"><p-progressSpinner strokeWidth="4" ariaLabel="Cargando detalle"></p-progressSpinner><span>Cargando detalle...</span></div> }
+  @if (detail) {
+    <div class="detail-grid fusion-detail-grid">
+      <section class="detail-block"><h3><i class="pi pi-info-circle"></i> Datos de la operación</h3><dl><div><dt>ID auditoría</dt><dd>{{ detail.idAuditoria }}</dd></div><div><dt>Fecha</dt><dd>{{ detail.fecha | date:'dd/MM/yyyy HH:mm' }}</dd></div><div><dt>Resultado</dt><dd><p-tag [value]="detail.resultado" severity="success"></p-tag></dd></div><div><dt>Origen</dt><dd>{{ detail.origen }}</dd></div><div><dt>Motivo</dt><dd>{{ detail.motivo }}</dd></div><div><dt>Detalle</dt><dd>{{ detail.detalle || 'No disponible' }}</dd></div></dl></section>
+      <section class="detail-block"><h3><i class="pi pi-user"></i> Paciente</h3><dl><div><dt>ID</dt><dd>{{ detail.idPaciente }}</dd></div><div><dt>Nombre</dt><dd>{{ detail.nombrePaciente }}</dd></div><div><dt>DNI</dt><dd>{{ detail.dni }}</dd></div></dl></section>
+      <section class="detail-block"><h3><i class="pi pi-file-check"></i> Historias clínicas</h3><dl><div><dt>HC conservada</dt><dd>{{ detail.idHistoriaPrincipal }}</dd></div><div><dt>HC fusionada</dt><dd>{{ detail.idHistoriaEliminada }}</dd></div></dl></section>
+      <section class="detail-block"><h3><i class="pi pi-arrow-right-arrow-left"></i> Consultas transferidas</h3><div class="count-cards fusion-counts"><div><strong>{{ detail.consultasAntesPrincipal }}</strong><span>Antes en principal</span></div><div><strong>{{ detail.consultasAntesSecundaria }}</strong><span>Antes en secundaria</span></div><div><strong>{{ detail.consultasTransferidas }}</strong><span>Transferidas</span></div><div><strong>{{ detail.consultasDespuesPrincipal }}</strong><span>Finales en principal</span></div></div></section>
+      <section class="detail-block"><h3><i class="pi pi-id-card"></i> Usuario responsable</h3><dl><div><dt>Usuario</dt><dd>{{ detail.usuarioResponsable }}</dd></div><div><dt>Empleado</dt><dd>{{ detail.empleadoResponsable }}</dd></div><div><dt>Cargo</dt><dd>{{ detail.cargo }}</dd></div></dl></section>
+    </div>
+    <div class="fusion-explanation" role="status"><i class="pi pi-comments"></i><strong>{{ detail.explicacion }}</strong></div>
+    <div class="irreversible-note" role="note"><i class="pi pi-lock"></i><span>Esta operación es histórica e irreversible. La historia clínica fusionada no puede restaurarse.</span></div>
+  }
+</p-dialog>

@@ -778,10 +778,10 @@ describe('InterfazChatComponent', () => {
       tipoDuplicidad: 'MISMO_PACIENTE', idHistoriaClinicaRecomendada: 19, motivosRecomendacion: [],
       resumenComparativo: 'Comparación', futuraFusionPermitida: true, tokenAnalisis: 'token-vigente',
       posiblesCoincidencias: [], advertenciasIntegridad: [], mensaje: 'Listo', historiasComparadas: [
-        { idHistoriaClinica: 19, idPaciente: 3, cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
+        { idHistoriaClinica: 19, idPaciente: 3, nombreCompleto: 'Paciente de prueba', cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
           cantidadConsultasPendientes: 0, camposClinicosInformados: 0, puntajeRiquezaClinica: 0,
           cantidadConsultasExclusivas: 0, consultasExclusivas: [] },
-        { idHistoriaClinica: 16, idPaciente: 3, cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
+        { idHistoriaClinica: 16, idPaciente: 3, nombreCompleto: 'Paciente de prueba', cantidadConsultas: 0, cantidadConsultasAtendidas: 0,
           cantidadConsultasPendientes: 0, camposClinicosInformados: 0, puntajeRiquezaClinica: 0,
           cantidadConsultasExclusivas: 0, consultasExclusivas: [] }
       ]
@@ -790,8 +790,8 @@ describe('InterfazChatComponent', () => {
     historiasDuplicadasService.fusionar.and.returnValue(respuestaPendiente.asObservable());
     (component as any).addDuplicateHistoriesBlock(state, 'password', true);
     fixture.detectChanges();
-    const instanciaInicial = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent)).componentInstance
-      as GestionHistoriasDuplicadasChatComponent;
+    const instanciaInicial = fixture.debugElement.query(By.directive(GestionHistoriasDuplicadasChatComponent))
+      .componentInstance as GestionHistoriasDuplicadasChatComponent;
     const destruccionSpy = spyOn(instanciaInicial, 'ngOnDestroy').and.callThrough();
 
     instanciaInicial.password = 'incorrecta';

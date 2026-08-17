@@ -113,8 +113,13 @@ export class SidebarComponent implements OnInit {
 
   getMenu() {
     this.menu = (this.authService.detallePermisos ?? [])
-      .filter((item) => !!item?.ruta && !this.authService.esRutaTemporalmenteDeshabilitada(item.ruta));
+      .filter((item) => !!item?.ruta && !this.authService.esRutaTemporalmenteDeshabilitada(item.ruta))
+      .filter((item) => !this.esRutaAuditoria(item.ruta) || this.authService.esAdministrador());
   };
+
+  private esRutaAuditoria(ruta?: string): boolean {
+    return (ruta ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase() === 'auditoria';
+  }
 
   getMenuIcon(item: IItemMenu): string {
     const icon = item?.imagen?.trim();
