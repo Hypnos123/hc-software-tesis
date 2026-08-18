@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.exception.ConsultaMedicaIntegracionException;
+import com.krivi.apihistorialmedico.business.exception.ResumenConsultasException;
 import com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService;
 import com.krivi.apihistorialmedico.model.api.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,5 +40,26 @@ class ConsultaMedicaIntegracionControllerTest {
     when(service.obtenerUltimas(11)).thenThrow(new ConsultaMedicaIntegracionException("LIMITE_INVALIDO", "El límite debe estar entre 1 y 10.", HttpStatus.BAD_REQUEST));
     mockMvc.perform(get("/api/consultas-medicas/ultimas").param("limite", "11"))
         .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("LIMITE_INVALIDO"));
+  }
+
+  @Test void exponeResumenConHeaderDeUsuario() throws Exception {
+    ResumenConsultasPacienteResponse response = ResumenConsultasPacienteResponse.builder()
+        .paciente(ResumenConsultasPacienteResponse.PacienteResumen.builder().idPaciente(6).build())
+        .resumenAtencion(ResumenConsultasPacienteResponse.ResumenAtencion.builder().totalConsultasAtendidas(3L).build())
+        .build();
+    when(service.obtenerResumenPaciente(6, 4)).thenReturn(response);
+
+    mockMvc.perform(get("/api/consultas-medicas/pacientes/6/resumen").header("X-Usuario-Id", "4"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.paciente.idPaciente").value(6))
+        .andExpect(jsonPath("$.resumenAtencion.totalConsultasAtendidas").value(3));
+  }
+
+  @Test void resumenDevuelveContratoResultadoMensaje() throws Exception {
+    when(service.obtenerResumenPaciente(6, null)).thenThrow(new ResumenConsultasException(
+        "USUARIO_REQUERIDO", "Debe indicar el usuario autenticado mediante X-Usuario-Id.", HttpStatus.UNAUTHORIZED));
+
+    mockMvc.perform(get("/api/consultas-medicas/pacientes/6/resumen"))
+        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.resultado").value("USUARIO_REQUERIDO"))
+        .andExpect(jsonPath("$.mensaje").exists());
   }
 }
