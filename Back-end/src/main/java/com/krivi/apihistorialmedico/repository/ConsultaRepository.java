@@ -40,7 +40,7 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   long countByDoctorResponsableIdEmpleadoAndEstado(Integer idEmpleado, String estado);
   long countByPacienteIdPaciente(Integer idPaciente);
   long countByPacienteIdPacienteAndEstado(Integer idPaciente, String estado);
-  @Query("select count(c), min(c.fechaAtencion), max(c.fechaAtencion) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO'")
+  @Query("select count(c), min(c.fechaConsulta), max(c.fechaConsulta) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO'")
   List<Object[]> resumirAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
   @Query("select c.tipoEnfermedad.idTipoEnfermedad, c.tipoEnfermedad.descripcion, count(c) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO' and c.tipoEnfermedad is not null group by c.tipoEnfermedad.idTipoEnfermedad, c.tipoEnfermedad.descripcion order by count(c) desc, c.tipoEnfermedad.descripcion")
   List<Object[]> contarTiposAtendidosByPacienteId(@Param("idPaciente") Integer idPaciente);
@@ -49,7 +49,7 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   @Query("""
       select c.idConsulta as idConsulta,
              c.historiaClinica.idHistoriaClinica as idHistoriaClinica,
-             c.fechaAtencion as fechaAtencion,
+             c.fechaConsulta as fechaConsulta,
              c.especialidadRequerida as especialidad,
              concat(coalesce(c.doctorResponsable.nombres, ''), ' ', coalesce(c.doctorResponsable.apellidos, '')) as doctor,
              c.relatoPaciente as relatoPaciente,
@@ -61,7 +61,7 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
         from Consulta c
        where c.paciente.idPaciente = :idPaciente
          and upper(trim(c.estado)) = 'ATENDIDO'
-       order by c.fechaAtencion desc, c.idConsulta desc
+       order by c.fechaConsulta desc, c.idConsulta desc
       """)
   List<ConsultaResumenRecienteProjection> findRecientesAtendidasByPacienteId(
       @Param("idPaciente") Integer idPaciente, Pageable pageable);

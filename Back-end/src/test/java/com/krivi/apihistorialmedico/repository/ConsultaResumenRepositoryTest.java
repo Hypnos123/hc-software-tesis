@@ -16,6 +16,9 @@ class ConsultaResumenRepositoryTest {
 
     assertTrue(jpql.contains("c.paciente.idpaciente = :idpaciente"));
     assertTrue(jpql.contains("upper(trim(c.estado)) = 'atendido'"));
+    assertTrue(jpql.contains("min(c.fechaconsulta)"));
+    assertTrue(jpql.contains("max(c.fechaconsulta)"));
+    assertFalse(jpql.contains("fechaatencion"));
     assertFalse(jpql.contains("historiaclinica.idhistoriaclinica"));
     assertFalse(jpql.contains("pendiente"));
   }
@@ -35,5 +38,15 @@ class ConsultaResumenRepositoryTest {
       assertTrue(jpql.contains("c.paciente.idpaciente = :idpaciente"), metodo.getName());
       assertTrue(jpql.contains("upper(trim(c.estado)) = 'atendido'"), metodo.getName());
     }
+  }
+
+  @Test void consultasRecientesProyectanYOrdenanPorFechaConsulta() throws Exception {
+    Method method = ConsultaRepository.class.getMethod("findRecientesAtendidasByPacienteId", Integer.class,
+        org.springframework.data.domain.Pageable.class);
+    String jpql = method.getAnnotation(Query.class).value().replaceAll("\\s+", " ").toLowerCase();
+
+    assertTrue(jpql.contains("c.fechaconsulta as fechaconsulta"));
+    assertTrue(jpql.contains("order by c.fechaconsulta desc, c.idconsulta desc"));
+    assertFalse(jpql.contains("c.fechaatencion as"));
   }
 }

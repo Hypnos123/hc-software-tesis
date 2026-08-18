@@ -102,7 +102,7 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
             .alergiaMedicamentos(antecedentes == null ? null : antecedentes.getAlergiaMedicamentos()).build())
         .resumenAtencion(ResumenConsultasPacienteResponse.ResumenAtencion.builder()
             .totalConsultasAtendidas(totalAtendidas)
-            .fechaPrimeraConsulta(fechaHora(cabecera, 1)).fechaUltimaConsulta(fechaHora(cabecera, 2))
+            .fechaPrimeraConsulta(fecha(cabecera, 1)).fechaUltimaConsulta(fecha(cabecera, 2))
             .ultimaEspecialidad(ultima == null ? null : ultima.getEspecialidad())
             .ultimoDoctor(ultima == null ? null : textoLimpio(ultima.getDoctor()))
             .proximasCitas(consultaRepository.findProximasCitasAtendidasByPacienteId(idPaciente,
@@ -149,7 +149,7 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
       ConsultaResumenRecienteProjection consulta) {
     return ResumenConsultasPacienteResponse.ConsultaRecienteResumen.builder()
         .idConsulta(consulta.getIdConsulta()).idHistoriaClinica(consulta.getIdHistoriaClinica())
-        .fecha(consulta.getFechaAtencion()).especialidad(consulta.getEspecialidad())
+        .fecha(consulta.getFechaConsulta()).especialidad(consulta.getEspecialidad())
         .doctor(textoLimpio(consulta.getDoctor())).relatoPaciente(consulta.getRelatoPaciente())
         .diagnostico(consulta.getDiagnostico()).tratamiento(consulta.getTratamiento()).build();
   }
@@ -162,8 +162,8 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
     return fila.length > indice && fila[indice] instanceof Number numero ? numero.longValue() : 0L;
   }
 
-  private LocalDateTime fechaHora(Object[] fila, int indice) {
-    return fila.length > indice && fila[indice] instanceof LocalDateTime fecha ? fecha : null;
+  private Date fecha(Object[] fila, int indice) {
+    return fila.length > indice && fila[indice] instanceof Date fecha ? fecha : null;
   }
 
   private String textoLimpio(String texto) {

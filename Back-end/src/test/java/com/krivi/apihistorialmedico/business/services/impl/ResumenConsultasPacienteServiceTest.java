@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -113,8 +112,8 @@ class ResumenConsultasPacienteServiceTest {
     prepararUsuario(1, "ADMINISTRADOR");
     when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente(10, "12345678", EstadoRegistroPaciente.ACTIVO)));
     when(historiaClinicaRepository.findIdsByPacienteId(10)).thenReturn(List.of(2, 7));
-    LocalDateTime primera = LocalDateTime.of(2025, 1, 2, 9, 0);
-    LocalDateTime ultimaFecha = LocalDateTime.of(2026, 8, 1, 10, 30);
+    java.sql.Date primera = java.sql.Date.valueOf("2025-01-02");
+    java.sql.Date ultimaFecha = java.sql.Date.valueOf("2026-08-01");
     when(consultaRepository.resumirAtendidasByPacienteId(10)).thenReturn(
         java.util.Collections.singletonList(new Object[]{5L, primera, ultimaFecha}));
     when(consultaRepository.contarTiposAtendidosByPacienteId(10)).thenReturn(List.of(
@@ -123,7 +122,7 @@ class ResumenConsultasPacienteServiceTest {
         new Object[]{"MEDICINA_GENERAL", 4L}, new Object[]{"DERMATOLOGIA", 1L}));
     ConsultaResumenRecienteProjection reciente = mock(ConsultaResumenRecienteProjection.class);
     when(reciente.getIdConsulta()).thenReturn(20); when(reciente.getIdHistoriaClinica()).thenReturn(7);
-    when(reciente.getFechaAtencion()).thenReturn(ultimaFecha); when(reciente.getEspecialidad()).thenReturn("MEDICINA_GENERAL");
+    when(reciente.getFechaConsulta()).thenReturn(ultimaFecha); when(reciente.getEspecialidad()).thenReturn("MEDICINA_GENERAL");
     when(reciente.getDoctor()).thenReturn(" Ana   Ruiz "); when(reciente.getDiagnostico()).thenReturn("Registro profesional");
     when(consultaRepository.findRecientesAtendidasByPacienteId(eq(10), any(Pageable.class))).thenReturn(List.of(reciente));
     when(consultaRepository.resumirCalidadAtendidasByPacienteId(10)).thenReturn(
@@ -140,6 +139,7 @@ class ResumenConsultasPacienteServiceTest {
     assertEquals(80D, resumen.getEspecialidades().getFirst().getPorcentaje());
     assertEquals("ASMA", resumen.getAntecedentes().getEnfermedadesPrevias());
     assertEquals(20, resumen.getConsultasRecientes().getFirst().getIdConsulta());
+    assertEquals(ultimaFecha, resumen.getConsultasRecientes().getFirst().getFecha());
     assertEquals("Registro profesional", resumen.getEvaluacionesRecientes().getFirst().getDiagnostico());
     assertNull(resumen.getFuncionesVitales().getPresionSistolica());
     verify(consultaRepository).findRecientesAtendidasByPacienteId(eq(10), argThat(p -> p.getPageSize() == 3));
