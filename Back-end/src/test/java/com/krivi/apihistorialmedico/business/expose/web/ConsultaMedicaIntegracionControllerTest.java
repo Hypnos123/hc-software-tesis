@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.business.expose.web;
 
 import com.krivi.apihistorialmedico.business.exception.ConsultaMedicaIntegracionException;
+import com.krivi.apihistorialmedico.business.exception.ResumenConsultasException;
 import com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService;
 import com.krivi.apihistorialmedico.model.api.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class ConsultaMedicaIntegracionControllerTest {
   }
 
   @Test void resumenDevuelveContratoResultadoMensaje() throws Exception {
-    when(service.obtenerResumenPaciente(6, null)).thenThrow(new ConsultaMedicaIntegracionException(
+    when(service.obtenerResumenPaciente(6, null)).thenThrow(new ResumenConsultasException(
         "USUARIO_REQUERIDO", "Debe indicar el usuario autenticado mediante X-Usuario-Id.", HttpStatus.UNAUTHORIZED));
 
     mockMvc.perform(get("/api/consultas-medicas/pacientes/6/resumen"))

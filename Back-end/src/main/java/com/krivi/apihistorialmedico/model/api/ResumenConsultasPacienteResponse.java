@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.Date;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -45,8 +46,8 @@ public class ResumenConsultasPacienteResponse {
   @Data @Builder @NoArgsConstructor @AllArgsConstructor
   public static class ResumenAtencion {
     private Long totalConsultasAtendidas;
-    private Date fechaPrimeraConsulta;
-    private Date fechaUltimaConsulta;
+    private LocalDateTime fechaPrimeraConsulta;
+    private LocalDateTime fechaUltimaConsulta;
     private String ultimaEspecialidad;
     private String ultimoDoctor;
     private List<Date> proximasCitas;
@@ -54,6 +55,7 @@ public class ResumenConsultasPacienteResponse {
 
   @Data @Builder @NoArgsConstructor @AllArgsConstructor
   public static class CategoriaResumen {
+    private Integer id;
     private String nombre;
     private Long cantidad;
     private Double porcentaje;
@@ -96,7 +98,7 @@ public class ResumenConsultasPacienteResponse {
   public static class ConsultaRecienteResumen {
     private Integer idConsulta;
     private Integer idHistoriaClinica;
-    private Date fecha;
+    private LocalDateTime fecha;
     private String especialidad;
     private String doctor;
     private String relatoPaciente;

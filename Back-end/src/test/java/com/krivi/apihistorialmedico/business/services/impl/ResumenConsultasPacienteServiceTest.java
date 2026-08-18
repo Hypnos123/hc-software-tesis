@@ -9,11 +9,16 @@ import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.repository.UsuarioRepository;
+import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
+import com.krivi.apihistorialmedico.model.projection.ConsultaResumenRecienteProjection;
+import com.krivi.apihistorialmedico.model.entity.Antecedentes;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,6 +28,7 @@ class ResumenConsultasPacienteServiceTest {
   private PacienteRepository pacienteRepository;
   private HistoriaClinicaRepository historiaClinicaRepository;
   private UsuarioRepository usuarioRepository;
+  private AntecedentesRepository antecedentesRepository;
   private ConsultaMedicaIntegracionServiceImpl service;
 
   @BeforeEach void setUp() {
@@ -30,8 +36,9 @@ class ResumenConsultasPacienteServiceTest {
     pacienteRepository = mock(PacienteRepository.class);
     historiaClinicaRepository = mock(HistoriaClinicaRepository.class);
     usuarioRepository = mock(UsuarioRepository.class);
+    antecedentesRepository = mock(AntecedentesRepository.class);
     service = new ConsultaMedicaIntegracionServiceImpl(consultaRepository, pacienteRepository,
-        historiaClinicaRepository, usuarioRepository);
+        historiaClinicaRepository, usuarioRepository, antecedentesRepository);
   }
 
   @Test void administradorPuedeConsultarPacienteActivoConVariasHistorias() {
@@ -39,7 +46,7 @@ class ResumenConsultasPacienteServiceTest {
     Paciente paciente = paciente(10, "12345678", EstadoRegistroPaciente.ACTIVO);
     when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente));
     when(historiaClinicaRepository.findIdsByPacienteId(10)).thenReturn(List.of(2, 7));
-    when(consultaRepository.countAtendidasByPacienteId(10)).thenReturn(4L);
+    when(consultaRepository.resumirAtendidasByPacienteId(10)).thenReturn(java.util.Collections.singletonList(new Object[]{4L, null, null}));
 
     ResumenConsultasPacienteResponse resumen = service.obtenerResumenPaciente(10, 1);
 
@@ -47,7 +54,7 @@ class ResumenConsultasPacienteServiceTest {
     assertEquals(List.of(2, 7), resumen.getPaciente().getIdsHistoriasClinicas());
     assertEquals(2L, resumen.getPaciente().getCantidadHistoriasClinicas());
     assertEquals(4L, resumen.getResumenAtencion().getTotalConsultasAtendidas());
-    verify(consultaRepository).countAtendidasByPacienteId(10);
+    verify(consultaRepository).resumirAtendidasByPacienteId(10);
     verify(consultaRepository, never()).countByHistoriaClinicaIdHistoriaClinica(anyInt());
   }
 
@@ -92,14 +99,50 @@ class ResumenConsultasPacienteServiceTest {
     prepararUsuario(1, "ADMINISTRADOR");
     when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente(10, "12345678", EstadoRegistroPaciente.ACTIVO)));
     when(historiaClinicaRepository.findIdsByPacienteId(10)).thenReturn(List.of(2));
-    when(consultaRepository.countAtendidasByPacienteId(10)).thenReturn(2L);
+    when(consultaRepository.resumirAtendidasByPacienteId(10)).thenReturn(java.util.Collections.singletonList(new Object[]{2L, null, null}));
 
     ResumenConsultasPacienteResponse resumen = service.obtenerResumenPaciente(10, 1);
 
     assertEquals(2L, resumen.getResumenAtencion().getTotalConsultasAtendidas());
     verify(pacienteRepository).findById(10);
     verify(pacienteRepository, never()).findByNumDocumentoAndEstadoRegistroOrderByIdPacienteAsc(anyString(), any());
-    verify(consultaRepository).countAtendidasByPacienteId(10);
+    verify(consultaRepository).resumirAtendidasByPacienteId(10);
+  }
+
+  @Test void construyeAgregadosYLimitaConsultasRecientesSinFuncionesVitales() {
+    prepararUsuario(1, "ADMINISTRADOR");
+    when(pacienteRepository.findById(10)).thenReturn(Optional.of(paciente(10, "12345678", EstadoRegistroPaciente.ACTIVO)));
+    when(historiaClinicaRepository.findIdsByPacienteId(10)).thenReturn(List.of(2, 7));
+    LocalDateTime primera = LocalDateTime.of(2025, 1, 2, 9, 0);
+    LocalDateTime ultimaFecha = LocalDateTime.of(2026, 8, 1, 10, 30);
+    when(consultaRepository.resumirAtendidasByPacienteId(10)).thenReturn(
+        java.util.Collections.singletonList(new Object[]{5L, primera, ultimaFecha}));
+    when(consultaRepository.contarTiposAtendidosByPacienteId(10)).thenReturn(List.of(
+        new Object[]{1, "RESPIRATORIA", 3L}, new Object[]{2, "ALERGICA", 2L}));
+    when(consultaRepository.contarEspecialidadesAtendidasByPacienteId(10)).thenReturn(List.of(
+        new Object[]{"MEDICINA_GENERAL", 4L}, new Object[]{"DERMATOLOGIA", 1L}));
+    ConsultaResumenRecienteProjection reciente = mock(ConsultaResumenRecienteProjection.class);
+    when(reciente.getIdConsulta()).thenReturn(20); when(reciente.getIdHistoriaClinica()).thenReturn(7);
+    when(reciente.getFechaAtencion()).thenReturn(ultimaFecha); when(reciente.getEspecialidad()).thenReturn("MEDICINA_GENERAL");
+    when(reciente.getDoctor()).thenReturn(" Ana   Ruiz "); when(reciente.getDiagnostico()).thenReturn("Registro profesional");
+    when(consultaRepository.findRecientesAtendidasByPacienteId(eq(10), any(Pageable.class))).thenReturn(List.of(reciente));
+    when(consultaRepository.resumirCalidadAtendidasByPacienteId(10)).thenReturn(
+        java.util.Collections.singletonList(new Object[]{0L, 0L, 0L, 0L}));
+    Antecedentes antecedentes = new Antecedentes(); antecedentes.setEnfermedadesPrevias("ASMA");
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of(antecedentes));
+
+    ResumenConsultasPacienteResponse resumen = service.obtenerResumenPaciente(10, 1);
+
+    assertEquals(primera, resumen.getResumenAtencion().getFechaPrimeraConsulta());
+    assertEquals(ultimaFecha, resumen.getResumenAtencion().getFechaUltimaConsulta());
+    assertEquals("Ana Ruiz", resumen.getResumenAtencion().getUltimoDoctor());
+    assertEquals(60D, resumen.getTiposEnfermedad().getFirst().getPorcentaje());
+    assertEquals(80D, resumen.getEspecialidades().getFirst().getPorcentaje());
+    assertEquals("ASMA", resumen.getAntecedentes().getEnfermedadesPrevias());
+    assertEquals(20, resumen.getConsultasRecientes().getFirst().getIdConsulta());
+    assertEquals("Registro profesional", resumen.getEvaluacionesRecientes().getFirst().getDiagnostico());
+    assertNull(resumen.getFuncionesVitales().getPresionSistolica());
+    verify(consultaRepository).findRecientesAtendidasByPacienteId(eq(10), argThat(p -> p.getPageSize() == 3));
   }
 
   private void prepararUsuario(int id, String rol) {

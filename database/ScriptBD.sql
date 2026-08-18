@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS `historiaclinicadb`.`consulta` (
   `idconsulta` INT NOT NULL AUTO_INCREMENT,
   `presionarterial` VARCHAR(120) NULL,
   `frecuenciacardiaca` VARCHAR(45) NULL,
-  `fecuenciarespiratoria` VARCHAR(45) NULL,
+  `frecuenciarespiratoria` VARCHAR(45) NULL,
   `talla` VARCHAR(45) NULL,
   `temperatura` VARCHAR(45) NULL,
   `peso` DECIMAL(7,2) NULL,
