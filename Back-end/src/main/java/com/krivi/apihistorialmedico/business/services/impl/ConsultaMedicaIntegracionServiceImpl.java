@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.business.services.impl;
 
 import com.krivi.apihistorialmedico.business.exception.ConsultaMedicaIntegracionException;
+import com.krivi.apihistorialmedico.business.exception.ResumenConsultasException;
 import com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService;
 import com.krivi.apihistorialmedico.model.api.*;
 import com.krivi.apihistorialmedico.model.entity.Consulta;
@@ -10,6 +11,10 @@ import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
+import com.krivi.apihistorialmedico.repository.UsuarioRepository;
+import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
+import com.krivi.apihistorialmedico.model.entity.Antecedentes;
+import com.krivi.apihistorialmedico.model.projection.ConsultaResumenRecienteProjection;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +27,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.text.Normalizer;
+import java.time.Period;
+import java.util.Date;
 
 @Service
 public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaIntegracionService {
@@ -39,12 +47,146 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
   private final ConsultaRepository consultaRepository;
   private final PacienteRepository pacienteRepository;
   private final HistoriaClinicaRepository historiaClinicaRepository;
+  private final UsuarioRepository usuarioRepository;
+  private final AntecedentesRepository antecedentesRepository;
 
   public ConsultaMedicaIntegracionServiceImpl(ConsultaRepository consultaRepository,
-      PacienteRepository pacienteRepository, HistoriaClinicaRepository historiaClinicaRepository) {
+      PacienteRepository pacienteRepository, HistoriaClinicaRepository historiaClinicaRepository,
+      UsuarioRepository usuarioRepository, AntecedentesRepository antecedentesRepository) {
     this.consultaRepository = consultaRepository;
     this.pacienteRepository = pacienteRepository;
     this.historiaClinicaRepository = historiaClinicaRepository;
+    this.usuarioRepository = usuarioRepository;
+    this.antecedentesRepository = antecedentesRepository;
+  }
+
+  @Override
+  public ResumenConsultasPacienteResponse obtenerResumenPaciente(Integer idPaciente, Integer idUsuario) {
+    if (idPaciente == null || idPaciente < 1) {
+      throw errorResumen("ID_PACIENTE_INVALIDO", "El identificador del paciente debe ser un entero positivo.", HttpStatus.BAD_REQUEST);
+    }
+    if (idUsuario == null || idUsuario < 1) {
+      throw errorResumen("USUARIO_REQUERIDO", "Debe indicar el usuario autenticado mediante X-Usuario-Id.", HttpStatus.UNAUTHORIZED);
+    }
+    var usuario = usuarioRepository.findById(idUsuario)
+        .filter(u -> Boolean.TRUE.equals(u.getEstado()))
+        .orElseThrow(() -> errorResumen("USUARIO_INEXISTENTE", "El usuario indicado no existe o está inactivo.", HttpStatus.UNAUTHORIZED));
+    String rol = normalizarRol(usuario.getTipoUsuario());
+    if (!"ADMINISTRADOR".equals(rol) && !"DOCTOR".equals(rol)) {
+      throw errorResumen("ROL_SIN_PERMISO", "El usuario no tiene permiso para consultar el resumen clínico.", HttpStatus.FORBIDDEN);
+    }
+
+    Paciente paciente = pacienteRepository.findById(idPaciente)
+        .orElseThrow(() -> errorResumen("PACIENTE_INEXISTENTE", "El paciente indicado no existe.", HttpStatus.NOT_FOUND));
+    if (paciente.getEstadoRegistro() == EstadoRegistroPaciente.ARCHIVADO) {
+      throw errorResumen("PACIENTE_ARCHIVADO", "El paciente indicado está archivado; no se combinará con el paciente principal.", HttpStatus.CONFLICT);
+    }
+
+    List<Integer> idsHistorias = historiaClinicaRepository.findIdsByPacienteId(idPaciente);
+    Object[] cabecera = primeraFila(consultaRepository.resumirAtendidasByPacienteId(idPaciente));
+    long totalAtendidas = numero(cabecera, 0);
+    List<ConsultaResumenRecienteProjection> recientes = consultaRepository.findRecientesAtendidasByPacienteId(
+        idPaciente, PageRequest.of(0, 3));
+    ConsultaResumenRecienteProjection ultima = recientes.isEmpty() ? null : recientes.getFirst();
+    Antecedentes antecedentes = antecedentesRepository.findByPacienteIdPaciente(idPaciente).stream().findFirst().orElse(null);
+    Object[] calidad = primeraFila(consultaRepository.resumirCalidadAtendidasByPacienteId(idPaciente));
+    return ResumenConsultasPacienteResponse.builder()
+        .paciente(ResumenConsultasPacienteResponse.PacienteResumen.builder()
+            .idPaciente(paciente.getIdPaciente()).nombreCompleto(nombreCompleto(paciente))
+            .dni(paciente.getNumDocumento()).fechaNacimiento(paciente.getFechaNacimiento())
+            .edad(calcularEdad(paciente.getFechaNacimiento())).estado(paciente.getEstadoRegistro().name())
+            .cantidadHistoriasClinicas((long) idsHistorias.size()).idsHistoriasClinicas(idsHistorias).build())
+        .antecedentes(ResumenConsultasPacienteResponse.AntecedentesResumen.builder()
+            .enfermedadesPrevias(antecedentes == null ? null : antecedentes.getEnfermedadesPrevias())
+            .cirugiasPrevias(antecedentes == null ? null : antecedentes.getCirugiasPrevias())
+            .alergiaMedicamentos(antecedentes == null ? null : antecedentes.getAlergiaMedicamentos()).build())
+        .resumenAtencion(ResumenConsultasPacienteResponse.ResumenAtencion.builder()
+            .totalConsultasAtendidas(totalAtendidas)
+            .fechaPrimeraConsulta(fechaHora(cabecera, 1)).fechaUltimaConsulta(fechaHora(cabecera, 2))
+            .ultimaEspecialidad(ultima == null ? null : ultima.getEspecialidad())
+            .ultimoDoctor(ultima == null ? null : textoLimpio(ultima.getDoctor()))
+            .proximasCitas(consultaRepository.findProximasCitasAtendidasByPacienteId(idPaciente,
+                java.sql.Date.valueOf(LocalDate.now(ZONA_HORARIA_LIMA)), PageRequest.of(0, 3))).build())
+        .tiposEnfermedad(mapearTipos(consultaRepository.contarTiposAtendidosByPacienteId(idPaciente), totalAtendidas))
+        .especialidades(mapearEspecialidades(consultaRepository.contarEspecialidadesAtendidasByPacienteId(idPaciente), totalAtendidas))
+        .funcionesVitales(ResumenConsultasPacienteResponse.FuncionesVitalesResumen.builder().build())
+        .evaluacionesRecientes(recientes.stream().map(this::mapearEvaluacion).toList())
+        .consultasRecientes(recientes.stream().map(this::mapearConsulta).toList())
+        .calidadDatos(ResumenConsultasPacienteResponse.CalidadDatosResumen.builder()
+            .consultasSinFecha(numero(calidad, 0)).consultasSinTipoEnfermedad(numero(calidad, 1))
+            .consultasSinEspecialidad(numero(calidad, 2)).consultasConRelacionInconsistente(numero(calidad, 3))
+            .valoresVitalesDescartados(null).build())
+        .build();
+  }
+
+  private List<ResumenConsultasPacienteResponse.CategoriaResumen> mapearTipos(List<Object[]> filas, long total) {
+    return filas.stream().map(fila -> ResumenConsultasPacienteResponse.CategoriaResumen.builder()
+        .id(((Number) fila[0]).intValue()).nombre((String) fila[1]).cantidad(((Number) fila[2]).longValue())
+        .porcentaje(porcentaje(((Number) fila[2]).longValue(), total)).build()).toList();
+  }
+
+  private List<ResumenConsultasPacienteResponse.CategoriaResumen> mapearEspecialidades(List<Object[]> filas, long total) {
+    return filas.stream().map(fila -> ResumenConsultasPacienteResponse.CategoriaResumen.builder()
+        .nombre((String) fila[0]).cantidad(((Number) fila[1]).longValue())
+        .porcentaje(porcentaje(((Number) fila[1]).longValue(), total)).build()).toList();
+  }
+
+  private double porcentaje(long cantidad, long total) {
+    if (total == 0) return 0D;
+    return java.math.BigDecimal.valueOf(cantidad * 100D / total).setScale(1,
+        java.math.RoundingMode.HALF_UP).doubleValue();
+  }
+
+  private ResumenConsultasPacienteResponse.EvaluacionRecienteResumen mapearEvaluacion(
+      ConsultaResumenRecienteProjection consulta) {
+    return ResumenConsultasPacienteResponse.EvaluacionRecienteResumen.builder()
+        .idConsulta(consulta.getIdConsulta()).diagnostico(consulta.getDiagnostico())
+        .examenesRecetados(consulta.getExamenesRecetados()).receta(consulta.getReceta())
+        .tratamiento(consulta.getTratamiento()).proximaCita(consulta.getProximaCita()).build();
+  }
+
+  private ResumenConsultasPacienteResponse.ConsultaRecienteResumen mapearConsulta(
+      ConsultaResumenRecienteProjection consulta) {
+    return ResumenConsultasPacienteResponse.ConsultaRecienteResumen.builder()
+        .idConsulta(consulta.getIdConsulta()).idHistoriaClinica(consulta.getIdHistoriaClinica())
+        .fecha(consulta.getFechaAtencion()).especialidad(consulta.getEspecialidad())
+        .doctor(textoLimpio(consulta.getDoctor())).relatoPaciente(consulta.getRelatoPaciente())
+        .diagnostico(consulta.getDiagnostico()).tratamiento(consulta.getTratamiento()).build();
+  }
+
+  private Object[] primeraFila(List<Object[]> filas) {
+    return filas == null || filas.isEmpty() ? new Object[0] : filas.getFirst();
+  }
+
+  private long numero(Object[] fila, int indice) {
+    return fila.length > indice && fila[indice] instanceof Number numero ? numero.longValue() : 0L;
+  }
+
+  private LocalDateTime fechaHora(Object[] fila, int indice) {
+    return fila.length > indice && fila[indice] instanceof LocalDateTime fecha ? fecha : null;
+  }
+
+  private String textoLimpio(String texto) {
+    if (texto == null) return null;
+    String limpio = texto.trim().replaceAll("\\s+", " ");
+    return limpio.isEmpty() ? null : limpio;
+  }
+
+  private Integer calcularEdad(Date fechaNacimiento) {
+    if (fechaNacimiento == null) return null;
+    LocalDate nacimiento = fechaNacimiento instanceof java.sql.Date fechaSql
+        ? fechaSql.toLocalDate()
+        : fechaNacimiento.toInstant().atZone(ZONA_HORARIA_LIMA).toLocalDate();
+    return Period.between(nacimiento, LocalDate.now(ZONA_HORARIA_LIMA)).getYears();
+  }
+
+  private String normalizarRol(String rol) {
+    if (rol == null) return "";
+    return Normalizer.normalize(rol.trim(), Normalizer.Form.NFD).replaceAll("\\p{M}", "").toUpperCase(Locale.ROOT);
+  }
+
+  private ResumenConsultasException errorResumen(String resultado, String mensaje, HttpStatus status) {
+    return new ResumenConsultasException(resultado, mensaje, status);
   }
 
   @Override

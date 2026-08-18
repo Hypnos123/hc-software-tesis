@@ -22,6 +22,8 @@ public interface HistoriaClinicaRepository extends CrudRepository<HistoriaClinic
   List<HistoriaClinica> findAllByPacienteIdPacienteAndPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(Integer idPaciente, com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente estadoRegistro);
   boolean existsByPacienteIdPaciente(Integer idPaciente);
   long countByPacienteIdPaciente(Integer idPaciente);
+  @Query("select h.idHistoriaClinica from HistoriaClinica h where h.paciente.idPaciente = :idPaciente order by h.idHistoriaClinica")
+  List<Integer> findIdsByPacienteId(@Param("idPaciente") Integer idPaciente);
   long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
 
   @Query("select h from HistoriaClinica h join fetch h.paciente p where h.idHistoriaClinica = :idHistoriaClinica and p.estadoRegistro = com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente.ACTIVO")
