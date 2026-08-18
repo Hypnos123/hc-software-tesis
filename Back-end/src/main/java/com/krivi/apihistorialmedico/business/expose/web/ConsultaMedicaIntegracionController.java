@@ -33,8 +33,20 @@ public class ConsultaMedicaIntegracionController {
     return ResponseEntity.ok(consultaService.obtenerUltimas(limite));
   }
 
+  @GetMapping("/pacientes/{idPaciente}/resumen")
+  public ResponseEntity<ResumenConsultasPacienteResponse> resumenPaciente(
+      @PathVariable Integer idPaciente,
+      @RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
+    return ResponseEntity.ok(consultaService.obtenerResumenPaciente(idPaciente, idUsuario));
+  }
+
   @ExceptionHandler(ConsultaMedicaIntegracionException.class)
-  public ResponseEntity<ApiErrorResponse> handleConsultaMedicaIntegracionException(ConsultaMedicaIntegracionException exception) {
+  public ResponseEntity<?> handleConsultaMedicaIntegracionException(ConsultaMedicaIntegracionException exception) {
+    if (exception.getCodigo().startsWith("ID_PACIENTE_") || exception.getCodigo().startsWith("USUARIO_")
+        || exception.getCodigo().startsWith("ROL_") || exception.getCodigo().startsWith("PACIENTE_")) {
+      return ResponseEntity.status(exception.getStatus()).body(ResumenConsultasErrorResponse.builder()
+          .resultado(exception.getCodigo()).mensaje(exception.getMessage()).build());
+    }
     return ResponseEntity.status(exception.getStatus()).body(ApiErrorResponse.builder().codigo(exception.getCodigo()).mensaje(exception.getMessage()).build());
   }
 

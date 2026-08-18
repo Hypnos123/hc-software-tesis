@@ -40,4 +40,25 @@ class ConsultaMedicaIntegracionControllerTest {
     mockMvc.perform(get("/api/consultas-medicas/ultimas").param("limite", "11"))
         .andExpect(status().isBadRequest()).andExpect(jsonPath("$.codigo").value("LIMITE_INVALIDO"));
   }
+
+  @Test void exponeResumenConHeaderDeUsuario() throws Exception {
+    ResumenConsultasPacienteResponse response = ResumenConsultasPacienteResponse.builder()
+        .paciente(ResumenConsultasPacienteResponse.PacienteResumen.builder().idPaciente(6).build())
+        .resumenAtencion(ResumenConsultasPacienteResponse.ResumenAtencion.builder().totalConsultasAtendidas(3L).build())
+        .build();
+    when(service.obtenerResumenPaciente(6, 4)).thenReturn(response);
+
+    mockMvc.perform(get("/api/consultas-medicas/pacientes/6/resumen").header("X-Usuario-Id", "4"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.paciente.idPaciente").value(6))
+        .andExpect(jsonPath("$.resumenAtencion.totalConsultasAtendidas").value(3));
+  }
+
+  @Test void resumenDevuelveContratoResultadoMensaje() throws Exception {
+    when(service.obtenerResumenPaciente(6, null)).thenThrow(new ConsultaMedicaIntegracionException(
+        "USUARIO_REQUERIDO", "Debe indicar el usuario autenticado mediante X-Usuario-Id.", HttpStatus.UNAUTHORIZED));
+
+    mockMvc.perform(get("/api/consultas-medicas/pacientes/6/resumen"))
+        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.resultado").value("USUARIO_REQUERIDO"))
+        .andExpect(jsonPath("$.mensaje").exists());
+  }
 }

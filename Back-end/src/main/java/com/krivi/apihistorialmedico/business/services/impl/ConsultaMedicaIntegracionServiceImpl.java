@@ -10,6 +10,7 @@ import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
+import com.krivi.apihistorialmedico.repository.UsuarioRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.text.Normalizer;
+import java.time.Period;
+import java.util.Date;
 
 @Service
 public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaIntegracionService {
@@ -39,12 +43,68 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
   private final ConsultaRepository consultaRepository;
   private final PacienteRepository pacienteRepository;
   private final HistoriaClinicaRepository historiaClinicaRepository;
+  private final UsuarioRepository usuarioRepository;
 
   public ConsultaMedicaIntegracionServiceImpl(ConsultaRepository consultaRepository,
-      PacienteRepository pacienteRepository, HistoriaClinicaRepository historiaClinicaRepository) {
+      PacienteRepository pacienteRepository, HistoriaClinicaRepository historiaClinicaRepository,
+      UsuarioRepository usuarioRepository) {
     this.consultaRepository = consultaRepository;
     this.pacienteRepository = pacienteRepository;
     this.historiaClinicaRepository = historiaClinicaRepository;
+    this.usuarioRepository = usuarioRepository;
+  }
+
+  @Override
+  public ResumenConsultasPacienteResponse obtenerResumenPaciente(Integer idPaciente, Integer idUsuario) {
+    if (idPaciente == null || idPaciente < 1) {
+      throw error("ID_PACIENTE_INVALIDO", "El identificador del paciente debe ser un entero positivo.", HttpStatus.BAD_REQUEST);
+    }
+    if (idUsuario == null || idUsuario < 1) {
+      throw error("USUARIO_REQUERIDO", "Debe indicar el usuario autenticado mediante X-Usuario-Id.", HttpStatus.UNAUTHORIZED);
+    }
+    var usuario = usuarioRepository.findById(idUsuario)
+        .filter(u -> Boolean.TRUE.equals(u.getEstado()))
+        .orElseThrow(() -> error("USUARIO_INEXISTENTE", "El usuario indicado no existe o está inactivo.", HttpStatus.UNAUTHORIZED));
+    String rol = normalizarRol(usuario.getTipoUsuario());
+    if (!"ADMINISTRADOR".equals(rol) && !"DOCTOR".equals(rol)) {
+      throw error("ROL_SIN_PERMISO", "El usuario no tiene permiso para consultar el resumen clínico.", HttpStatus.FORBIDDEN);
+    }
+
+    Paciente paciente = pacienteRepository.findById(idPaciente)
+        .orElseThrow(() -> error("PACIENTE_INEXISTENTE", "El paciente indicado no existe.", HttpStatus.NOT_FOUND));
+    if (paciente.getEstadoRegistro() == EstadoRegistroPaciente.ARCHIVADO) {
+      throw error("PACIENTE_ARCHIVADO", "El paciente indicado está archivado; no se combinará con el paciente principal.", HttpStatus.CONFLICT);
+    }
+
+    List<Integer> idsHistorias = historiaClinicaRepository.findIdsByPacienteId(idPaciente);
+    long totalAtendidas = consultaRepository.countAtendidasByPacienteId(idPaciente);
+    return ResumenConsultasPacienteResponse.builder()
+        .paciente(ResumenConsultasPacienteResponse.PacienteResumen.builder()
+            .idPaciente(paciente.getIdPaciente()).nombreCompleto(nombreCompleto(paciente))
+            .dni(paciente.getNumDocumento()).fechaNacimiento(paciente.getFechaNacimiento())
+            .edad(calcularEdad(paciente.getFechaNacimiento())).estado(paciente.getEstadoRegistro().name())
+            .cantidadHistoriasClinicas((long) idsHistorias.size()).idsHistoriasClinicas(idsHistorias).build())
+        .antecedentes(ResumenConsultasPacienteResponse.AntecedentesResumen.builder().build())
+        .resumenAtencion(ResumenConsultasPacienteResponse.ResumenAtencion.builder()
+            .totalConsultasAtendidas(totalAtendidas).proximasCitas(List.of()).build())
+        .tiposEnfermedad(List.of()).especialidades(List.of())
+        .funcionesVitales(ResumenConsultasPacienteResponse.FuncionesVitalesResumen.builder().build())
+        .evaluacionesRecientes(List.of()).consultasRecientes(List.of())
+        .calidadDatos(ResumenConsultasPacienteResponse.CalidadDatosResumen.builder().build())
+        .build();
+  }
+
+  private Integer calcularEdad(Date fechaNacimiento) {
+    if (fechaNacimiento == null) return null;
+    LocalDate nacimiento = fechaNacimiento instanceof java.sql.Date fechaSql
+        ? fechaSql.toLocalDate()
+        : fechaNacimiento.toInstant().atZone(ZONA_HORARIA_LIMA).toLocalDate();
+    return Period.between(nacimiento, LocalDate.now(ZONA_HORARIA_LIMA)).getYears();
+  }
+
+  private String normalizarRol(String rol) {
+    if (rol == null) return "";
+    return Normalizer.normalize(rol.trim(), Normalizer.Form.NFD).replaceAll("\\p{M}", "").toUpperCase(Locale.ROOT);
   }
 
   @Override
