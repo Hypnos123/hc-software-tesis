@@ -39,6 +39,8 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   long countByDoctorResponsableIdEmpleadoAndEstado(Integer idEmpleado, String estado);
   long countByPacienteIdPaciente(Integer idPaciente);
   long countByPacienteIdPacienteAndEstado(Integer idPaciente, String estado);
+  @Query("select count(c) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO'")
+  long countAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
   long countByFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(LocalDateTime inicio, LocalDateTime fin);
   @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by c.fechaCreacion desc")
   List<Consulta> findAdministrativasRecientesByPacienteId(@Param("idPaciente") Integer idPaciente, Pageable pageable);
