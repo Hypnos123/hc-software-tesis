@@ -2,6 +2,7 @@ package com.krivi.apihistorialmedico.repository;
 
 import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.projection.ConsultaResumenRecienteProjection;
+import com.krivi.apihistorialmedico.model.projection.ConsultaFuncionesVitalesProjection;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.CrudRepository;
@@ -78,6 +79,22 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
          and upper(trim(c.estado)) = 'ATENDIDO'
       """)
   List<Object[]> resumirCalidadAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
+  @Query("""
+      select c.idConsulta as idConsulta,
+             c.fechaConsulta as fechaConsulta,
+             c.presionArterial as presionArterial,
+             c.frecuenciaCardiaca as frecuenciaCardiaca,
+             c.frecuenciaRespiratoria as frecuenciaRespiratoria,
+             c.talla as talla,
+             c.temperatura as temperatura,
+             c.peso as peso
+        from Consulta c
+       where c.paciente.idPaciente = :idPaciente
+         and upper(trim(c.estado)) = 'ATENDIDO'
+       order by c.fechaConsulta asc, c.idConsulta asc
+      """)
+  List<ConsultaFuncionesVitalesProjection> findFuncionesVitalesAtendidasByPacienteId(
+      @Param("idPaciente") Integer idPaciente);
   long countByFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(LocalDateTime inicio, LocalDateTime fin);
   @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by c.fechaCreacion desc")
   List<Consulta> findAdministrativasRecientesByPacienteId(@Param("idPaciente") Integer idPaciente, Pageable pageable);

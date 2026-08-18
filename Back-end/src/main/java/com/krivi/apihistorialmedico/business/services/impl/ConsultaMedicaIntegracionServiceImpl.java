@@ -49,15 +49,18 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
   private final HistoriaClinicaRepository historiaClinicaRepository;
   private final UsuarioRepository usuarioRepository;
   private final AntecedentesRepository antecedentesRepository;
+  private final FuncionesVitalesResumenCalculator funcionesVitalesCalculator;
 
   public ConsultaMedicaIntegracionServiceImpl(ConsultaRepository consultaRepository,
       PacienteRepository pacienteRepository, HistoriaClinicaRepository historiaClinicaRepository,
-      UsuarioRepository usuarioRepository, AntecedentesRepository antecedentesRepository) {
+      UsuarioRepository usuarioRepository, AntecedentesRepository antecedentesRepository,
+      FuncionesVitalesResumenCalculator funcionesVitalesCalculator) {
     this.consultaRepository = consultaRepository;
     this.pacienteRepository = pacienteRepository;
     this.historiaClinicaRepository = historiaClinicaRepository;
     this.usuarioRepository = usuarioRepository;
     this.antecedentesRepository = antecedentesRepository;
+    this.funcionesVitalesCalculator = funcionesVitalesCalculator;
   }
 
   @Override
@@ -90,6 +93,8 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
     ConsultaResumenRecienteProjection ultima = recientes.isEmpty() ? null : recientes.getFirst();
     Antecedentes antecedentes = antecedentesRepository.findByPacienteIdPaciente(idPaciente).stream().findFirst().orElse(null);
     Object[] calidad = primeraFila(consultaRepository.resumirCalidadAtendidasByPacienteId(idPaciente));
+    FuncionesVitalesResumenCalculator.ResultadoFuncionesVitales funcionesVitales = funcionesVitalesCalculator.calcular(
+        consultaRepository.findFuncionesVitalesAtendidasByPacienteId(idPaciente));
     return ResumenConsultasPacienteResponse.builder()
         .paciente(ResumenConsultasPacienteResponse.PacienteResumen.builder()
             .idPaciente(paciente.getIdPaciente()).nombreCompleto(nombreCompleto(paciente))
@@ -109,13 +114,13 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
                 java.sql.Date.valueOf(LocalDate.now(ZONA_HORARIA_LIMA)), PageRequest.of(0, 3))).build())
         .tiposEnfermedad(mapearTipos(consultaRepository.contarTiposAtendidosByPacienteId(idPaciente), totalAtendidas))
         .especialidades(mapearEspecialidades(consultaRepository.contarEspecialidadesAtendidasByPacienteId(idPaciente), totalAtendidas))
-        .funcionesVitales(ResumenConsultasPacienteResponse.FuncionesVitalesResumen.builder().build())
+        .funcionesVitales(funcionesVitales.funcionesVitales())
         .evaluacionesRecientes(recientes.stream().map(this::mapearEvaluacion).toList())
         .consultasRecientes(recientes.stream().map(this::mapearConsulta).toList())
         .calidadDatos(ResumenConsultasPacienteResponse.CalidadDatosResumen.builder()
             .consultasSinFecha(numero(calidad, 0)).consultasSinTipoEnfermedad(numero(calidad, 1))
             .consultasSinEspecialidad(numero(calidad, 2)).consultasConRelacionInconsistente(numero(calidad, 3))
-            .valoresVitalesDescartados(null).build())
+            .valoresVitalesDescartados(funcionesVitales.valoresDescartados()).build())
         .build();
   }
 

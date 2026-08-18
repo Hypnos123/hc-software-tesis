@@ -31,7 +31,8 @@ class ConsultaResumenRepositoryTest {
             org.springframework.data.domain.Pageable.class),
         ConsultaRepository.class.getMethod("findProximasCitasAtendidasByPacienteId", Integer.class,
             java.util.Date.class, org.springframework.data.domain.Pageable.class),
-        ConsultaRepository.class.getMethod("resumirCalidadAtendidasByPacienteId", Integer.class));
+        ConsultaRepository.class.getMethod("resumirCalidadAtendidasByPacienteId", Integer.class),
+        ConsultaRepository.class.getMethod("findFuncionesVitalesAtendidasByPacienteId", Integer.class));
 
     for (Method metodo : metodos) {
       String jpql = metodo.getAnnotation(Query.class).value().replaceAll("\\s+", " ").toLowerCase();
@@ -48,5 +49,17 @@ class ConsultaResumenRepositoryTest {
     assertTrue(jpql.contains("c.fechaconsulta as fechaconsulta"));
     assertTrue(jpql.contains("order by c.fechaconsulta desc, c.idconsulta desc"));
     assertFalse(jpql.contains("c.fechaatencion as"));
+  }
+
+  @Test void funcionesVitalesUsanUnaSolaProyeccionMinimaConOrdenClinico() throws Exception {
+    Method method = ConsultaRepository.class.getMethod("findFuncionesVitalesAtendidasByPacienteId", Integer.class);
+    String jpql = method.getAnnotation(Query.class).value().replaceAll("\\s+", " ").toLowerCase();
+
+    assertTrue(jpql.contains("c.idconsulta as idconsulta"));
+    assertTrue(jpql.contains("c.fechaconsulta as fechaconsulta"));
+    assertTrue(jpql.contains("c.presionarterial as presionarterial"));
+    assertTrue(jpql.contains("c.frecuenciarespiratoria as frecuenciarespiratoria"));
+    assertTrue(jpql.contains("order by c.fechaconsulta asc, c.idconsulta asc"));
+    assertFalse(jpql.contains("historiaclinica.idhistoriaclinica"));
   }
 }

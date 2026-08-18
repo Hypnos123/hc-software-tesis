@@ -11,6 +11,7 @@ import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.repository.UsuarioRepository;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.model.projection.ConsultaResumenRecienteProjection;
+import com.krivi.apihistorialmedico.model.projection.ConsultaFuncionesVitalesProjection;
 import com.krivi.apihistorialmedico.model.entity.Antecedentes;
 import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ class ResumenConsultasPacienteServiceTest {
   private HistoriaClinicaRepository historiaClinicaRepository;
   private UsuarioRepository usuarioRepository;
   private AntecedentesRepository antecedentesRepository;
+  private FuncionesVitalesResumenCalculator funcionesVitalesCalculator;
   private ConsultaMedicaIntegracionServiceImpl service;
 
   @BeforeEach void setUp() {
@@ -36,8 +38,9 @@ class ResumenConsultasPacienteServiceTest {
     historiaClinicaRepository = mock(HistoriaClinicaRepository.class);
     usuarioRepository = mock(UsuarioRepository.class);
     antecedentesRepository = mock(AntecedentesRepository.class);
+    funcionesVitalesCalculator = new FuncionesVitalesResumenCalculator();
     service = new ConsultaMedicaIntegracionServiceImpl(consultaRepository, pacienteRepository,
-        historiaClinicaRepository, usuarioRepository, antecedentesRepository);
+        historiaClinicaRepository, usuarioRepository, antecedentesRepository, funcionesVitalesCalculator);
   }
 
   @Test void administradorPuedeConsultarPacienteActivoConVariasHistorias() {
@@ -129,6 +132,10 @@ class ResumenConsultasPacienteServiceTest {
         java.util.Collections.singletonList(new Object[]{0L, 0L, 0L, 0L}));
     Antecedentes antecedentes = new Antecedentes(); antecedentes.setEnfermedadesPrevias("ASMA");
     when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of(antecedentes));
+    ConsultaFuncionesVitalesProjection vital = mock(ConsultaFuncionesVitalesProjection.class);
+    when(vital.getIdConsulta()).thenReturn(20); when(vital.getFechaConsulta()).thenReturn(ultimaFecha);
+    when(vital.getPresionArterial()).thenReturn("120");
+    when(consultaRepository.findFuncionesVitalesAtendidasByPacienteId(10)).thenReturn(List.of(vital));
 
     ResumenConsultasPacienteResponse resumen = service.obtenerResumenPaciente(10, 1);
 
@@ -141,7 +148,9 @@ class ResumenConsultasPacienteServiceTest {
     assertEquals(20, resumen.getConsultasRecientes().getFirst().getIdConsulta());
     assertEquals(ultimaFecha, resumen.getConsultasRecientes().getFirst().getFecha());
     assertEquals("Registro profesional", resumen.getEvaluacionesRecientes().getFirst().getDiagnostico());
-    assertNull(resumen.getFuncionesVitales().getPresionSistolica());
+    assertEquals(0L, resumen.getFuncionesVitales().getPresionSistolica().getCantidadRegistrosValidos());
+    assertEquals(1L, resumen.getFuncionesVitales().getPresionSistolica().getCantidadRegistrosDescartados());
+    assertEquals(1L, resumen.getCalidadDatos().getValoresVitalesDescartados());
     verify(consultaRepository).findRecientesAtendidasByPacienteId(eq(10), argThat(p -> p.getPageSize() == 3));
   }
 
