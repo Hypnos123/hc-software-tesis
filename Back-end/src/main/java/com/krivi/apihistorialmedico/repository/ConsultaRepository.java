@@ -1,6 +1,7 @@
 package com.krivi.apihistorialmedico.repository;
 
 import com.krivi.apihistorialmedico.model.entity.Consulta;
+import com.krivi.apihistorialmedico.model.projection.ConsultaResumenRecienteProjection;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.CrudRepository;
@@ -39,6 +40,44 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   long countByDoctorResponsableIdEmpleadoAndEstado(Integer idEmpleado, String estado);
   long countByPacienteIdPaciente(Integer idPaciente);
   long countByPacienteIdPacienteAndEstado(Integer idPaciente, String estado);
+  @Query("select count(c), min(c.fechaConsulta), max(c.fechaConsulta) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO'")
+  List<Object[]> resumirAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
+  @Query("select c.tipoEnfermedad.idTipoEnfermedad, c.tipoEnfermedad.descripcion, count(c) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO' and c.tipoEnfermedad is not null group by c.tipoEnfermedad.idTipoEnfermedad, c.tipoEnfermedad.descripcion order by count(c) desc, c.tipoEnfermedad.descripcion")
+  List<Object[]> contarTiposAtendidosByPacienteId(@Param("idPaciente") Integer idPaciente);
+  @Query("select c.especialidadRequerida, count(c) from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO' and c.especialidadRequerida is not null and trim(c.especialidadRequerida) <> '' group by c.especialidadRequerida order by count(c) desc, c.especialidadRequerida")
+  List<Object[]> contarEspecialidadesAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
+  @Query("""
+      select c.idConsulta as idConsulta,
+             c.historiaClinica.idHistoriaClinica as idHistoriaClinica,
+             c.fechaConsulta as fechaConsulta,
+             c.especialidadRequerida as especialidad,
+             concat(coalesce(c.doctorResponsable.nombres, ''), ' ', coalesce(c.doctorResponsable.apellidos, '')) as doctor,
+             c.relatoPaciente as relatoPaciente,
+             c.diagnostico as diagnostico,
+             c.examenesRecetados as examenesRecetados,
+             c.receta as receta,
+             c.tratamiento as tratamiento,
+             c.proximaCita as proximaCita
+        from Consulta c
+       where c.paciente.idPaciente = :idPaciente
+         and upper(trim(c.estado)) = 'ATENDIDO'
+       order by c.fechaConsulta desc, c.idConsulta desc
+      """)
+  List<ConsultaResumenRecienteProjection> findRecientesAtendidasByPacienteId(
+      @Param("idPaciente") Integer idPaciente, Pageable pageable);
+  @Query("select distinct c.proximaCita from Consulta c where c.paciente.idPaciente = :idPaciente and upper(trim(c.estado)) = 'ATENDIDO' and c.proximaCita >= :hoy order by c.proximaCita")
+  List<java.util.Date> findProximasCitasAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente,
+      @Param("hoy") java.util.Date hoy, Pageable pageable);
+  @Query("""
+      select sum(case when c.fechaAtencion is null and c.fechaConsulta is null and c.fechaCreacion is null then 1 else 0 end),
+             sum(case when c.tipoEnfermedad is null then 1 else 0 end),
+             sum(case when c.especialidadRequerida is null or trim(c.especialidadRequerida) = '' then 1 else 0 end),
+             sum(case when c.historiaClinica is null or c.historiaClinica.paciente.idPaciente <> c.paciente.idPaciente then 1 else 0 end)
+        from Consulta c
+       where c.paciente.idPaciente = :idPaciente
+         and upper(trim(c.estado)) = 'ATENDIDO'
+      """)
+  List<Object[]> resumirCalidadAtendidasByPacienteId(@Param("idPaciente") Integer idPaciente);
   long countByFechaAtencionGreaterThanEqualAndFechaAtencionLessThan(LocalDateTime inicio, LocalDateTime fin);
   @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by c.fechaCreacion desc")
   List<Consulta> findAdministrativasRecientesByPacienteId(@Param("idPaciente") Integer idPaciente, Pageable pageable);
