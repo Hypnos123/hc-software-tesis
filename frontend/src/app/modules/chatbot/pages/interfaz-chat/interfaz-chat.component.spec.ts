@@ -19,6 +19,7 @@ import { HistoriasClinicasFaltantesChatComponent } from '../../components/histor
 import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-clinica-duplicada-chat.service';
 import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clinica-duplicada-chat';
 import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestion-historias-duplicadas-chat/gestion-historias-duplicadas-chat.component';
+import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -38,6 +39,7 @@ describe('InterfazChatComponent', () => {
   let duplicadosService: jasmine.SpyObj<PacienteDuplicadoChatService>;
   let historiasDuplicadasService: jasmine.SpyObj<HistoriaClinicaDuplicadaChatService>;
   let authServiceMock: any;
+  let resumenConsultasService: jasmine.SpyObj<ResumenConsultasPacienteService>;
   const paciente = {
     idPaciente: 8, dni: DNI_PRUEBA, numDocumento: DNI_PRUEBA, nombres: 'NOMBRE PRUEBA',
     apellidos: 'APELLIDO UNO APELLIDO DOS', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
@@ -48,8 +50,9 @@ describe('InterfazChatComponent', () => {
     sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
-    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes', 'crearHistoriasClinicasFaltantes']);
+    historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'buscarPacientesPorNombre', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes', 'crearHistoriasClinicasFaltantes']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
+    historiaClinicaService.buscarPacientesPorNombre.and.returnValue(of([paciente]));
     historiaClinicaService.getByPaciente.and.returnValue(of([]));
     historiaClinicaService.getHistoriasClinicasFaltantes.and.returnValue(of({
       cantidad: 2,
@@ -76,6 +79,12 @@ describe('InterfazChatComponent', () => {
       sessionChanged$: sessionChangedSubject.asObservable(),
       usuario: { idUsuario: 7, cargo: 'ADMINISTRADOR' }
     };
+    resumenConsultasService = jasmine.createSpyObj<ResumenConsultasPacienteService>('ResumenConsultasPacienteService', ['obtener']);
+    resumenConsultasService.obtener.and.returnValue(of({
+      paciente: { idPaciente: 8, nombreCompleto: 'NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS', dni: DNI_PRUEBA, edad: 34, estado: 'ACTIVO', cantidadHistoriasClinicas: 1, idsHistoriasClinicas: [2] },
+      antecedentes: {}, resumenAtencion: { totalConsultasAtendidas: 1, proximasCitas: [] }, tiposEnfermedad: [], especialidades: [], funcionesVitales: {}, evaluacionesRecientes: [], consultasRecientes: [],
+      calidadDatos: { consultasSinFecha: 0, consultasSinTipoEnfermedad: 0, consultasSinEspecialidad: 0, valoresVitalesDescartados: 0, consultasConRelacionInconsistente: 0 }
+    }));
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -89,6 +98,7 @@ describe('InterfazChatComponent', () => {
         { provide: HistoriaClinicaDuplicadaChatService, useValue: historiasDuplicadasService },
         { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
         { provide: AuthService, useValue: authServiceMock }
+        ,{ provide: ResumenConsultasPacienteService, useValue: resumenConsultasService }
       ]
     }).compileComponents();
 
@@ -2127,4 +2137,42 @@ describe('InterfazChatComponent', () => {
     expect(component.historiasFaltantesComponents.last.state).not.toBe(estadoAnterior);
     expect(historiaClinicaService.crearHistoriasClinicasFaltantes).toHaveBeenCalledTimes(1);
   }));
+
+  it('muestra el resumen guiado a administrador y realiza una sola petición al endpoint', fakeAsync(() => {
+    const opcion = (component as any).createMenuOptions('asistencia-consultas')
+      .find((item: any) => item.action === 'patient-consultation-summary-flow');
+    expect(opcion.label).toBe('Resumen de consultas del paciente');
+    const seleccion = (component as any).addUserMessage(opcion.label);
+    (component as any).executeMenuOption(opcion, seleccion.id);
+    tick(10_000);
+
+    component.userMessage = DNI_PRUEBA;
+    component.sendMessage();
+    tick(5_000);
+    expect(component.resumenConsultasState?.vista).toBe('confirmation');
+
+    component.generarResumenConsultas();
+    expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(8);
+    expect(component.messages.some(mensaje => mensaje.summaryView === 'loading')).toBeTrue();
+    tick(5_000);
+    fixture.detectChanges();
+
+    expect(resumenConsultasService.obtener).toHaveBeenCalledTimes(1);
+    expect(component.messages.some(mensaje => mensaje.summaryView === 'summary')).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Resumen del paciente');
+    expect((component as any).interactionScrollAnchorId).toBeDefined();
+    tick(20_000);
+  }));
+
+  it('oculta la opción de resumen al personal de enfermería', () => {
+    authServiceMock.usuario = { idUsuario: 9, tipoUsuario: 'ENFERMERO', cargo: 'ENFERMERO' };
+    const opciones = (component as any).createMenuOptions('asistencia-consultas');
+    expect(opciones.some((item: any) => item.action === 'patient-consultation-summary-flow')).toBeFalse();
+  });
+
+  it('muestra la opción de resumen al doctor', () => {
+    authServiceMock.usuario = { idUsuario: 10, tipoUsuario: 'DOCTOR', cargo: 'DOCTOR' };
+    const opciones = (component as any).createMenuOptions('asistencia-consultas');
+    expect(opciones.some((item: any) => item.action === 'patient-consultation-summary-flow')).toBeTrue();
+  });
 });
