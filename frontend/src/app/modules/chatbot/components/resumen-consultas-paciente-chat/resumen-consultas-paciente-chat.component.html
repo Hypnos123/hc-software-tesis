@@ -1,0 +1,67 @@
+<section class="summary-flow" [ngSwitch]="state.vista">
+  <div *ngSwitchCase="'prompt'" class="prompt-card">
+    <i class="pi pi-search"></i><p>Escribe el DNI o nombre completo en el campo de mensaje.</p>
+    <button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button>
+  </div>
+
+  <div *ngSwitchCase="'searching'" class="status-card"><span class="spinner"></span><strong>Buscando paciente…</strong></div>
+
+  <div *ngSwitchCase="'multiple'" class="candidate-list">
+    <strong>Selecciona el registro correcto</strong>
+    <button *ngFor="let candidato of state.candidatos" type="button" (click)="seleccionar.emit(candidato.idPaciente)" [disabled]="!active">
+      <span>{{ candidato.nombreCompleto }}</span><small>ID {{ candidato.idPaciente }} · DNI {{ candidato.dni || 'No registrado' }}</small>
+    </button>
+    <button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button>
+  </div>
+
+  <div *ngSwitchCase="'confirmation'" class="patient-card">
+    <div class="section-title"><i class="pi pi-user"></i><strong>Paciente encontrado</strong></div>
+    <dl><dt>ID paciente</dt><dd>{{ state.paciente?.idPaciente }}</dd><dt>Nombre</dt><dd>{{ state.paciente?.nombreCompleto }}</dd>
+      <dt>DNI</dt><dd>{{ state.paciente?.dni || 'No registrado' }}</dd><dt>Edad</dt><dd>{{ state.paciente?.edad ?? 'No registrada' }}</dd>
+      <dt>Estado</dt><dd>{{ state.paciente?.estado }}</dd><dt>Historias clínicas</dt><dd>{{ state.paciente?.cantidadHistoriasClinicas ?? 'Por confirmar' }}</dd></dl>
+    <div class="actions"><button type="button" class="primary" (click)="generar.emit()" [disabled]="!active"><i class="pi pi-chart-line"></i> Generar resumen</button>
+      <button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button></div>
+  </div>
+
+  <div *ngSwitchCase="'loading'" class="analysis-card"><span class="spinner large"></span><strong>Analizando historial del paciente…</strong><small>Revisando consultas atendidas, antecedentes y evolución registrada.</small></div>
+
+  <ng-container *ngSwitchCase="'summary'">
+  <article class="summary-card" *ngIf="state.resumen as resumen">
+    <section class="summary-section"><div class="section-title"><i class="pi pi-user"></i><strong>Resumen del paciente</strong></div>
+      <h3>{{ resumen.paciente.nombreCompleto }}</h3><p class="muted">DNI {{ resumen.paciente.dni || 'No registrado' }}</p>
+      <div class="metric-grid"><div><span>Edad</span><b>{{ resumen.paciente.edad ?? '—' }}</b></div><div><span>Historias</span><b>{{ resumen.paciente.cantidadHistoriasClinicas }}</b></div><div><span>Atendidas</span><b>{{ resumen.resumenAtencion.totalConsultasAtendidas }}</b></div></div>
+      <dl><dt>Primera atención</dt><dd>{{ resumen.resumenAtencion.fechaPrimeraConsulta | date:'dd/MM/yyyy' }}</dd><dt>Última atención</dt><dd>{{ resumen.resumenAtencion.fechaUltimaConsulta | date:'dd/MM/yyyy' }}</dd><dt>Última especialidad</dt><dd>{{ dato(resumen.resumenAtencion.ultimaEspecialidad) }}</dd><dt>Último doctor</dt><dd>{{ dato(resumen.resumenAtencion.ultimoDoctor) }}</dd></dl>
+    </section>
+
+    <section class="summary-section"><div class="section-title"><i class="pi pi-heart"></i><strong>Antecedentes registrados</strong></div>
+      <dl><dt>Enfermedades previas</dt><dd>{{ dato(resumen.antecedentes.enfermedadesPrevias) }}</dd><dt>Cirugías previas</dt><dd>{{ dato(resumen.antecedentes.cirugiasPrevias) }}</dd><dt>Alergias a medicamentos</dt><dd>{{ dato(resumen.antecedentes.alergiaMedicamentos) }}</dd></dl>
+    </section>
+
+    <section class="summary-section"><div class="section-title"><i class="pi pi-chart-bar"></i><strong>Historial de atenciones</strong></div>
+      <h4>Tipos de enfermedad</h4><p *ngIf="!resumen.tiposEnfermedad.length" class="muted">Sin datos registrados</p>
+      <div *ngFor="let item of resumen.tiposEnfermedad" class="progress-item"><div><span>{{ item.nombre }}</span><b>{{ item.cantidad }} · {{ item.porcentaje }}%</b></div><span class="progress"><i [style.width.%]="item.porcentaje"></i></span></div>
+      <h4>Especialidades más frecuentes</h4><p *ngIf="!resumen.especialidades.length" class="muted">Sin datos registrados</p>
+      <div *ngFor="let item of resumen.especialidades" class="progress-item"><div><span>{{ item.nombre }}</span><b>{{ item.cantidad }} · {{ item.porcentaje }}%</b></div><span class="progress"><i [style.width.%]="item.porcentaje"></i></span></div>
+    </section>
+
+    <section class="summary-section"><div class="section-title"><i class="pi pi-wave-pulse"></i><strong>Funciones vitales</strong></div>
+      <div class="vital-grid"><div *ngFor="let item of vitales" class="vital-card" [title]="'Válidos: ' + (vital(item[0])?.cantidadRegistrosValidos ?? 0) + ' · Descartados: ' + (vital(item[0])?.cantidadRegistrosDescartados ?? 0)">
+        <strong>{{ item[1] }}</strong><ng-container *ngIf="(vital(item[0])?.cantidadRegistrosValidos ?? 0) > 0; else sinVital">
+          <b>{{ valor(vital(item[0])?.ultimoValor, vital(item[0])?.unidad) }}</b><small>Prom. {{ valor(vital(item[0])?.promedio) }} · Min. {{ valor(vital(item[0])?.minimo) }} · Máx. {{ valor(vital(item[0])?.maximo) }}</small>
+          <span class="trend"><i [class]="iconoTendencia(vital(item[0])?.tendencia)"></i> {{ etiquetaTendencia(vital(item[0])?.tendencia) }}</span></ng-container>
+        <ng-template #sinVital><span class="no-data">Sin datos válidos suficientes</span></ng-template></div></div>
+    </section>
+
+    <section class="summary-section"><div class="section-title"><i class="pi pi-file"></i><strong>Consultas y evaluaciones recientes</strong></div>
+      <p *ngIf="!resumen.consultasRecientes.length" class="muted">Sin consultas atendidas.</p>
+      <div *ngFor="let consulta of resumen.consultasRecientes" class="accordion"><button type="button" (click)="toggleConsulta(consulta)"><span>Consulta del {{ consulta.fecha | date:'dd/MM/yyyy' }} — {{ dato(consulta.especialidad) }}</span><i [class]="consultaExpandida === consulta.idConsulta ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i></button>
+        <dl *ngIf="consultaExpandida === consulta.idConsulta"><dt>Doctor</dt><dd>{{ dato(consulta.doctor) }}</dd><dt>Relato</dt><dd>{{ dato(consulta.relatoPaciente) }}</dd><dt>Diagnóstico</dt><dd>{{ dato(consulta.diagnostico) }}</dd><dt>Tratamiento</dt><dd>{{ dato(consulta.tratamiento) }}</dd>
+          <ng-container *ngIf="resumen.evaluacionesRecientes | slice:0:3 as evaluaciones"><ng-container *ngFor="let evaluacion of evaluaciones"><ng-container *ngIf="evaluacion.idConsulta === consulta.idConsulta"><dt>Exámenes</dt><dd>{{ dato(evaluacion.examenesRecetados) }}</dd><dt>Receta</dt><dd>{{ dato(evaluacion.receta) }}</dd><dt>Próxima cita</dt><dd>{{ evaluacion.proximaCita ? (evaluacion.proximaCita | date:'dd/MM/yyyy') : 'No registrada' }}</dd></ng-container></ng-container></ng-container></dl></div>
+    </section>
+
+    <aside *ngIf="calidadVisible()" class="quality-note"><i class="pi pi-info-circle"></i><span><ng-container *ngIf="resumen.calidadDatos.valoresVitalesDescartados > 0">Algunos valores históricos no pudieron incluirse en las estadísticas por tener un formato no válido. </ng-container><ng-container *ngIf="resumen.calidadDatos.consultasConRelacionInconsistente > 0 || resumen.calidadDatos.consultasSinFecha > 0">Se detectaron registros históricos incompletos que conviene revisar.</ng-container></span></aside>
+  </article>
+  </ng-container>
+
+  <div *ngSwitchCase="'error'" class="error-card"><i class="pi pi-info-circle"></i><p>{{ state.mensajeError }}</p><div class="actions"><button type="button" class="primary" (click)="buscarOtro.emit()" [disabled]="!active">Buscar nuevamente</button><button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button></div></div>
+</section>
