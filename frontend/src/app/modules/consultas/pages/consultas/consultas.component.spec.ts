@@ -18,7 +18,7 @@ describe('ConsultasComponent historial previo', () => {
     consultaService = jasmine.createSpyObj('ConsultaService', ['getAllActivos', 'getCantidadAtendidasPaciente']);
     consultaService.getAllActivos.and.returnValue(of([]));
     router = jasmine.createSpyObj('Router', ['navigate']);
-    chatbotNavigation = jasmine.createSpyObj('ChatbotNavigationService', ['orientarAResumenConsultas']);
+    chatbotNavigation = jasmine.createSpyObj('ChatbotNavigationService', ['abrirResumenConsultas']);
     await TestBed.configureTestingModule({ imports: [ConsultasComponent], providers: [
       { provide: ConsultaService, useValue: consultaService }, { provide: Router, useValue: router },
       { provide: ChatbotNavigationService, useValue: chatbotNavigation },
@@ -59,7 +59,9 @@ describe('ConsultasComponent historial previo', () => {
   it('continúa, abre la orientación del chatbot o cancela sin cambiar datos', () => {
     component.consultaSeleccionada = row; component.cantidadConsultasAtendidas = 2; component.mostrarConfirmacionAtencion = true;
     component.verResumenAsistente();
-    expect(chatbotNavigation.orientarAResumenConsultas).toHaveBeenCalledTimes(1);
+    expect(chatbotNavigation.abrirResumenConsultas).toHaveBeenCalledOnceWith({
+      idPaciente: 6, nombreCompleto: 'Ana Paz', dni: undefined, cantidadConsultasAtendidas: 2
+    });
     expect(router.navigate).not.toHaveBeenCalled();
     component.mostrarConfirmacionAtencion = true; component.cancelarAtencion(); expect(component.mostrarConfirmacionAtencion).toBeFalse();
     component.consultaSeleccionada = row; component.mostrarConfirmacionAtencion = true; component.continuarAtencion();

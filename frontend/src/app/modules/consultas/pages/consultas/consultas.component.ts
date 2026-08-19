@@ -51,7 +51,17 @@ export class ConsultasComponent implements OnInit {
   }
   cancelarAtencion() { this.mostrarConfirmacionAtencion = false; this.consultaSeleccionada = null; }
   continuarAtencion() { if (!this.consultaSeleccionada) return; const id = this.consultaSeleccionada.id; this.mostrarConfirmacionAtencion = false; this.router.navigate(['consultas/lista-consultas/detalle', id], { queryParams: { modo: 'atender' } }); }
-  verResumenAsistente() { this.mostrarConfirmacionAtencion = false; this.chatbotNavigation.orientarAResumenConsultas(); }
+  verResumenAsistente() {
+    if (!this.consultaSeleccionada?.idPaciente) return;
+    const { idPaciente, paciente, dni } = this.consultaSeleccionada;
+    this.mostrarConfirmacionAtencion = false;
+    this.chatbotNavigation.abrirResumenConsultas({
+      idPaciente,
+      nombreCompleto: [paciente.nombres, paciente.apellidos].filter(Boolean).join(' '),
+      dni,
+      cantidadConsultasAtendidas: this.cantidadConsultasAtendidas
+    });
+  }
   private puedeConsultarResumen(): boolean { const tipo = this.normalizarRol(this.authService.usuario?.tipoUsuario); const cargo = this.normalizarRol(this.authService.usuario?.cargo); return tipo === 'ADMINISTRADOR' || tipo === 'DOCTOR' || cargo === 'ADMINISTRADOR' || cargo === 'DOCTOR'; }
   private normalizarRol(rol?: string): string { return (rol ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 }

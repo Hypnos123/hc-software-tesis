@@ -28,7 +28,7 @@ import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestio
 import { ResumenConsultasPacienteChatComponent } from '../../components/resumen-consultas-paciente-chat/resumen-consultas-paciente-chat.component';
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 import { crearResumenConsultasState, ResumenConsultasChatState, ResumenPacienteCandidato, ResumenConsultasVista } from '../../models/resumen-consultas-paciente';
-import { ChatbotNavigationService } from '../../services/chatbot-navigation.service';
+import { ChatbotNavigationService, ResumenConsultasContexto } from '../../services/chatbot-navigation.service';
 import {
   crearGestionDuplicadosState,
   GestionDuplicadosChatState,
@@ -194,6 +194,7 @@ export class InterfazChatComponent implements OnDestroy {
   private resumenConsultasRequest?: Subscription;
   private resumenPacienteRequest?: Subscription;
   private chatbotNavigationSubscription: Subscription;
+  private resumenContextualActivo = false;
   private missingHistoriesSearchTimer?: ReturnType<typeof setTimeout>;
   private missingHistoriesSearchReady = false;
   private missingHistoriesSearchState?: HistoriasClinicasFaltantesChatState;
@@ -265,13 +266,13 @@ export class InterfazChatComponent implements OnDestroy {
     this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true));
     this.sessionChangedSubscription = this.authService.sessionChanged$.subscribe(autenticado => this.handleSessionChange(autenticado));
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
-    this.chatbotNavigationSubscription = this.chatbotNavigation.resumenConsultas$.subscribe(() => this.orientarAResumenConsultas());
+    this.chatbotNavigationSubscription = this.chatbotNavigation.resumenConsultas$.subscribe(contexto => this.abrirResumenContextual(contexto));
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
   ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.resumenPacienteRequest?.unsubscribe(); this.resumenConsultasRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); this.chatbotNavigationSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
-  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.cancelarHistoriasDuplicadasSilenciosamente(); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
+  minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.cancelarHistoriasDuplicadasSilenciosamente(); if (this.resumenContextualActivo) this.limpiarResumenContextual(); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
   closeChat(): void {
     this.importacionComponents?.forEach(component => component.limpiarFlujo());
     this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo());
@@ -489,9 +490,14 @@ export class InterfazChatComponent implements OnDestroy {
     if (!state?.paciente || this.isLoading) return;
     this.messages.forEach(message => { if (message.type === 'patient-consultation-summary') message.summaryActive = false; });
     const action = this.addUserMessage('Generar resumen');
+    this.ejecutarResumenConsultas(state, action.id);
+  }
+
+  private ejecutarResumenConsultas(state: ResumenConsultasChatState, interactionId: string): void {
+    if (!state.paciente || this.resumenConsultasRequest) return;
     state.vista = 'loading'; state.accionesHabilitadas = false;
     this.addSummaryBlock(state, 'loading', false);
-    this.pinInteractionStart(action.id);
+    this.pinInteractionStart(interactionId);
     this.isLoading = true;
     this.resumenConsultasRequest = forkJoin({
       resumen: this.resumenConsultasService.obtener(state.paciente.idPaciente),
@@ -505,6 +511,7 @@ export class InterfazChatComponent implements OnDestroy {
         }
         state.resumen = resumen; state.vista = 'summary';
         this.addSummaryBlock(state, 'summary', false);
+        this.resumenContextualActivo = false;
         const cierre = this.addBotMessage('Este resumen reúne la información registrada en las consultas atendidas del paciente. Puedes utilizarlo como apoyo para revisar rápidamente sus antecedentes y evolución antes de continuar con la atención.');
         this.runAfterPresentation(cierre, () => {
           const ayuda = this.addBotMessage('¿Necesitas ayuda con algo más?');
@@ -521,6 +528,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.isLoading = false;
     this.messages.forEach(message => { if (message.type === 'patient-consultation-summary') message.summaryActive = false; });
     this.resumenConsultasState = undefined;
+    this.resumenContextualActivo = false;
     const mensaje = this.addBotMessage('La consulta del resumen histórico fue cancelada.');
     this.runAfterPresentation(mensaje, () => this.addMenuBlock('asistencia-consultas'));
   }
@@ -914,7 +922,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.resumenContextualActivo = false; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void {
     const message = this.messages[this.messages.length - 1];
     if (message?.text !== 'Escribiendo...') return;
@@ -1081,12 +1089,39 @@ export class InterfazChatComponent implements OnDestroy {
     this.pinInteractionStart(selectionId);
   }
 
-  private orientarAResumenConsultas(): void {
+  private abrirResumenContextual(contexto: ResumenConsultasContexto): void {
     if (!this.autenticado || !this.puedeUsarResumenConsultas()) return;
+    if (!Number.isInteger(contexto.idPaciente) || contexto.idPaciente <= 0) return;
+    this.limpiarResumenContextual();
     this.openChat();
-    const orientacion = this.addBotMessage('Puedes revisar el historial desde Asistencia guiada → Consultas → Resumen de consultas del paciente. En esta etapa deberás buscar al paciente por DNI o nombre.');
-    this.runAfterPresentation(orientacion, () => this.addMenuBlock('asistencia-consultas', true));
+    const state = crearResumenConsultasState();
+    state.paciente = {
+      idPaciente: contexto.idPaciente,
+      nombreCompleto: contexto.nombreCompleto ?? `Paciente ID ${contexto.idPaciente}`,
+      dni: contexto.dni ?? '',
+      estado: 'ACTIVO'
+    };
+    state.accionesHabilitadas = false;
+    this.resumenConsultasState = state;
+    this.resumenContextualActivo = true;
+    const orientacion = this.addBotMessage('Prepararé el resumen del historial de este paciente para que puedas revisarlo antes de continuar con la atención.');
+    this.runAfterPresentation(orientacion, () => {
+      if (!this.resumenContextualActivo || this.resumenConsultasState !== state) return;
+      this.ejecutarResumenConsultas(state, orientacion.id);
+    });
     this.pinInteractionStart(orientacion.id);
+  }
+
+  private limpiarResumenContextual(): void {
+    if (!this.resumenContextualActivo) return;
+    this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined;
+    this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined;
+    this.removeSummaryTemporary('loading');
+    this.messages.forEach(message => { if (message.type === 'patient-consultation-summary') message.summaryActive = false; });
+    this.resumenConsultasState = undefined;
+    this.resumenContextualActivo = false;
+    this.isLoading = false;
+    this.resetPresentationCoordinator();
   }
 
   private buscarPacienteParaResumen(criterio: string, messageId: string): void {

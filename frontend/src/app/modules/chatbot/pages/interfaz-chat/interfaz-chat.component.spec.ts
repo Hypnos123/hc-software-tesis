@@ -2177,13 +2177,53 @@ describe('InterfazChatComponent', () => {
     expect(opciones.some((item: any) => item.action === 'patient-consultation-summary-flow')).toBeTrue();
   });
 
-  it('abre el chatbot y orienta al menú de resumen sin transferir paciente', fakeAsync(() => {
+  it('abre directamente el resumen contextual por idPaciente con una sola petición', fakeAsync(() => {
     const navigation = TestBed.inject(ChatbotNavigationService);
-    navigation.orientarAResumenConsultas();
+    navigation.abrirResumenConsultas({ idPaciente: 8, nombreCompleto: 'NOMBRE PRUEBA', dni: DNI_PRUEBA, cantidadConsultasAtendidas: 2 });
     expect(component.isOpen).toBeTrue();
-    expect(component.messages.some(mensaje => mensaje.text?.includes('Asistencia guiada → Consultas'))).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text?.includes('Prepararé el resumen'))).toBeTrue();
     expect(resumenConsultasService.obtener).not.toHaveBeenCalled();
     tick(10_000);
-    expect(component.messages.some(mensaje => mensaje.menuId === 'asistencia-consultas')).toBeTrue();
+    expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(8);
+    expect(historiaClinicaService.buscarPacientesPorDni).not.toHaveBeenCalled();
+    expect(historiaClinicaService.buscarPacientesPorNombre).not.toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.summaryView === 'summary')).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text?.includes('Ingresa el DNI'))).toBeFalse();
+    tick(20_000);
+  }));
+
+  it('cancela el contexto pendiente al cerrar y no lo reutiliza al abrir normalmente', fakeAsync(() => {
+    const respuesta = new Subject<any>();
+    resumenConsultasService.obtener.and.returnValue(respuesta);
+    const navigation = TestBed.inject(ChatbotNavigationService);
+    navigation.abrirResumenConsultas({ idPaciente: 23, dni: DNI_PRUEBA });
+    tick(10_000);
+    expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(23);
+    component.minimizeChat();
+    expect(component.resumenConsultasState).toBeUndefined();
+    component.openChat();
+    tick(5_000);
+    expect(resumenConsultasService.obtener).toHaveBeenCalledTimes(1);
+  }));
+
+  it('muestra el error existente y permite reintentar el resumen contextual', fakeAsync(() => {
+    resumenConsultasService.obtener.and.returnValue(throwError(() => ({ status: 500 })));
+    const navigation = TestBed.inject(ChatbotNavigationService);
+    navigation.abrirResumenConsultas({ idPaciente: 31, dni: DNI_PRUEBA });
+    tick(10_000);
+    expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(31);
+    expect(component.resumenConsultasState?.vista).toBe('error');
+    expect(component.resumenConsultasState?.mensajeError).toContain('No se pudo generar');
+
+    resumenConsultasService.obtener.and.returnValue(of({
+      paciente: { idPaciente: 31, nombreCompleto: 'PACIENTE CONTEXTUAL', dni: DNI_PRUEBA, estado: 'ACTIVO', cantidadHistoriasClinicas: 1, idsHistoriasClinicas: [4] },
+      antecedentes: {}, resumenAtencion: { totalConsultasAtendidas: 1, proximasCitas: [] }, tiposEnfermedad: [], especialidades: [], funcionesVitales: {}, evaluacionesRecientes: [], consultasRecientes: [],
+      calidadDatos: { consultasSinFecha: 0, consultasSinTipoEnfermedad: 0, consultasSinEspecialidad: 0, valoresVitalesDescartados: 0, consultasConRelacionInconsistente: 0 }
+    }));
+    component.generarResumenConsultas();
+    tick(5_000);
+    expect(resumenConsultasService.obtener).toHaveBeenCalledTimes(2);
+    expect(component.messages.some(mensaje => mensaje.summaryView === 'summary')).toBeTrue();
+    tick(20_000);
   }));
 });
