@@ -35,6 +35,11 @@
       <div #conversationBlock *ngIf="message.type === 'clinical-history-duplicate-management' && message.historiasDuplicadas" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message duplicate-histories-message-block">
         <app-gestion-historias-duplicadas-chat [state]="message.historiasDuplicadas" [view]="message.duplicateHistoriesView!" [active]="!!message.duplicateHistoriesActive" (mensajeConversacional)="manejarMensajeHistoriasDuplicadas(message.historiasDuplicadas, $event)"></app-gestion-historias-duplicadas-chat>
       </div>
+      <div #conversationBlock *ngIf="message.type === 'patient-consultation-summary' && message.resumenConsultas" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message consultation-summary-message-block">
+        <app-resumen-consultas-paciente-chat [state]="message.resumenConsultas" [active]="!!message.summaryActive"
+          (seleccionar)="seleccionarPacienteResumen($event)" (generar)="generarResumenConsultas()"
+          (cancelar)="cancelarResumenConsultas()" (buscarOtro)="buscarOtroPacienteResumen()"></app-resumen-consultas-paciente-chat>
+      </div>
     </ng-container>
     <div *ngIf="asistenteEscribiendo" class="assistant-typing-indicator" role="status" aria-live="polite">Asistente escribiendo…</div>
   </div>
@@ -49,7 +54,7 @@
   </div>
 
   <div *ngIf="autenticado" class="chatbot-footer">
-    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva" />
-    <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || !userMessage.trim()">Enviar</button>
+    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista))" />
+    <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista)) || !userMessage.trim()">Enviar</button>
   </div>
 </div>
