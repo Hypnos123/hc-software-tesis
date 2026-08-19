@@ -22,7 +22,6 @@ interface ConsultaRow { id: number; idPaciente?: number; paciente: { apellidos: 
 export class ConsultasComponent implements OnInit {
   mostrarConfirmacionAtencion = false;
   consultaSeleccionada: ConsultaRow | null = null;
-  mostrarHistorialPrevio = false;
   cantidadConsultasAtendidas = 0;
   errorConsultaHistorial = false;
   rows: ConsultaRow[] = [];
@@ -41,21 +40,18 @@ export class ConsultasComponent implements OnInit {
   getSeverity(estado: ConsultaRow['estado']) { return estado === 'Por atender' ? 'warning' : 'success'; }
   onFilterEstado(dt: any) { this.estadoSeleccionado ? dt.filter(this.estadoSeleccionado, 'estado', 'equals') : dt.clear(); }
   ver(row: ConsultaRow) { this.router.navigate(['consultas/lista-consultas/detalle', row.id], { queryParams: { modo: 'ver' } }); }
-  abrirConfirmacionAtencion(row: ConsultaRow) { this.consultaSeleccionada = row; this.mostrarConfirmacionAtencion = true; }
-  confirmarAtencion() {
-    if (!this.consultaSeleccionada) return;
-    this.mostrarConfirmacionAtencion = false;
-    if (!this.puedeConsultarResumen() || !this.consultaSeleccionada.idPaciente) { this.continuarAtencion(); return; }
+  abrirConfirmacionAtencion(row: ConsultaRow) {
+    this.consultaSeleccionada = row;
     this.cantidadConsultasAtendidas = 0; this.errorConsultaHistorial = false;
-    this.consultaService.getCantidadAtendidasPaciente(this.consultaSeleccionada.idPaciente).subscribe({
-      next: cantidad => { if (cantidad > 0) { this.cantidadConsultasAtendidas = cantidad; this.mostrarHistorialPrevio = true; } else this.continuarAtencion(); },
-      error: () => { this.errorConsultaHistorial = true; this.mostrarHistorialPrevio = true; }
+    if (!this.puedeConsultarResumen() || !row.idPaciente) { this.mostrarConfirmacionAtencion = true; return; }
+    this.consultaService.getCantidadAtendidasPaciente(row.idPaciente).subscribe({
+      next: cantidad => { this.cantidadConsultasAtendidas = cantidad; this.mostrarConfirmacionAtencion = true; },
+      error: () => { this.errorConsultaHistorial = true; this.mostrarConfirmacionAtencion = true; }
     });
   }
   cancelarAtencion() { this.mostrarConfirmacionAtencion = false; this.consultaSeleccionada = null; }
-  continuarAtencion() { if (!this.consultaSeleccionada) return; const id = this.consultaSeleccionada.id; this.mostrarHistorialPrevio = false; this.router.navigate(['consultas/lista-consultas/detalle', id], { queryParams: { modo: 'atender' } }); }
-  verResumenAsistente() { this.mostrarHistorialPrevio = false; this.chatbotNavigation.orientarAResumenConsultas(); }
-  cancelarHistorial() { this.mostrarHistorialPrevio = false; }
+  continuarAtencion() { if (!this.consultaSeleccionada) return; const id = this.consultaSeleccionada.id; this.mostrarConfirmacionAtencion = false; this.router.navigate(['consultas/lista-consultas/detalle', id], { queryParams: { modo: 'atender' } }); }
+  verResumenAsistente() { this.mostrarConfirmacionAtencion = false; this.chatbotNavigation.orientarAResumenConsultas(); }
   private puedeConsultarResumen(): boolean { const tipo = this.normalizarRol(this.authService.usuario?.tipoUsuario); const cargo = this.normalizarRol(this.authService.usuario?.cargo); return tipo === 'ADMINISTRADOR' || tipo === 'DOCTOR' || cargo === 'ADMINISTRADOR' || cargo === 'DOCTOR'; }
   private normalizarRol(rol?: string): string { return (rol ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 }

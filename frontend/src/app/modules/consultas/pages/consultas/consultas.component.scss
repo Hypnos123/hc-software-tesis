@@ -55,23 +55,26 @@
 
 .confirm-body {
   text-align: center;
-  padding: 10px 0;
-
-  .icon {
-    font-size: 3rem;
-    color: #2196f3;
-    margin-bottom: 10px;
-  }
-
-  p {
-    font-size: 16px;
-    margin: 10px 0 0;
-  }
+  padding: 4px 6px 2px;
 }
 
-.history-body { text-align: center; padding: 10px 4px; color: #334155; }
-.history-body .icon { display: block; margin-bottom: 8px; color: #2563eb; font-size: 2.6rem; }
+.confirm-question { margin: 4px auto 18px; max-width: 360px; color: #1f2937; font-size: 1.08rem; line-height: 1.45; }
+.confirm-divider { width: 100%; height: 3px; margin-bottom: 20px; border-radius: 999px; background: #42a5f5; }
+.history-summary { color: #334155; }
+.history-indicator { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.history-indicator .pi { color: #1687e8; font-size: 2.2rem; }
 .history-count { display: inline-flex; min-width: 42px; height: 42px; align-items: center; justify-content: center; border-radius: 50%; background: #eff6ff; color: #1d4ed8; font-size: 1.25rem; }
-.history-body p { margin: 10px auto 0; line-height: 1.45; }
+.history-summary p { margin: 12px auto 0; line-height: 1.45; }
 .history-help { color: #64748b; font-size: .9rem; }
-@media (max-width: 480px) { :host ::ng-deep .p-dialog-footer { display: grid; gap: 8px; } :host ::ng-deep .p-dialog-footer button { width: 100%; margin: 0; } }
+.summary-action { width: 100%; justify-content: center; margin-top: 18px; }
+.history-note { display: flex; align-items: flex-start; justify-content: center; gap: 7px; margin: 0; color: #64748b; font-size: .86rem; line-height: 1.4; }
+.history-note .pi { margin-top: 2px; color: #3b82f6; }
+.confirm-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .72fr); gap: 10px; width: 100%; }
+.confirm-actions button { justify-content: center; margin: 0; }
+
+:host ::ng-deep .attention-confirm-dialog .p-dialog-footer { padding-top: 12px; }
+
+@media (max-width: 480px) {
+  .confirm-actions { grid-template-columns: 1fr; }
+  .confirm-actions button, .summary-action { width: 100%; }
+}
