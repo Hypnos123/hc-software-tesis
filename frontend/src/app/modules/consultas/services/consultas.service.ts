@@ -26,6 +26,12 @@ export class ConsultaService {
     return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}consulta/finalizar-atencion/${id}`, header, { headers: this.authHeaders() });
   }
 
+  getCantidadAtendidasPaciente(idPaciente: number): Observable<number> {
+    return this.httpClient.get<{ pacientes?: Array<{ idPaciente: number; consultasAtendidas?: number }> }>(
+      `${this.URLServicio}api/consultas-medicas/buscar`, { params: { criterio: String(idPaciente) } })
+      .pipe(map(response => response.pacientes?.find(paciente => paciente.idPaciente === idPaciente)?.consultasAtendidas ?? 0));
+  }
+
   private authHeaders(): HttpHeaders {
     const idUsuario = this.authService.usuario?.idUsuario;
     return idUsuario ? new HttpHeaders({ 'X-Usuario-Id': String(idUsuario) }) : new HttpHeaders();

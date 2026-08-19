@@ -142,4 +142,28 @@
   </ng-template>
 </p-dialog>
 
+<p-dialog
+  header="Historial previo disponible"
+  [(visible)]="mostrarHistorialPrevio"
+  [modal]="true"
+  [closable]="false"
+  [style]="{width: '430px', maxWidth: 'calc(100vw - 32px)'}">
+  <div class="history-body">
+    <i class="pi pi-history icon"></i>
+    <ng-container *ngIf="!errorConsultaHistorial; else historialNoDisponible">
+      <strong class="history-count">{{ cantidadConsultasAtendidas }}</strong>
+      <p>Este paciente cuenta con {{ cantidadConsultasAtendidas }} {{ cantidadConsultasAtendidas === 1 ? 'consulta atendida anteriormente' : 'consultas atendidas anteriormente' }}.</p>
+      <p class="history-help">El Asistente IA puede generar un resumen de su historial para ayudarte a revisarlo antes de continuar.</p>
+    </ng-container>
+    <ng-template #historialNoDisponible>
+      <p>No fue posible consultar el historial previo en este momento.</p>
+      <p class="history-help">Puedes continuar con la atención normalmente.</p>
+    </ng-template>
+  </div>
+  <ng-template pTemplate="footer">
+    <button *ngIf="!errorConsultaHistorial" pButton type="button" label="Ver resumen con el Asistente IA" icon="pi pi-sparkles" class="p-button-primary" (click)="verResumenAsistente()"></button>
+    <button pButton type="button" label="Continuar atención" icon="pi pi-arrow-right" class="p-button-success" (click)="continuarAtencion()"></button>
+    <button pButton type="button" label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="cancelarHistorial()"></button>
+  </ng-template>
+</p-dialog>
 

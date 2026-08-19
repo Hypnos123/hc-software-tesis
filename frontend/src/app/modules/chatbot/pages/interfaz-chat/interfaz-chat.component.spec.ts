@@ -20,6 +20,7 @@ import { HistoriaClinicaDuplicadaChatService } from '../../services/historia-cli
 import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clinica-duplicada-chat';
 import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestion-historias-duplicadas-chat/gestion-historias-duplicadas-chat.component';
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
+import { ChatbotNavigationService } from '../../services/chatbot-navigation.service';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -2175,4 +2176,14 @@ describe('InterfazChatComponent', () => {
     const opciones = (component as any).createMenuOptions('asistencia-consultas');
     expect(opciones.some((item: any) => item.action === 'patient-consultation-summary-flow')).toBeTrue();
   });
+
+  it('abre el chatbot y orienta al menú de resumen sin transferir paciente', fakeAsync(() => {
+    const navigation = TestBed.inject(ChatbotNavigationService);
+    navigation.orientarAResumenConsultas();
+    expect(component.isOpen).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text?.includes('Asistencia guiada → Consultas'))).toBeTrue();
+    expect(resumenConsultasService.obtener).not.toHaveBeenCalled();
+    tick(10_000);
+    expect(component.messages.some(mensaje => mensaje.menuId === 'asistencia-consultas')).toBeTrue();
+  }));
 });

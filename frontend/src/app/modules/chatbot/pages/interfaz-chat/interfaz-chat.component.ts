@@ -28,6 +28,7 @@ import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestio
 import { ResumenConsultasPacienteChatComponent } from '../../components/resumen-consultas-paciente-chat/resumen-consultas-paciente-chat.component';
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 import { crearResumenConsultasState, ResumenConsultasChatState, ResumenPacienteCandidato, ResumenConsultasVista } from '../../models/resumen-consultas-paciente';
+import { ChatbotNavigationService } from '../../services/chatbot-navigation.service';
 import {
   crearGestionDuplicadosState,
   GestionDuplicadosChatState,
@@ -192,6 +193,7 @@ export class InterfazChatComponent implements OnDestroy {
   private missingHistoriesRequest?: Subscription;
   private resumenConsultasRequest?: Subscription;
   private resumenPacienteRequest?: Subscription;
+  private chatbotNavigationSubscription: Subscription;
   private missingHistoriesSearchTimer?: ReturnType<typeof setTimeout>;
   private missingHistoriesSearchReady = false;
   private missingHistoriesSearchState?: HistoriasClinicasFaltantesChatState;
@@ -257,14 +259,16 @@ export class InterfazChatComponent implements OnDestroy {
     private router: Router,
     private clinicalHistoryTransferService: ClinicalHistoryTransferService,
     private feedbackService: ClinicalHistoryFlowFeedbackService,
-    private resumenConsultasService: ResumenConsultasPacienteService
+    private resumenConsultasService: ResumenConsultasPacienteService,
+    private chatbotNavigation: ChatbotNavigationService
   ) {
     this.logoutSubscription = this.authService.logout$.subscribe(() => this.resetChat(true));
     this.sessionChangedSubscription = this.authService.sessionChanged$.subscribe(autenticado => this.handleSessionChange(autenticado));
     this.feedbackSubscription = this.feedbackService.feedback$.subscribe(feedback => this.handleClinicalHistoryFeedback(feedback));
+    this.chatbotNavigationSubscription = this.chatbotNavigation.resumenConsultas$.subscribe(() => this.orientarAResumenConsultas());
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.resumenPacienteRequest?.unsubscribe(); this.resumenConsultasRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.resumenPacienteRequest?.unsubscribe(); this.resumenConsultasRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); this.chatbotNavigationSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.cancelarHistoriasDuplicadasSilenciosamente(); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
@@ -1075,6 +1079,14 @@ export class InterfazChatComponent implements OnDestroy {
       this.runAfterPresentation(instruccion, () => this.addSummaryBlock(state, 'prompt', true));
     });
     this.pinInteractionStart(selectionId);
+  }
+
+  private orientarAResumenConsultas(): void {
+    if (!this.autenticado || !this.puedeUsarResumenConsultas()) return;
+    this.openChat();
+    const orientacion = this.addBotMessage('Puedes revisar el historial desde Asistencia guiada → Consultas → Resumen de consultas del paciente. En esta etapa deberás buscar al paciente por DNI o nombre.');
+    this.runAfterPresentation(orientacion, () => this.addMenuBlock('asistencia-consultas', true));
+    this.pinInteractionStart(orientacion.id);
   }
 
   private buscarPacienteParaResumen(criterio: string, messageId: string): void {
