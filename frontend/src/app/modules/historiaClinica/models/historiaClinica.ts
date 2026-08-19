@@ -65,6 +65,7 @@ export interface IResponseModelSet { mensaje?: string; error?: string; idGenerad
 
 export interface IDetalleConsulta {
   idConsulta?: number;
+  idPaciente?: number;
   idHistoriaClinica?: number;
   fechaCreacion?: string | Date;
   estado?: string;

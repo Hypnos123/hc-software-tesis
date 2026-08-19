@@ -116,30 +116,33 @@
   [(visible)]="mostrarConfirmacionAtencion" 
   [modal]="true" 
   [closable]="false"
-  [style]="{width: '350px'}">
+  [style]="{width: '460px', maxWidth: 'calc(100vw - 32px)'}"
+  styleClass="attention-confirm-dialog">
 
   <div class="confirm-body">
-    <i class="pi pi-question-circle icon"></i>
-    <p>¿Está seguro de que desea comenzar la atención de esta consulta?</p>
+    <p class="confirm-question">¿Está seguro de que desea comenzar la atención de esta consulta?</p>
+    <div class="confirm-divider" aria-hidden="true"></div>
+
+    <section *ngIf="cantidadConsultasAtendidas > 0" class="history-summary" aria-label="Historial previo del paciente">
+      <div class="history-indicator">
+        <i class="pi pi-history" aria-hidden="true"></i>
+        <strong class="history-count">{{ cantidadConsultasAtendidas }}</strong>
+      </div>
+      <p>Este paciente cuenta con {{ cantidadConsultasAtendidas }} {{ cantidadConsultasAtendidas === 1 ? 'consulta atendida anteriormente' : 'consultas atendidas anteriormente' }}.</p>
+      <p class="history-help">El Asistente IA puede generar un resumen de su historial para una mejor revisión.</p>
+      <button pButton type="button" label="Ver resumen con el Asistente IA" icon="pi pi-sparkles" class="p-button-primary summary-action" (click)="verResumenAsistente()"></button>
+    </section>
+
+    <p *ngIf="errorConsultaHistorial" class="history-note">
+      <i class="pi pi-info-circle" aria-hidden="true"></i>
+      No fue posible consultar el historial previo en este momento. Puedes continuar normalmente.
+    </p>
   </div>
 
   <ng-template pTemplate="footer">
-    <button 
-      pButton 
-      label="Sí" 
-      icon="pi pi-check" 
-      class="p-button-primary" 
-      (click)="confirmarAtencion()">
-    </button>
-
-    <button 
-      pButton 
-      label="No" 
-      icon="pi pi-times" 
-      class="p-button-danger" 
-      (click)="cancelarAtencion()">
-    </button>
+    <div class="confirm-actions">
+      <button pButton type="button" label="Continuar atención" icon="pi pi-arrow-right" iconPos="right" class="p-button-success" (click)="continuarAtencion()"></button>
+      <button pButton type="button" label="Cancelar" icon="pi pi-times" class="p-button-outlined" (click)="cancelarAtencion()"></button>
+    </div>
   </ng-template>
 </p-dialog>
-
-
