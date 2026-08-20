@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of, Subject, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { AuthService } from '@app/auth/services/auth.service';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
 import { ChatbotNavigationService } from '@app/modules/chatbot/services/chatbot-navigation.service';
@@ -28,20 +28,16 @@ describe('ConsultasComponent historial previo', () => {
     fixture = TestBed.createComponent(ConsultasComponent); component = fixture.componentInstance; fixture.detectChanges();
   });
 
-  const row = { id: 12, idPaciente: 6, paciente: { nombres: 'Ana', apellidos: 'Paz' }, estado: 'Por atender' } as any;
+  const row = { id: 12, idPaciente: 6, paciente: { nombres: 'Ana', apellidos: 'Paz' }, consultasAtendidas: 0, estado: 'Por atender' } as any;
 
-  it('consulta el historial antes de abrir el único modal', () => {
-    const resultado = new Subject<number>();
-    consultaService.getCantidadAtendidasPaciente.and.returnValue(resultado);
-    component.abrirConfirmacionAtencion(row);
-    expect(component.mostrarConfirmacionAtencion).toBeFalse();
-    resultado.next(2);
+  it('reutiliza el conteo precargado por idPaciente al abrir el único modal', () => {
+    component.abrirConfirmacionAtencion({ ...row, consultasAtendidas: 2 });
     expect(component.mostrarConfirmacionAtencion).toBeTrue();
-    expect(consultaService.getCantidadAtendidasPaciente).toHaveBeenCalledOnceWith(6);
+    expect(component.cantidadConsultasAtendidas).toBe(2);
+    expect(consultaService.getCantidadAtendidasPaciente).not.toHaveBeenCalled();
   });
 
   it('muestra el modal simple cuando no existen consultas atendidas', () => {
-    consultaService.getCantidadAtendidasPaciente.and.returnValue(of(0));
     component.abrirConfirmacionAtencion(row); fixture.detectChanges();
     expect(component.mostrarConfirmacionAtencion).toBeTrue();
     expect(fixture.nativeElement.textContent).not.toContain('Ver resumen con el Asistente IA');
@@ -49,9 +45,9 @@ describe('ConsultasComponent historial previo', () => {
   });
 
   it('muestra singular para una consulta y plural para varias', () => {
-    consultaService.getCantidadAtendidasPaciente.and.returnValue(of(1)); component.abrirConfirmacionAtencion(row); fixture.detectChanges();
+    component.abrirConfirmacionAtencion({ ...row, consultasAtendidas: 1 }); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('1 consulta atendida anteriormente');
-    component.cancelarAtencion(); consultaService.getCantidadAtendidasPaciente.and.returnValue(of(4)); component.abrirConfirmacionAtencion(row); fixture.detectChanges();
+    component.cancelarAtencion(); component.abrirConfirmacionAtencion({ ...row, consultasAtendidas: 4 }); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('4 consultas atendidas anteriormente');
     expect(router.navigate).not.toHaveBeenCalled();
   });
@@ -68,12 +64,11 @@ describe('ConsultasComponent historial previo', () => {
     expect(router.navigate).toHaveBeenCalledOnceWith(['consultas/lista-consultas/detalle', 12], { queryParams: { modo: 'atender' } });
   });
 
-  it('no bloquea la atención cuando falla el conteo', () => {
-    consultaService.getCantidadAtendidasPaciente.and.returnValue(throwError(() => new Error('red')));
+  it('no bloquea la atención cuando el conteo precargado es cero', () => {
     component.abrirConfirmacionAtencion(row); fixture.detectChanges();
-    expect(component.errorConsultaHistorial).toBeTrue();
+    expect(component.errorConsultaHistorial).toBeFalse();
     expect(component.mostrarConfirmacionAtencion).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('No fue posible consultar el historial previo');
+    expect(fixture.nativeElement.textContent).not.toContain('No fue posible consultar el historial previo');
     component.continuarAtencion(); expect(router.navigate).toHaveBeenCalled();
   });
 });

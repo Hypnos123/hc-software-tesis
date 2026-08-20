@@ -10,6 +10,7 @@ export interface IHistoriaClinica {
   estadoCivil?: string;
   numDocumento?: string;
   edad?: string | number;
+  cantidadConsultas?: number;
   enfermedadesPrevias?: string;
   cirugiasPrevias?: string;
   alergiaMedicamentos?: string;
@@ -72,6 +73,7 @@ export interface IDetalleConsulta {
   paciente?: string;
   dni?: string;
   edad?: string | number;
+  consultasAtendidas?: number;
   nombres?: string;
   apellidos?: string;
   numDocumento?: string;

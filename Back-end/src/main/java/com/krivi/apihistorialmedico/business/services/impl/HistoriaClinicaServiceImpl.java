@@ -37,8 +37,16 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   @Autowired ConsultaRepository consultaRepository;
 
   public ResponseModelGet<HistoriaClinicaResponse> getAll() {
-    List<HistoriaClinicaResponse> data = new ArrayList<>();
-    historiaClinicaRepository.findAllByPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(EstadoRegistroPaciente.ACTIVO).forEach(h -> data.add(toResponse(h)));
+    List<HistoriaClinica> historias = historiaClinicaRepository.findAllByPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(EstadoRegistroPaciente.ACTIVO);
+    Map<Integer, Long> consultasPorHistoria = new HashMap<>();
+    if (!historias.isEmpty()) {
+      List<Integer> ids = historias.stream().map(HistoriaClinica::getIdHistoriaClinica).toList();
+      consultaRepository.resumirPorHistoriasClinicas(ids).forEach(resumen ->
+          consultasPorHistoria.put(((Number) resumen[0]).intValue(), ((Number) resumen[1]).longValue()));
+    }
+    List<HistoriaClinicaResponse> data = historias.stream()
+        .map(historia -> toResponse(historia, consultasPorHistoria.getOrDefault(historia.getIdHistoriaClinica(), 0L)))
+        .toList();
     return response(data);
   }
 
@@ -497,9 +505,13 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   private ResponseModelGet<HistoriaClinicaResponse> response(List<HistoriaClinicaResponse> data) { ResponseModelGet<HistoriaClinicaResponse> r = new ResponseModelGet<>(); r.setData(data); r.setMensaje(Constant.MENSAJE_CONSULTA_OK); return r; }
 
   private HistoriaClinicaResponse toResponse(HistoriaClinica h) {
+    return toResponse(h, consultaRepository.countByHistoriaClinicaIdHistoriaClinica(h.getIdHistoriaClinica()));
+  }
+
+  private HistoriaClinicaResponse toResponse(HistoriaClinica h, long cantidadConsultas) {
     Paciente p = h.getPaciente();
     Antecedentes a = antecedentesRepository.findByPacienteIdPaciente(p.getIdPaciente()).stream().findFirst().orElse(null);
-    return HistoriaClinicaResponse.builder().idHistoriaClinica(h.getIdHistoriaClinica()).fechaCreacion(h.getFechaCreacion()).ultimaActualizacion(h.getUltimaActualizacion()).idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).fechaIngreso(p.getFechaIngreso()).fechaNacimiento(p.getFechaNacimiento()).estadoCivil(normalizeEstadoCivil(p.getEstadoCivil())).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos()).build();
+    return HistoriaClinicaResponse.builder().idHistoriaClinica(h.getIdHistoriaClinica()).fechaCreacion(h.getFechaCreacion()).ultimaActualizacion(h.getUltimaActualizacion()).idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).fechaIngreso(p.getFechaIngreso()).fechaNacimiento(p.getFechaNacimiento()).estadoCivil(normalizeEstadoCivil(p.getEstadoCivil())).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).cantidadConsultas(cantidadConsultas).enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos()).build();
   }
 
   private String normalizeEstadoCivil(String estadoCivil) {

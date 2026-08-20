@@ -36,7 +36,17 @@ public class ConsultaServiceImpl implements ConsultaService {
     Iterable<Consulta> consultas = esAdministrador(usuario)
         ? consultaRepository.findAll()
         : consultaRepository.findByDoctorResponsableIdEmpleado(usuario.getEmpleado().getIdEmpleado());
-    consultas.forEach(consulta -> data.add(toResponse(consulta)));
+    List<Consulta> consultasVisibles = new ArrayList<>();
+    consultas.forEach(consultasVisibles::add);
+    Map<Integer, Long> atendidasPorPaciente = new HashMap<>();
+    List<Integer> idsPaciente = consultasVisibles.stream().map(Consulta::getPaciente).filter(Objects::nonNull)
+        .map(Paciente::getIdPaciente).distinct().toList();
+    if (!idsPaciente.isEmpty()) {
+      consultaRepository.contarAtendidasPorPacientes(idsPaciente).forEach(resumen ->
+          atendidasPorPaciente.put(((Number) resumen[0]).intValue(), ((Number) resumen[1]).longValue()));
+    }
+    consultasVisibles.forEach(consulta -> data.add(toResponse(consulta,
+        atendidasPorPaciente.getOrDefault(consulta.getPaciente().getIdPaciente(), 0L))));
     data.sort(Comparator.comparing((ConsultaResponse c) -> !"PENDIENTE".equals(normalizeEstado(c.getEstado())))
         .thenComparing(ConsultaResponse::getFechaCreacion, Comparator.nullsLast(Comparator.reverseOrder())));
     return response(data);
@@ -195,6 +205,10 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   private ConsultaResponse toResponse(Consulta c) {
+    return toResponse(c, null);
+  }
+
+  private ConsultaResponse toResponse(Consulta c, Long consultasAtendidas) {
     Paciente p = c.getPaciente();
     Antecedentes a = antecedentesRepository.findByPacienteIdPaciente(p.getIdPaciente()).stream().findFirst().orElse(null);
     Empleado d = c.getDoctorResponsable();
@@ -206,7 +220,7 @@ public class ConsultaServiceImpl implements ConsultaService {
         .idTipoEnfermedad(c.getTipoEnfermedad() == null ? null : c.getTipoEnfermedad().getIdTipoEnfermedad()).especialidadRequerida(c.getEspecialidadRequerida())
         .idEmpleadoDoctor(d == null ? null : d.getIdEmpleado()).doctorResponsable(d == null ? null : d.getApellidos() + " " + d.getNombres())
         .relatoPaciente(c.getRelatoPaciente()).diagnostico(c.getDiagnostico()).examenesRecetados(c.getExamenesRecetados()).receta(c.getReceta()).tratamiento(c.getTratamiento()).proximaCita(c.getProximaCita())
-        .idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento()))
+        .idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).consultasAtendidas(consultasAtendidas)
         .enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos())
         .idUsuario(c.getUsuario() == null ? null : c.getUsuario().getIdUsuario()).build();
   }
