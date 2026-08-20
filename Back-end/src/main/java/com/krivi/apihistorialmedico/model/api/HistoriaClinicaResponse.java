@@ -20,6 +20,7 @@ public class HistoriaClinicaResponse {
   private String estadoCivil;
   private String numDocumento;
   private Integer edad;
+  private Long cantidadConsultas;
   private String enfermedadesPrevias;
   private String cirugiasPrevias;
   private String alergiaMedicamentos;

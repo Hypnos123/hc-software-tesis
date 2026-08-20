@@ -36,6 +36,7 @@ public class ConsultaResponse {
   String apellidos;
   String numDocumento;
   Integer edad;
+  Long consultasAtendidas;
   String enfermedadesPrevias;
   String cirugiasPrevias;
   String alergiaMedicamentos;

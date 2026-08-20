@@ -17,6 +17,11 @@ h3 { margin: 10px 0 2px; font-size: 16px; overflow-wrap: anywhere; } h4 { margin
 .muted { margin: 0 0 9px; color: #64748b; font-size: 12px; }
 dl { display: grid; grid-template-columns: minmax(90px, .8fr) minmax(0, 1.2fr); gap: 6px 9px; margin: 10px 0 0; font-size: 12px; }
 dt { color: #64748b; } dd { min-width: 0; margin: 0; color: #1e293b; font-weight: 600; overflow-wrap: anywhere; }
+.antecedentes-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; width: 100%; min-width: 0; }
+.antecedentes-list > div { min-width: 0; padding: 9px 0; border-bottom: 1px solid #edf2f7; }
+.antecedentes-list > div:last-child { border-bottom: 0; padding-bottom: 2px; }
+.antecedentes-list dt { margin-bottom: 4px; color: #475569; font-weight: 700; line-height: 1.35; }
+.antecedentes-list dd { width: 100%; font-weight: 500; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .metric-grid div { padding: 7px 4px; border-radius: 8px; background: #eff6ff; text-align: center; }
 .metric-grid span { display: block; color: #64748b; font-size: 10px; } .metric-grid b { color: #1d4ed8; font-size: 15px; }
