@@ -55,8 +55,17 @@
     <section class="summary-section"><div class="section-title"><i class="pi pi-file"></i><strong>Consultas y evaluaciones recientes</strong></div>
       <p *ngIf="!resumen.consultasRecientes.length" class="muted">Sin consultas atendidas.</p>
       <div *ngFor="let consulta of resumen.consultasRecientes" class="accordion"><button type="button" (click)="toggleConsulta(consulta)"><span>Consulta del {{ consulta.fecha | date:'dd/MM/yyyy' }} — {{ dato(consulta.especialidad) }}</span><i [class]="consultaExpandida === consulta.idConsulta ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i></button>
-        <dl *ngIf="consultaExpandida === consulta.idConsulta"><dt>Doctor</dt><dd>{{ dato(consulta.doctor) }}</dd><dt>Relato</dt><dd>{{ dato(consulta.relatoPaciente) }}</dd><dt>Diagnóstico</dt><dd>{{ dato(consulta.diagnostico) }}</dd><dt>Tratamiento</dt><dd>{{ dato(consulta.tratamiento) }}</dd>
-          <ng-container *ngIf="resumen.evaluacionesRecientes | slice:0:3 as evaluaciones"><ng-container *ngFor="let evaluacion of evaluaciones"><ng-container *ngIf="evaluacion.idConsulta === consulta.idConsulta"><dt>Exámenes</dt><dd>{{ dato(evaluacion.examenesRecetados) }}</dd><dt>Receta</dt><dd>{{ dato(evaluacion.receta) }}</dd><dt>Próxima cita</dt><dd>{{ evaluacion.proximaCita ? (evaluacion.proximaCita | date:'dd/MM/yyyy') : 'No registrada' }}</dd></ng-container></ng-container></ng-container></dl></div>
+        <dl *ngIf="consultaExpandida === consulta.idConsulta" class="consultation-details">
+          <div><dt>Doctor</dt><dd>{{ dato(consulta.doctor) }}</dd></div>
+          <div><dt>Relato del paciente</dt><dd>{{ dato(consulta.relatoPaciente) }}</dd></div>
+          <div><dt>Diagnóstico</dt><dd>{{ dato(consulta.diagnostico) }}</dd></div>
+          <div><dt>Tratamiento</dt><dd>{{ dato(consulta.tratamiento) }}</dd></div>
+          <ng-container *ngIf="resumen.evaluacionesRecientes | slice:0:3 as evaluaciones"><ng-container *ngFor="let evaluacion of evaluaciones"><ng-container *ngIf="evaluacion.idConsulta === consulta.idConsulta">
+            <div><dt>Exámenes recetados</dt><dd>{{ dato(evaluacion.examenesRecetados) }}</dd></div>
+            <div><dt>Receta</dt><dd>{{ dato(evaluacion.receta) }}</dd></div>
+            <div><dt>Próxima cita</dt><dd>{{ evaluacion.proximaCita ? (evaluacion.proximaCita | date:'dd/MM/yyyy') : 'No registrada' }}</dd></div>
+          </ng-container></ng-container></ng-container>
+        </dl></div>
     </section>
 
     <aside *ngIf="calidadVisible()" class="quality-note"><i class="pi pi-info-circle"></i><span><ng-container *ngIf="resumen.calidadDatos.valoresVitalesDescartados > 0">Algunos valores históricos no pudieron incluirse en las estadísticas por tener un formato no válido. </ng-container><ng-container *ngIf="resumen.calidadDatos.consultasConRelacionInconsistente > 0 || resumen.calidadDatos.consultasSinFecha > 0">Se detectaron registros históricos incompletos que conviene revisar.</ng-container></span></aside>

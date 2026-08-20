@@ -38,5 +38,10 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .accordion { margin-top: 7px; border: 1px solid #e2e8f0; border-radius: 9px; overflow: hidden; }
 .accordion > button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 6px; padding: 9px; border: 0; background: #f8fafc; color: #334155; text-align: left; cursor: pointer; font-size: 11px; }
 .accordion dl { padding: 0 9px 9px; }
+.consultation-details { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; width: 100%; min-width: 0; }
+.consultation-details > div { min-width: 0; padding: 9px 0; border-bottom: 1px solid #edf2f7; }
+.consultation-details > div:last-child { border-bottom: 0; padding-bottom: 2px; }
+.consultation-details dt { margin-bottom: 4px; color: #475569; font-weight: 700; line-height: 1.35; }
+.consultation-details dd { width: 100%; color: #1e293b; font-weight: 500; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .quality-note { display: flex; gap: 8px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }.quality-note i { color: #64748b; }
 @media (max-width: 380px) { .vital-grid { grid-template-columns: 1fr; } dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 5px; } }
