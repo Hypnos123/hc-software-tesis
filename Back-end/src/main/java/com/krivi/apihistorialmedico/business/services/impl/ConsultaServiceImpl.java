@@ -66,11 +66,18 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   @Override
-  public ResponseModelSet save(ConsultaRequest request) {
+  public ResponseModelSet save(ConsultaRequest request, Integer idUsuario) {
+    Usuario usuario = getUsuarioAutenticado(idUsuario);
+    String rol = rolUsuario(usuario);
+    if (!"ADMINISTRADOR".equals(rol) && !"ENFERMERO".equals(rol)) {
+      throw new SecurityException("El rol del usuario no permite crear consultas");
+    }
     ResponseModelSet response = new ResponseModelSet();
     try {
       Consulta consulta = new Consulta();
       applyRequest(consulta, request, true);
+      consulta.setUsuario(usuario);
+      if ("ENFERMERO".equals(rol)) limpiarEvaluacionMedica(consulta);
       Consulta saved = consultaRepository.save(consulta);
       response.setIdGenerado(saved.getIdConsulta());
       response.setMensaje(MENSAJE_GUARDAR_OK);
@@ -177,6 +184,21 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   private boolean esAdministrador(Usuario usuario) { return "ADMINISTRADOR".equals(normalize(usuario.getTipoUsuario())); }
+
+  private String rolUsuario(Usuario usuario) {
+    String tipo = normalize(usuario.getTipoUsuario());
+    String cargo = usuario.getEmpleado() == null ? null : normalize(usuario.getEmpleado().getCargo());
+    if (cargo != null && Set.of("ENFERMERA", "ENFERMERA(O)", "ENFERMERO(A)", "ENFERMERIA").contains(cargo)) return "ENFERMERO";
+    return cargo != null ? cargo : tipo;
+  }
+
+  private void limpiarEvaluacionMedica(Consulta consulta) {
+    consulta.setDiagnostico(null);
+    consulta.setExamenesRecetados(null);
+    consulta.setReceta(null);
+    consulta.setTratamiento(null);
+    consulta.setProximaCita(null);
+  }
 
   private boolean puedeAcceder(Usuario usuario, Consulta consulta) {
     return esAdministrador(usuario) || (consulta.getDoctorResponsable() != null && usuario.getEmpleado() != null

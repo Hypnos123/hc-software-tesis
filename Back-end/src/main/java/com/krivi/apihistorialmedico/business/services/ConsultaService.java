@@ -13,7 +13,7 @@ public interface ConsultaService {
 
   ResponseModelGet<ConsultaResponse> findByHistoriaClinica(int idHistoriaClinica);
 
-  ResponseModelSet save(ConsultaRequest analisisRequest);
+  ResponseModelSet save(ConsultaRequest analisisRequest, Integer idUsuario);
 
   ResponseModelSet update(ConsultaRequest analisisRequest);
 

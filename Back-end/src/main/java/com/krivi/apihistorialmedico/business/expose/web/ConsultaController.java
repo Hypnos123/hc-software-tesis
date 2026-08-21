@@ -52,11 +52,16 @@ public class ConsultaController {
   }
 
   @PostMapping("/insert/consulta")
-  public ResponseEntity<ResponseModelSet> create(@RequestBody ConsultaRequest consultaRequest) {
+  public ResponseEntity<ResponseModelSet> create(@RequestBody ConsultaRequest consultaRequest,
+      @RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
 
     ResponseModelSet responseModelSet = new ResponseModelSet();
     try {
-      return ResponseEntity.status(HttpStatus.CREATED).body(consultaService.save(consultaRequest));
+      return ResponseEntity.status(HttpStatus.CREATED).body(consultaService.save(consultaRequest, idUsuario));
+    } catch (SecurityException e) {
+      responseModelSet.setMensaje(Constant.MENSAJE_GUARDAR_ERROR);
+      responseModelSet.setError(e.getMessage());
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(responseModelSet);
     } catch (Exception e) {
       responseModelSet.setMensaje(Constant.MENSAJE_GUARDAR_ERROR);
       responseModelSet.setError("Error al realizar el insert en la base de datos: " + e.getMessage());

@@ -36,8 +36,17 @@ export class AuthService {
   }
 
   esAdministrador(): boolean {
-    const cargo = this.usuario?.cargo ?? this.usuario?.tipoUsuario ?? '';
-    return this.normalizarTexto(cargo) === 'ADMINISTRADOR';
+    return this.tieneRol('ADMINISTRADOR');
+  }
+
+  tieneRol(...roles: string[]): boolean {
+    const rolesPermitidos = roles.map((rol) => this.normalizarRol(rol));
+    const rolUsuario = this.usuario?.cargo ?? this.usuario?.tipoUsuario;
+    return rolesPermitidos.includes(this.normalizarRol(rolUsuario));
+  }
+
+  puedeCrearConsultas(): boolean {
+    return this.tieneRol('ADMINISTRADOR', 'ENFERMERO');
   }
 
   getRutaInicialPermitida(): string {
@@ -101,6 +110,11 @@ export class AuthService {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toUpperCase();
+  }
+
+  private normalizarRol(valor?: string): string {
+    const rol = this.normalizarTexto(valor).replace(/[\s_-]+/g, '_');
+    return ['ENFERMERA', 'ENFERMERA(O)', 'ENFERMERO(A)', 'ENFERMERIA'].includes(rol) ? 'ENFERMERO' : rol;
   }
 
   private conBarraInicial(ruta: string): string {
