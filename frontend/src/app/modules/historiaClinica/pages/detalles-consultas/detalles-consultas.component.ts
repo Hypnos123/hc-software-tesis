@@ -10,6 +10,7 @@ import { InputTextareaModule } from 'primeng/inputtextarea';
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { INuevaConsultaRequest, IEmpleadoDoctor } from '../../models/historiaClinica';
 import { MensajesSwalService } from '@app/shared/services/mensajes-swal.service';
+import { AuthService } from '@app/auth/services/auth.service';
 
 @Component({ selector: 'app-detalles-consultas', standalone: true, imports: [CommonModule, ReactiveFormsModule, InputTextModule, InputTextareaModule, DropdownModule, CalendarModule, ButtonModule], templateUrl: './detalles-consultas.component.html', styleUrl: './detalles-consultas.component.scss' })
 export class DetallesConsultasComponent implements OnInit {
@@ -30,7 +31,10 @@ export class DetallesConsultasComponent implements OnInit {
     { label: 'Neurología', value: 'NEUROLOGIA' }, { label: 'Gastroenterología', value: 'GASTROENTEROLOGIA' }, { label: 'Otorrinolaringología', value: 'OTORRINOLARINGOLOGIA' }, { label: 'Otra', value: 'OTRA' }
   ];
 
-  constructor(private fb: FormBuilder, private route: ActivatedRoute, private router: Router, private service: HistoriaClinicaService, private swal: MensajesSwalService) {}
+  constructor(private fb: FormBuilder, private route: ActivatedRoute, private router: Router, private service: HistoriaClinicaService,
+    private swal: MensajesSwalService, private authService: AuthService) {}
+
+  get mostrarEvaluacionMedica(): boolean { return !this.esNuevo || this.authService.esAdministrador(); }
 
   ngOnInit(): void {
     this.idHistoriaClinica = Number(this.route.snapshot.paramMap.get('id'));
@@ -38,6 +42,10 @@ export class DetallesConsultasComponent implements OnInit {
     this.idConsulta = Number(this.route.snapshot.queryParamMap.get('idConsulta')) || undefined;
     this.esNuevo = this.modo === 'nuevo';
     this.initForm();
+    if (this.esNuevo && !this.authService.puedeCrearConsultas()) {
+      this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica]);
+      return;
+    }
     this.cargarDoctores();
     if (this.esNuevo) this.cargarDatosHistoria(); else if (this.idConsulta) this.cargarDetalleConsulta(this.idConsulta);
     if (this.modo === 'ver') this.frm.disable(); else this.deshabilitarDatosPaciente();

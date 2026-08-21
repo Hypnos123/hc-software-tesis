@@ -36,7 +36,17 @@ public class ConsultaServiceImpl implements ConsultaService {
     Iterable<Consulta> consultas = esAdministrador(usuario)
         ? consultaRepository.findAll()
         : consultaRepository.findByDoctorResponsableIdEmpleado(usuario.getEmpleado().getIdEmpleado());
-    consultas.forEach(consulta -> data.add(toResponse(consulta)));
+    List<Consulta> consultasVisibles = new ArrayList<>();
+    consultas.forEach(consultasVisibles::add);
+    Map<Integer, Long> atendidasPorPaciente = new HashMap<>();
+    List<Integer> idsPaciente = consultasVisibles.stream().map(Consulta::getPaciente).filter(Objects::nonNull)
+        .map(Paciente::getIdPaciente).distinct().toList();
+    if (!idsPaciente.isEmpty()) {
+      consultaRepository.contarAtendidasPorPacientes(idsPaciente).forEach(resumen ->
+          atendidasPorPaciente.put(((Number) resumen[0]).intValue(), ((Number) resumen[1]).longValue()));
+    }
+    consultasVisibles.forEach(consulta -> data.add(toResponse(consulta,
+        atendidasPorPaciente.getOrDefault(consulta.getPaciente().getIdPaciente(), 0L))));
     data.sort(Comparator.comparing((ConsultaResponse c) -> !"PENDIENTE".equals(normalizeEstado(c.getEstado())))
         .thenComparing(ConsultaResponse::getFechaCreacion, Comparator.nullsLast(Comparator.reverseOrder())));
     return response(data);
@@ -56,11 +66,18 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   @Override
-  public ResponseModelSet save(ConsultaRequest request) {
+  public ResponseModelSet save(ConsultaRequest request, Integer idUsuario) {
+    Usuario usuario = getUsuarioAutenticado(idUsuario);
+    String rol = rolUsuario(usuario);
+    if (!"ADMINISTRADOR".equals(rol) && !"ENFERMERO".equals(rol)) {
+      throw new SecurityException("El rol del usuario no permite crear consultas");
+    }
     ResponseModelSet response = new ResponseModelSet();
     try {
       Consulta consulta = new Consulta();
       applyRequest(consulta, request, true);
+      consulta.setUsuario(usuario);
+      if ("ENFERMERO".equals(rol)) limpiarEvaluacionMedica(consulta);
       Consulta saved = consultaRepository.save(consulta);
       response.setIdGenerado(saved.getIdConsulta());
       response.setMensaje(MENSAJE_GUARDAR_OK);
@@ -168,6 +185,21 @@ public class ConsultaServiceImpl implements ConsultaService {
 
   private boolean esAdministrador(Usuario usuario) { return "ADMINISTRADOR".equals(normalize(usuario.getTipoUsuario())); }
 
+  private String rolUsuario(Usuario usuario) {
+    String tipo = normalize(usuario.getTipoUsuario());
+    String cargo = usuario.getEmpleado() == null ? null : normalize(usuario.getEmpleado().getCargo());
+    if (cargo != null && Set.of("ENFERMERA", "ENFERMERA(O)", "ENFERMERO(A)", "ENFERMERIA").contains(cargo)) return "ENFERMERO";
+    return cargo != null ? cargo : tipo;
+  }
+
+  private void limpiarEvaluacionMedica(Consulta consulta) {
+    consulta.setDiagnostico(null);
+    consulta.setExamenesRecetados(null);
+    consulta.setReceta(null);
+    consulta.setTratamiento(null);
+    consulta.setProximaCita(null);
+  }
+
   private boolean puedeAcceder(Usuario usuario, Consulta consulta) {
     return esAdministrador(usuario) || (consulta.getDoctorResponsable() != null && usuario.getEmpleado() != null
         && Objects.equals(consulta.getDoctorResponsable().getIdEmpleado(), usuario.getEmpleado().getIdEmpleado()));
@@ -195,6 +227,10 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   private ConsultaResponse toResponse(Consulta c) {
+    return toResponse(c, null);
+  }
+
+  private ConsultaResponse toResponse(Consulta c, Long consultasAtendidas) {
     Paciente p = c.getPaciente();
     Antecedentes a = antecedentesRepository.findByPacienteIdPaciente(p.getIdPaciente()).stream().findFirst().orElse(null);
     Empleado d = c.getDoctorResponsable();
@@ -206,7 +242,7 @@ public class ConsultaServiceImpl implements ConsultaService {
         .idTipoEnfermedad(c.getTipoEnfermedad() == null ? null : c.getTipoEnfermedad().getIdTipoEnfermedad()).especialidadRequerida(c.getEspecialidadRequerida())
         .idEmpleadoDoctor(d == null ? null : d.getIdEmpleado()).doctorResponsable(d == null ? null : d.getApellidos() + " " + d.getNombres())
         .relatoPaciente(c.getRelatoPaciente()).diagnostico(c.getDiagnostico()).examenesRecetados(c.getExamenesRecetados()).receta(c.getReceta()).tratamiento(c.getTratamiento()).proximaCita(c.getProximaCita())
-        .idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento()))
+        .idPaciente(p.getIdPaciente()).nombres(p.getNombres()).apellidos(p.getApellidos()).numDocumento(p.getNumDocumento()).edad(edad(p.getFechaNacimiento())).consultasAtendidas(consultasAtendidas)
         .enfermedadesPrevias(a == null ? null : a.getEnfermedadesPrevias()).cirugiasPrevias(a == null ? null : a.getCirugiasPrevias()).alergiaMedicamentos(a == null ? null : a.getAlergiaMedicamentos())
         .idUsuario(c.getUsuario() == null ? null : c.getUsuario().getIdUsuario()).build();
   }

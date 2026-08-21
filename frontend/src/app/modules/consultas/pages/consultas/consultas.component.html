@@ -50,8 +50,12 @@
           Edad <p-sortIcon field="edad"></p-sortIcon>
         </th>
 
-        <th style="width: 180px" pSortableColumn="especialidadRequerida">
-          Especialidad Requerida <p-sortIcon field="especialidadRequerida"></p-sortIcon>
+        <th class="consultas-count-col" pSortableColumn="consultasAtendidas">
+          Consultas <p-sortIcon field="consultasAtendidas"></p-sortIcon>
+        </th>
+
+        <th style="width: 155px" pSortableColumn="especialidadRequerida">
+          Especialidad <p-sortIcon field="especialidadRequerida"></p-sortIcon>
         </th>
 
         <th style="width: 180px" pSortableColumn="fechaRegistro">
@@ -76,6 +80,7 @@
         </td>
 
         <td>{{ r.edad }}</td>
+        <td class="consultas-count-col"><span class="table-count">{{ r.consultasAtendidas }}</span></td>
         <td class="wrap">{{ r.especialidadRequerida }}</td>
         <td>{{ r.fechaRegistro | date:'dd/MM/yyyy - HH:mm' }}</td>
 
@@ -102,7 +107,7 @@
     </ng-template>
 
     <ng-template pTemplate="emptymessage">
-      <tr><td colspan="7">No hay consultas por atender.</td></tr>
+      <tr><td colspan="8">No hay consultas por atender.</td></tr>
     </ng-template>
 
     

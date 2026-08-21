@@ -43,6 +43,16 @@
 .wrap {
      white-space: normal; 
 }
+.consultas-count-col { width: 92px; text-align: center; }
+.table-count { font-weight: 600; color: #334155; }
+
+:host ::ng-deep .consultas-table th,
+:host ::ng-deep .consultas-table td { padding-left: .7rem; padding-right: .7rem; }
+
+@media (max-width: 900px) {
+  :host ::ng-deep .consultas-table th,
+  :host ::ng-deep .consultas-table td { padding-left: .5rem; padding-right: .5rem; }
+}
 
 .acciones { 
     text-align: center; 

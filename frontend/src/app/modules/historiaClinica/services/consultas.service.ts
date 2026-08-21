@@ -60,7 +60,9 @@ export class HistoriaClinicaService {
     return this.httpClient.get<IResponseModelGet<IDetalleConsulta>>(`${this.URLServicio}consulta/findById/${idConsulta}`, { headers }).pipe(map(r => (r.data ?? [])[0]));
   }
   insertConsulta(request: INuevaConsultaRequest): Observable<IResponseModelSet> {
-    return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}consulta/insert/consulta`, request);
+    const headers = this.authHeaders();
+    if (!headers) return throwError(() => new Error('Usuario autenticado requerido'));
+    return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}consulta/insert/consulta`, request, { headers });
   }
   updateConsulta(idConsulta: number, request: INuevaConsultaRequest): Observable<IResponseModelSet> {
     return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}consulta/update/${idConsulta}`, request);

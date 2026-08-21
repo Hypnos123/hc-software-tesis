@@ -60,6 +60,10 @@
           <p-columnFilter field="edad" display="menu" class="ml-auto"/>
         </th>
 
+        <th pSortableColumn="cantidadConsultas" style="width: 110px; text-align: center">
+          Consultas <p-sortIcon field="cantidadConsultas" />
+        </th>
+
         <th pSortableColumn="fechaCreacion" style="width: 190px">
           Fecha creación <p-sortIcon field="fechaCreacion" />
           <p-columnFilter field="fechaCreacion" display="menu" class="ml-auto"/>
@@ -83,6 +87,7 @@
         </td>
         <td>{{ r.numDocumento }}</td>
         <td>{{ r.edad }}</td>
+        <td class="consultas-count">{{ r.cantidadConsultas ?? 0 }}</td>
         <td>{{ r.fechaCreacion | date:'dd/MM/yyyy - HH:mm' }}</td>
         <td>{{ r.ultimaActualizacion | date:'dd/MM/yyyy - HH:mm' }}</td>
 
@@ -118,7 +123,7 @@
     </ng-template>
 
     <ng-template pTemplate="emptymessage">
-      <tr><td colspan="7">Sin historias clínicas.</td></tr>
+      <tr><td colspan="8">Sin historias clínicas.</td></tr>
     </ng-template>
   </p-table>
 </div>

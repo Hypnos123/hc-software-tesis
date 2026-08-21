@@ -19,6 +19,8 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   List<Object[]> resumirPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
   @Query("select c.historiaClinica.idHistoriaClinica, count(c), max(coalesce(c.fechaAtencion, c.fechaCreacion)) from Consulta c where c.historiaClinica.idHistoriaClinica in :idsHistoria group by c.historiaClinica.idHistoriaClinica")
   List<Object[]> resumirPorHistoriasClinicas(@Param("idsHistoria") Collection<Integer> idsHistoria);
+  @Query("select c.paciente.idPaciente, count(c) from Consulta c where c.paciente.idPaciente in :idsPaciente and upper(trim(c.estado)) = 'ATENDIDO' group by c.paciente.idPaciente")
+  List<Object[]> contarAtendidasPorPacientes(@Param("idsPaciente") Collection<Integer> idsPaciente);
   List<Consulta> findByHistoriaClinicaIdHistoriaClinica(Integer idHistoriaClinica);
   @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
   @Query("select c from Consulta c join fetch c.paciente left join fetch c.doctorResponsable left join fetch c.tipoEnfermedad where c.historiaClinica.idHistoriaClinica = :idHistoria order by c.idConsulta")

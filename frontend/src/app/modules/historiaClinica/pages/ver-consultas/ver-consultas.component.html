@@ -1,6 +1,6 @@
 <div class="t-flex-start">
   <h2>Consultas Realizadas</h2>
-  <button pButton type="button" label="Agregar Consulta" icon="pi pi-plus-circle" (click)="nuevaConsulta()"></button>
+  <button *ngIf="puedeAgregarConsulta" pButton type="button" label="Agregar Consulta" icon="pi pi-plus-circle" (click)="nuevaConsulta()"></button>
 </div>
 <br>
 <h3>Paciente: {{ paciente }}</h3>

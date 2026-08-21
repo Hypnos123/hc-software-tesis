@@ -41,4 +41,15 @@ class ConsultaServiceImplTest {
     consulta.setDiagnostico("otro");
     assertEquals(fechaAtencion, consulta.getFechaAtencion());
   }
+
+  @Test void doctorNoPuedeCrearConsultaPorLlamadaDirecta() {
+    Empleado medico = new Empleado(); medico.setCargo("DOCTOR");
+    Usuario usuario = new Usuario(); usuario.setEstado(true); usuario.setTipoUsuario("DOCTOR"); usuario.setEmpleado(medico);
+    when(usuarioRepository.findById(9)).thenReturn(Optional.of(usuario));
+
+    SecurityException error = assertThrows(SecurityException.class, () -> service.save(ConsultaRequest.builder().build(), 9));
+
+    assertEquals("El rol del usuario no permite crear consultas", error.getMessage());
+    verify(consultaRepository, never()).save(any());
+  }
 }

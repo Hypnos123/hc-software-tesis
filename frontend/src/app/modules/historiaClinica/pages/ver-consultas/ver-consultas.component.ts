@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { TooltipModule } from 'primeng/tooltip';
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { IDetalleConsulta } from '../../models/historiaClinica';
+import { AuthService } from '@app/auth/services/auth.service';
 
 @Component({
   selector: 'app-consultas-historia-clinica', standalone: true,
@@ -22,7 +23,10 @@ export class ConsultasHistoriaClinicaComponent implements OnInit {
   loading = false;
   globalFields = ['idConsulta', 'apellidos', 'nombres', 'numDocumento', 'especialidadRequerida', 'doctorResponsable', 'estado'];
 
-  constructor(private route: ActivatedRoute, private router: Router, private service: HistoriaClinicaService) {}
+  constructor(private route: ActivatedRoute, private router: Router, private service: HistoriaClinicaService,
+    private authService: AuthService) {}
+
+  get puedeAgregarConsulta(): boolean { return this.authService.puedeCrearConsultas(); }
 
   ngOnInit(): void {
     this.idHistoriaClinica = Number(this.route.snapshot.paramMap.get('id'));
@@ -47,5 +51,8 @@ export class ConsultasHistoriaClinicaComponent implements OnInit {
   volver(): void { this.router.navigate(['/historiaClinica']); }
   verConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'ver'], { queryParams: { idConsulta: row.idConsulta } }); }
   editarConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'editar'], { queryParams: { idConsulta: row.idConsulta } }); }
-  nuevaConsulta(): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'nuevo']); }
+  nuevaConsulta(): void {
+    if (!this.puedeAgregarConsulta) return;
+    this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'nuevo']);
+  }
 }
