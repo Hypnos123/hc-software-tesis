@@ -35,6 +35,7 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   @Autowired PacienteRepository pacienteRepository;
   @Autowired AntecedentesRepository antecedentesRepository;
   @Autowired ConsultaRepository consultaRepository;
+  @Autowired UsuarioRepository usuarioRepository;
 
   public ResponseModelGet<HistoriaClinicaResponse> getAll() {
     List<HistoriaClinica> historias = historiaClinicaRepository.findAllByPacienteEstadoRegistroOrderByIdHistoriaClinicaAsc(EstadoRegistroPaciente.ACTIVO);
@@ -170,6 +171,30 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     r.setIdGenerado(saved.getIdHistoriaClinica());
     r.setMensaje(Constant.MENSAJE_GUARDAR_OK);
     return r;
+  }
+
+  @Override
+  public ResponseModelSet save(HistoriaClinicaRequest request, Integer idUsuario) {
+    Usuario usuario = idUsuario == null ? null : usuarioRepository.findById(idUsuario)
+        .filter(u -> Boolean.TRUE.equals(u.getEstado())).orElse(null);
+    if (usuario == null || !puedeCrearHistoriaClinica(usuario)) {
+      throw new SecurityException("El rol del usuario no permite crear historias clínicas");
+    }
+    return save(request);
+  }
+
+  private boolean puedeCrearHistoriaClinica(Usuario usuario) {
+    if ("ADMINISTRADOR".equals(normalizarRol(usuario.getTipoUsuario()))) return true;
+    String rol = usuario.getEmpleado() != null && usuario.getEmpleado().getCargo() != null
+        ? usuario.getEmpleado().getCargo() : usuario.getTipoUsuario();
+    String normalizado = normalizarRol(rol);
+    return Set.of("ENFERMERO", "ENFERMERA", "ENFERMERA(O)", "ENFERMERO(A)", "ENFERMERIA").contains(normalizado);
+  }
+
+  private String normalizarRol(String rol) {
+    if (rol == null) return "";
+    return java.text.Normalizer.normalize(rol, java.text.Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "").trim().toUpperCase().replace(' ', '_');
   }
 
   private void validarRequestCreacion(HistoriaClinicaRequest request) {

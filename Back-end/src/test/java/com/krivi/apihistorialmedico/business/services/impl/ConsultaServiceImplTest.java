@@ -4,6 +4,8 @@ import com.krivi.apihistorialmedico.model.api.ConsultaRequest;
 import com.krivi.apihistorialmedico.model.entity.Consulta;
 import com.krivi.apihistorialmedico.model.entity.Empleado;
 import com.krivi.apihistorialmedico.model.entity.Usuario;
+import com.krivi.apihistorialmedico.model.entity.Paciente;
+import com.krivi.apihistorialmedico.model.entity.HistoriaClinica;
 import com.krivi.apihistorialmedico.repository.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,5 +53,43 @@ class ConsultaServiceImplTest {
 
     assertEquals("El rol del usuario no permite crear consultas", error.getMessage());
     verify(consultaRepository, never()).save(any());
+  }
+
+  @Test void administradorEnfermeroYDoctorPuedenVisualizarConsulta() {
+    Consulta consulta = consultaCompleta();
+    when(consultaRepository.findById(4)).thenReturn(Optional.of(consulta));
+    when(antecedentesRepository.findByPacienteIdPaciente(20)).thenReturn(java.util.List.of());
+
+    for (int id = 1; id <= 3; id++) {
+      String rol = id == 1 ? "ADMINISTRADOR" : id == 2 ? "ENFERMERO" : "DOCTOR";
+      Usuario usuario = usuarioActivo(id, rol);
+      when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
+      assertEquals(1, service.findById(4, id).getData().size(), rol);
+    }
+  }
+
+  @Test void usuarioSinPermisoOInexistenteNoPuedeVisualizarConsulta() {
+    Consulta consulta = consultaCompleta();
+    when(consultaRepository.findById(4)).thenReturn(Optional.of(consulta));
+    when(usuarioRepository.findById(8)).thenReturn(Optional.of(usuarioActivo(8, "RECEPCIONISTA")));
+    when(usuarioRepository.findById(99)).thenReturn(Optional.empty());
+
+    assertTrue(service.findById(4, 8).getData().isEmpty());
+    assertThrows(SecurityException.class, () -> service.findById(4, 99));
+  }
+
+  private Usuario usuarioActivo(int id, String rol) {
+    Usuario usuario = new Usuario();
+    usuario.setIdUsuario(id); usuario.setEstado(true); usuario.setTipoUsuario(rol);
+    Empleado empleado = new Empleado(); empleado.setIdEmpleado(id); empleado.setCargo(rol);
+    usuario.setEmpleado(empleado);
+    return usuario;
+  }
+
+  private Consulta consultaCompleta() {
+    Paciente paciente = new Paciente(); paciente.setIdPaciente(20);
+    HistoriaClinica historia = new HistoriaClinica(); historia.setIdHistoriaClinica(30); historia.setPaciente(paciente);
+    Consulta consulta = new Consulta(); consulta.setIdConsulta(4); consulta.setPaciente(paciente); consulta.setHistoriaClinica(historia);
+    return consulta;
   }
 }

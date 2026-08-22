@@ -49,6 +49,14 @@ export class AuthService {
     return this.tieneRol('ADMINISTRADOR', 'ENFERMERO');
   }
 
+  puedeVisualizarConsultas(): boolean {
+    return this.tieneRol('ADMINISTRADOR', 'ENFERMERO', 'DOCTOR');
+  }
+
+  puedeCrearHistoriasClinicas(): boolean {
+    return this.tieneRol('ADMINISTRADOR', 'ENFERMERO');
+  }
+
   getRutaInicialPermitida(): string {
     const rutasPermitidas = this.detallePermisos
       .map((permiso) => permiso?.ruta)

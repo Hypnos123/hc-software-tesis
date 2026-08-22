@@ -15,6 +15,7 @@ import { IHistoriaClinicaCreateRequest, IHistoriaClinicaUpdateRequest } from '..
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
+import { AuthService } from '@app/auth/services/auth.service';
 
 interface ClinicalHistoryNavigationState {
   source?: unknown;
@@ -71,7 +72,8 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     private service: HistoriaClinicaService,
     private transferService: ClinicalHistoryTransferService,
     private location: Location,
-    private feedbackService: ClinicalHistoryFlowFeedbackService
+    private feedbackService: ClinicalHistoryFlowFeedbackService,
+    private authService: AuthService
   ) {
     this.frm = this.fb.group({
       idHistoriaClinica: [{ value: '', disabled: true }],
@@ -93,6 +95,10 @@ export class MantenimientoHistoriasClinicasComponent implements OnInit {
     this.inicializarCalculoEdad();
 
     if (this.modo === 'nuevo') {
+      if (!this.authService.puedeCrearHistoriasClinicas()) {
+        this.router.navigate(['/historiaClinica']);
+        return;
+      }
       this.habilitarCapturaManual();
       this.intentarPrecargaDesdeChatbot();
       return;

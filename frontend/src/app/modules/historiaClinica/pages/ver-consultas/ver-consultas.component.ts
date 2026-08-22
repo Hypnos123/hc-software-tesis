@@ -27,6 +27,7 @@ export class ConsultasHistoriaClinicaComponent implements OnInit {
     private authService: AuthService) {}
 
   get puedeAgregarConsulta(): boolean { return this.authService.puedeCrearConsultas(); }
+  get puedeVisualizarConsulta(): boolean { return this.authService.puedeVisualizarConsultas(); }
 
   ngOnInit(): void {
     this.idHistoriaClinica = Number(this.route.snapshot.paramMap.get('id'));
@@ -49,7 +50,10 @@ export class ConsultasHistoriaClinicaComponent implements OnInit {
   }
 
   volver(): void { this.router.navigate(['/historiaClinica']); }
-  verConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'ver'], { queryParams: { idConsulta: row.idConsulta } }); }
+  verConsulta(row: IDetalleConsulta): void {
+    if (!this.puedeVisualizarConsulta) return;
+    this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'ver'], { queryParams: { idConsulta: row.idConsulta } });
+  }
   editarConsulta(row: IDetalleConsulta): void { this.router.navigate(['/historiaClinica/ver-consultas', this.idHistoriaClinica, 'editar'], { queryParams: { idConsulta: row.idConsulta } }); }
   nuevaConsulta(): void {
     if (!this.puedeAgregarConsulta) return;

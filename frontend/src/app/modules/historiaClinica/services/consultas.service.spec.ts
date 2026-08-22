@@ -50,4 +50,22 @@ describe('HistoriaClinicaService - historias faltantes', () => {
     expect(Object.keys(request.request.body)).toEqual(['idsPacientes']);
     request.flush(response);
   });
+
+  it('envía X-Usuario-Id al crear una historia clínica', () => {
+    service.insert({} as any).subscribe();
+
+    const request = http.expectOne(request => request.url.endsWith('historiaClinica/insert'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('X-Usuario-Id')).toBe('7');
+    request.flush({ idGenerado: 1 });
+  });
+
+  it('envía X-Usuario-Id al visualizar el detalle de una consulta', () => {
+    service.getConsultaById(12).subscribe(response => expect(response?.idConsulta).toBe(12));
+
+    const request = http.expectOne(request => request.url.endsWith('consulta/findById/12'));
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('X-Usuario-Id')).toBe('7');
+    request.flush({ data: [{ idConsulta: 12 }] });
+  });
 });

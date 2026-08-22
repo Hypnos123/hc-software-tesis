@@ -15,10 +15,13 @@ import com.krivi.apihistorialmedico.model.api.HistoriasClinicasFaltantesPreviewR
 import com.krivi.apihistorialmedico.model.api.CreacionHistoriaClinicaFaltanteResponse;
 import com.krivi.apihistorialmedico.model.api.EstadoCreacionHistoriaClinicaFaltante;
 import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
+import com.krivi.apihistorialmedico.model.entity.Usuario;
+import com.krivi.apihistorialmedico.model.entity.Empleado;
 import com.krivi.apihistorialmedico.repository.AntecedentesRepository;
 import com.krivi.apihistorialmedico.repository.HistoriaClinicaRepository;
 import com.krivi.apihistorialmedico.repository.PacienteRepository;
 import com.krivi.apihistorialmedico.repository.ConsultaRepository;
+import com.krivi.apihistorialmedico.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -48,7 +51,44 @@ class HistoriaClinicaServiceImplTest {
   @Mock private PacienteRepository pacienteRepository;
   @Mock private AntecedentesRepository antecedentesRepository;
   @Mock private ConsultaRepository consultaRepository;
+  @Mock private UsuarioRepository usuarioRepository;
   @InjectMocks private HistoriaClinicaServiceImpl historiaClinicaService;
+
+  @Test
+  void administradorYEnfermeroPuedenCrearHistoriaClinica() {
+    Paciente paciente = paciente(10, "Ana", "Pérez", "12345678");
+    paciente.setEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
+    when(pacienteRepository.findByDniNormalizado("12345678")).thenReturn(List.of(paciente));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+    when(historiaClinicaRepository.save(any(HistoriaClinica.class))).thenAnswer(invocacion -> {
+      HistoriaClinica historia = invocacion.getArgument(0); historia.setIdHistoriaClinica(50); return historia;
+    });
+    when(usuarioRepository.findById(1)).thenReturn(Optional.of(usuarioActivo(1, "ADMINISTRADOR")));
+    when(usuarioRepository.findById(2)).thenReturn(Optional.of(usuarioActivo(2, "ENFERMERO")));
+
+    assertEquals(50, historiaClinicaService.save(requestValido("12345678"), 1).getIdGenerado());
+    assertEquals(50, historiaClinicaService.save(requestValido("12345678"), 2).getIdGenerado());
+  }
+
+  @Test
+  void doctorNoPuedeCrearHistoriaClinicaPeroLaLecturaPermaneceDisponible() {
+    when(usuarioRepository.findById(3)).thenReturn(Optional.of(usuarioActivo(3, "DOCTOR")));
+    HistoriaClinica historia = historia(40, 10, "12345678", "Ana", "Pérez");
+    historia.getPaciente().setEstadoRegistro(EstadoRegistroPaciente.ACTIVO);
+    when(historiaClinicaRepository.findByIdHistoriaClinicaAndPacienteEstadoRegistro(40, EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(Optional.of(historia));
+    when(antecedentesRepository.findByPacienteIdPaciente(10)).thenReturn(List.of());
+
+    assertThrows(SecurityException.class, () -> historiaClinicaService.save(requestValido("12345678"), 3));
+    assertEquals(1, historiaClinicaService.findById(40).getData().size());
+    verify(historiaClinicaRepository, never()).save(any(HistoriaClinica.class));
+  }
+
+  private Usuario usuarioActivo(int id, String rol) {
+    Usuario usuario = new Usuario(); usuario.setIdUsuario(id); usuario.setEstado(true); usuario.setTipoUsuario(rol);
+    Empleado empleado = new Empleado(); empleado.setCargo(rol); usuario.setEmpleado(empleado);
+    return usuario;
+  }
 
   @Test
   void previewDevuelveVacioCuandoNoHayPacientesPendientesSinGuardarEntidades() {

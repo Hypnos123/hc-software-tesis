@@ -201,8 +201,11 @@ public class ConsultaServiceImpl implements ConsultaService {
   }
 
   private boolean puedeAcceder(Usuario usuario, Consulta consulta) {
-    return esAdministrador(usuario) || (consulta.getDoctorResponsable() != null && usuario.getEmpleado() != null
-        && Objects.equals(consulta.getDoctorResponsable().getIdEmpleado(), usuario.getEmpleado().getIdEmpleado()));
+    return puedeVisualizarConsultas(usuario);
+  }
+
+  private boolean puedeVisualizarConsultas(Usuario usuario) {
+    return esAdministrador(usuario) || Set.of("ENFERMERO", "DOCTOR", "MEDICO").contains(rolUsuario(usuario));
   }
 
   private String normalizeEstado(String v) { return normalize(v); }

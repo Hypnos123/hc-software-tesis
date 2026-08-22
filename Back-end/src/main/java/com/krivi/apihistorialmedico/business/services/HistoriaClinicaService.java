@@ -16,6 +16,7 @@ public interface HistoriaClinicaService {
   ResponseModelGet<HistoriaClinicaResponse> findById(int idHistoriaClinica);
   ResponseModelGet<HistoriaClinicaResponse> findByPaciente(int idPaciente);
   ResponseModelSet save(HistoriaClinicaRequest request);
+  ResponseModelSet save(HistoriaClinicaRequest request, Integer idUsuario);
   ResponseModelSet update(int idHistoriaClinica, HistoriaClinicaUpdateRequest request);
   BusquedaHistoriasClinicasResponse buscarParaIntegracion(String criterio);
   EstadisticasHistoriasClinicasResponse obtenerEstadisticasParaIntegracion();
