@@ -26,4 +26,15 @@ describe('AuthService', () => {
     (service as any)._auth = { usuario: { tipoUsuario: 'ADMINISTRADOR' }, detallePermisos: [] };
     expect(service.puedeCrearConsultas()).toBeTrue();
   });
+
+  it('separa los permisos de lectura de consultas y creación de historias clínicas', () => {
+    (service as any)._auth = { usuario: { cargo: 'DOCTOR' }, detallePermisos: [] };
+    expect(service.puedeVisualizarConsultas()).toBeTrue();
+    expect(service.puedeCrearConsultas()).toBeFalse();
+    expect(service.puedeCrearHistoriasClinicas()).toBeFalse();
+
+    (service as any)._auth = { usuario: { cargo: 'ENFERMERO' }, detallePermisos: [] };
+    expect(service.puedeVisualizarConsultas()).toBeTrue();
+    expect(service.puedeCrearHistoriasClinicas()).toBeTrue();
+  });
 });

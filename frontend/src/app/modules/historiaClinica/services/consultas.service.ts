@@ -35,7 +35,9 @@ export class HistoriaClinicaService {
     );
   }
   insert(header: IHistoriaClinicaCreateRequest): Observable<IResponseModelSet> {
-    return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}historiaClinica/insert`, header);
+    const headers = this.authHeaders();
+    if (!headers) return throwError(() => new Error('Usuario autenticado requerido'));
+    return this.httpClient.post<IResponseModelSet>(`${this.URLServicio}historiaClinica/insert`, header, { headers });
   }
   update(id: number, header: IHistoriaClinicaUpdateRequest): Observable<IResponseModelSet> {
     return this.httpClient.put<IResponseModelSet>(`${this.URLServicio}historiaClinica/update/${id}`, header);

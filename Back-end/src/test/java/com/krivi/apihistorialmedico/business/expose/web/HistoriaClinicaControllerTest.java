@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -49,9 +50,10 @@ class HistoriaClinicaControllerTest {
   @Test
   void respondeCreatedSoloCuandoLaHistoriaFueCreada() throws Exception {
     ResponseModelSet response = new ResponseModelSet("Registro guardado correctamente.", null, 101);
-    when(service.save(any())).thenReturn(response);
+    when(service.save(any(), anyInt())).thenReturn(response);
 
     mockMvc.perform(post("/historiaClinica/insert").contentType(MediaType.APPLICATION_JSON)
+            .header("X-Usuario-Id", 7)
             .content(objectMapper.writeValueAsString(requestValido())))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.idGenerado").value(101));
@@ -133,9 +135,10 @@ class HistoriaClinicaControllerTest {
   }
 
   private void verificarError(HttpStatus status, String codigo, String mensaje) throws Exception {
-    when(service.save(any())).thenThrow(new CreacionHistoriaClinicaException(codigo, mensaje, status));
+    when(service.save(any(), anyInt())).thenThrow(new CreacionHistoriaClinicaException(codigo, mensaje, status));
 
     mockMvc.perform(post("/historiaClinica/insert").contentType(MediaType.APPLICATION_JSON)
+            .header("X-Usuario-Id", 7)
             .content(objectMapper.writeValueAsString(requestValido())))
         .andExpect(status().is(status.value()))
         .andExpect(jsonPath("$.codigo").value(codigo))

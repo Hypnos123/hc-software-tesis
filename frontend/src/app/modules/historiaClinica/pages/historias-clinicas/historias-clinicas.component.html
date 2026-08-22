@@ -2,6 +2,7 @@
   <h2>Historias Clinicas</h2>
 
   <app-button
+  *ngIf="puedeAgregarHistoriaClinica"
   [label]="'Agregar HC'"
   [router]="'./mantenimiento-historias-clinicas/nuevo'"
   [icono]="'pi pi-plus'">

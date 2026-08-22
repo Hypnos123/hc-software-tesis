@@ -37,7 +37,10 @@ public class HistoriaClinicaController {
   }
 
   @PostMapping("/insert")
-  public ResponseEntity<ResponseModelSet> insert(@RequestBody HistoriaClinicaRequest request) { return ResponseEntity.status(HttpStatus.CREATED).body(historiaClinicaService.save(request)); }
+  public ResponseEntity<ResponseModelSet> insert(@RequestBody HistoriaClinicaRequest request,
+      @RequestHeader(value = "X-Usuario-Id", required = false) Integer idUsuario) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(historiaClinicaService.save(request, idUsuario));
+  }
 
   @PutMapping("/update/{id}")
   public ResponseEntity<ResponseModelSet> update(@RequestBody HistoriaClinicaUpdateRequest request, @PathVariable int id) {
@@ -48,5 +51,11 @@ public class HistoriaClinicaController {
   public ResponseEntity<ApiErrorResponse> handleCreacionHistoriaClinicaException(CreacionHistoriaClinicaException exception) {
     return ResponseEntity.status(exception.getStatus())
         .body(ApiErrorResponse.builder().codigo(exception.getCodigo()).mensaje(exception.getMessage()).build());
+  }
+
+  @ExceptionHandler(SecurityException.class)
+  public ResponseEntity<ApiErrorResponse> handleSecurityException(SecurityException exception) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(ApiErrorResponse.builder().codigo("ROL_NO_AUTORIZADO").mensaje(exception.getMessage()).build());
   }
 }

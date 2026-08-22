@@ -11,6 +11,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { HistoriaClinicaService } from '../../services/consultas.service';
 import { IHistoriaClinica } from '../../models/historiaClinica';
+import { AuthService } from '@app/auth/services/auth.service';
 
 @Component({
   selector: 'app-historias-clinicas', standalone: true,
@@ -20,7 +21,9 @@ import { IHistoriaClinica } from '../../models/historiaClinica';
 export class HistoriasClinicasComponent implements OnInit {
   loading = false; searchValue = ''; rows: IHistoriaClinica[] = []; selected: IHistoriaClinica[] = [];
   globalFields = ['idHistoriaClinica','apellidos','nombres','numDocumento'];
-  constructor(private router: Router, private historiaClinicaService: HistoriaClinicaService) {}
+  constructor(private router: Router, private historiaClinicaService: HistoriaClinicaService,
+    private authService: AuthService) {}
+  get puedeAgregarHistoriaClinica(): boolean { return this.authService.puedeCrearHistoriasClinicas(); }
   ngOnInit(): void { this.cargarHistorias(); }
   cargarHistorias(): void { this.loading = true; this.historiaClinicaService.getAll().subscribe({ next: r => { this.rows = r; this.loading = false; }, error: () => this.loading = false }); }
   nombreCompleto(r: IHistoriaClinica): string { return [r.apellidos, r.nombres].filter(Boolean).join(' '); }

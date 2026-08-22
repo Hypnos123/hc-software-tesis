@@ -9,6 +9,7 @@ import { MantenimientoHistoriasClinicasComponent } from './mantenimiento-histori
 import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-history-transfer.service';
 import { ClinicalHistoryTransferCandidate } from '@app/shared/models/clinical-history-transfer';
 import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
+import { AuthService } from '@app/auth/services/auth.service';
 
 describe('MantenimientoHistoriasClinicasComponent', () => {
   let component: MantenimientoHistoriasClinicasComponent;
@@ -95,6 +96,7 @@ describe('MantenimientoHistoriasClinicasComponent', () => {
         { provide: Router, useValue: router },
         { provide: Location, useValue: location },
         { provide: ClinicalHistoryFlowFeedbackService, useValue: feedbackService },
+        { provide: AuthService, useValue: { puedeCrearHistoriasClinicas: () => true } },
         {
           provide: MensajesSwalService,
           useValue: mensajes
