@@ -330,8 +330,6 @@ export class InterfazChatComponent implements OnDestroy {
     this.activePresentationId = undefined;
     if (message) {
       message.presentationState = 'visible';
-      message.cancelAfterPresentation?.();
-      message.cancelAfterPresentation = undefined;
       message.afterPresentation = undefined;
     }
     this.processPresentationQueue();
@@ -649,10 +647,22 @@ export class InterfazChatComponent implements OnDestroy {
     const body = this.chatBody.nativeElement;
     this.autoFollowPresentation = body.scrollHeight - body.scrollTop - body.clientHeight <= this.autoFollowThreshold;
   }
-  scrollToBottom(): void { this.autoFollowPresentation = true; requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
+  scrollToBottom(): void {
+    if (this.interactionScrollAnchorId) return;
+    this.autoFollowPresentation = true;
+    requestAnimationFrame(() => { if (this.chatBody && !this.interactionScrollAnchorId) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; });
+  }
   private scrollToNewBlock(blockId: string): void {
+    if (this.interactionScrollAnchorId) return;
     this.autoFollowPresentation = true;
     requestAnimationFrame(() => this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+  private positionInteractionAnchor(blockId: string): void {
+    requestAnimationFrame(() => {
+      if (this.interactionScrollAnchorId !== blockId) return;
+      this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)
+        ?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
   cerrarMensajeFlotante(): void {
     this.clearFloatingMessageTimer();
@@ -715,8 +725,6 @@ export class InterfazChatComponent implements OnDestroy {
     const addOptions = (): void => this.enqueueForPresentation(options);
     if (menuId !== 'principal' && menu.question) {
       const question = this.addBotMessage(menu.question);
-      this.messages.push(options);
-      question.cancelAfterPresentation = () => { this.messages = this.messages.filter(message => message !== options); };
       this.runAfterPresentation(question, addOptions);
       return;
     }
@@ -847,8 +855,8 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private pinInteractionStart(blockId: string): void {
     this.interactionScrollAnchorId = blockId;
-    this.scrollToNewBlock(blockId);
     this.autoFollowPresentation = false;
+    this.positionInteractionAnchor(blockId);
   }
   private resetPresentationCoordinator(): void {
     if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
