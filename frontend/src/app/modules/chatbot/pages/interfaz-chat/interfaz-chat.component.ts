@@ -49,7 +49,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -205,6 +205,7 @@ export class InterfazChatComponent implements OnDestroy {
   private readonly processedFeedbackIds = new Set<string>();
   private messageSequence = 0;
   private readonly presentationQueue: ChatMessage[] = [];
+  private readonly presentationContinuations = new Map<string, Array<() => void>>();
   private activePresentationId?: string;
   private presentationTimer?: ReturnType<typeof setTimeout>;
   private readonly characterPresentationDelay = 20;
@@ -283,7 +284,7 @@ export class InterfazChatComponent implements OnDestroy {
   }
   sendMessage(): void {
     const pregunta = this.userMessage.trim();
-    if (!this.autenticado || this.isLoading) return;
+    if (!this.autenticado || this.isLoading || (this.isOpen && this.asistenteEscribiendo)) return;
     if (this.resumenConsultasState) {
       if (!pregunta || !['prompt', 'error'].includes(this.resumenConsultasState.vista)) return;
       const criterioMessage = this.addUserMessage(pregunta); this.userMessage = '';
@@ -304,21 +305,35 @@ export class InterfazChatComponent implements OnDestroy {
     }
     this.askBackend(pregunta, true);
   }
-  onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
+  onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey && !this.asistenteEscribiendo) return; keyboardEvent.preventDefault(); if (!this.asistenteEscribiendo) this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
-    if (!this.autenticado || this.isLoading) return;
+    if (!this.autenticado || this.isLoading || (this.isOpen && this.asistenteEscribiendo)) return;
     const selection = this.addUserMessage(option.label);
+    this.pinInteractionStart(selection.id);
     this.removeMenuOption(menuMessage, option);
     this.executeMenuOption(option, selection.id);
   }
   quickAsk(text: string): void {
-    if (!this.autenticado || this.isLoading) return;
-    if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
+    if (!this.autenticado || this.isLoading || this.asistenteEscribiendo) return;
+    if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.pinInteractionStart(selection.id); this.addMenuBlock('principal'); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
       : this.quickQuestionOptions[text] ?? { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
+    this.pinInteractionStart(selection.id);
     this.executeMenuOption(quickOption, selection.id);
+  }
+  stopPresentation(): void {
+    if (!this.activePresentationId) return;
+    const message = this.messages.find(candidate => candidate.id === this.activePresentationId);
+    if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
+    this.presentationTimer = undefined;
+    this.activePresentationId = undefined;
+    if (message) {
+      message.presentationState = 'visible';
+      this.presentationContinuations.delete(message.id);
+    }
+    this.processPresentationQueue();
   }
   mostrarOpcionesPacientes(): void {
     const selection = this.addUserMessage('Volver a opciones de Pacientes');
@@ -633,10 +648,22 @@ export class InterfazChatComponent implements OnDestroy {
     const body = this.chatBody.nativeElement;
     this.autoFollowPresentation = body.scrollHeight - body.scrollTop - body.clientHeight <= this.autoFollowThreshold;
   }
-  scrollToBottom(): void { this.autoFollowPresentation = true; requestAnimationFrame(() => { if (this.chatBody) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; }); }
+  scrollToBottom(): void {
+    if (this.interactionScrollAnchorId) return;
+    this.autoFollowPresentation = true;
+    requestAnimationFrame(() => { if (this.chatBody && !this.interactionScrollAnchorId) this.chatBody.nativeElement.scrollTop = this.chatBody.nativeElement.scrollHeight; });
+  }
   private scrollToNewBlock(blockId: string): void {
+    if (this.interactionScrollAnchorId) return;
     this.autoFollowPresentation = true;
     requestAnimationFrame(() => this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+  private positionInteractionAnchor(blockId: string): void {
+    requestAnimationFrame(() => {
+      if (this.interactionScrollAnchorId !== blockId) return;
+      this.conversationBlocks.find(block => block.nativeElement.dataset['blockId'] === blockId)
+        ?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
   cerrarMensajeFlotante(): void {
     this.clearFloatingMessageTimer();
@@ -700,10 +727,8 @@ export class InterfazChatComponent implements OnDestroy {
     };
     if (menuId !== 'principal' && menu.question) {
       const question = this.addBotMessage(menu.question);
-      if (waitForQuestion) {
-        this.runAfterPresentation(question, addOptions);
-        return;
-      }
+      this.runAfterPresentation(question, addOptions);
+      return;
     }
     addOptions();
   }
@@ -767,12 +792,7 @@ export class InterfazChatComponent implements OnDestroy {
     }
     if (!this.isAnimatedBotText(message)) {
       this.revealMessageImmediately(message);
-      if (this.interactionScrollAnchorId) {
-        if (!message.preserveInteractionAnchor) {
-          this.interactionScrollAnchorId = undefined;
-          this.autoFollowPresentation = false;
-        }
-      } else if (this.presentationSequenceHadText) {
+      if (!this.interactionScrollAnchorId && this.presentationSequenceHadText) {
         this.focusPresentedBlock(message.id);
       }
       this.presentationSequenceHadText = false;
@@ -804,9 +824,9 @@ export class InterfazChatComponent implements OnDestroy {
     message.visibleText = message.text ?? '';
     message.presentationState = 'visible';
     this.activePresentationId = undefined;
-    const afterPresentation = message.afterPresentation;
-    message.afterPresentation = undefined;
-    afterPresentation?.();
+    const continuations = this.presentationContinuations.get(message.id) ?? [];
+    this.presentationContinuations.delete(message.id);
+    continuations.forEach(callback => callback());
     this.processPresentationQueue();
   }
   private runAfterPresentation(message: ChatMessage, callback: () => void): void {
@@ -814,7 +834,9 @@ export class InterfazChatComponent implements OnDestroy {
       callback();
       return;
     }
-    message.afterPresentation = callback;
+    const continuations = this.presentationContinuations.get(message.id) ?? [];
+    continuations.push(callback);
+    this.presentationContinuations.set(message.id, continuations);
   }
   private revealMessageImmediately(message: ChatMessage): void {
     if (message.type === 'text') message.visibleText = message.text ?? '';
@@ -835,8 +857,8 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private pinInteractionStart(blockId: string): void {
     this.interactionScrollAnchorId = blockId;
-    this.scrollToNewBlock(blockId);
     this.autoFollowPresentation = false;
+    this.positionInteractionAnchor(blockId);
   }
   private resetPresentationCoordinator(): void {
     if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
@@ -844,12 +866,14 @@ export class InterfazChatComponent implements OnDestroy {
     if (this.presentationScrollFrame !== undefined) cancelAnimationFrame(this.presentationScrollFrame);
     this.presentationScrollFrame = undefined;
     this.presentationQueue.length = 0;
+    this.presentationContinuations.clear();
     this.activePresentationId = undefined;
     this.presentationSequenceHadText = false;
     this.interactionScrollAnchorId = undefined;
     this.autoFollowPresentation = true;
   }
   private removeMessageFromPresentation(message: ChatMessage): void {
+    this.presentationContinuations.delete(message.id);
     const queuedIndex = this.presentationQueue.indexOf(message);
     if (queuedIndex >= 0) this.presentationQueue.splice(queuedIndex, 1);
     if (this.activePresentationId !== message.id) return;

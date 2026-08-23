@@ -54,7 +54,8 @@
   </div>
 
   <div *ngIf="autenticado" class="chatbot-footer">
-    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista))" />
-    <button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista)) || !userMessage.trim()">Enviar</button>
+    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="asistenteEscribiendo || isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista))" />
+    <button *ngIf="asistenteEscribiendo; else sendButton" type="button" class="stop-presentation" title="Detener escritura" aria-label="Detener escritura" (click)="stopPresentation()"><i class="pi pi-stop" aria-hidden="true"></i><span>Detener</span></button>
+    <ng-template #sendButton><button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista)) || !userMessage.trim()">Enviar</button></ng-template>
   </div>
 </div>
