@@ -722,14 +722,14 @@ export class InterfazChatComponent implements OnDestroy {
   private addBotMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('bot', text)); }
   private addMenuBlock(menuId: string, waitForQuestion = false): void {
     const menu = this.menus[menuId];
-    const addOptions = (): void => {
-      this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
-    };
+    const options = this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) });
+    const addOptions = (): void => this.enqueueForPresentation(options);
     if (menuId !== 'principal' && menu.question) {
       const question = this.addBotMessage(menu.question);
       this.runAfterPresentation(question, addOptions);
       return;
     }
+    this.messages.push(options);
     addOptions();
   }
   private addContextualAction(recommendation: ContextualActionRecommendation): void {
