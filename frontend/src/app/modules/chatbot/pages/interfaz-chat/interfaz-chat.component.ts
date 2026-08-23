@@ -49,7 +49,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; cancelAfterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -721,14 +721,14 @@ export class InterfazChatComponent implements OnDestroy {
   private addBotMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('bot', text)); }
   private addMenuBlock(menuId: string, waitForQuestion = false): void {
     const menu = this.menus[menuId];
-    const addOptions = (): void => {
-      this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
-    };
+    const options = this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) });
+    const addOptions = (): void => this.enqueueForPresentation(options);
     if (menuId !== 'principal' && menu.question) {
       const question = this.addBotMessage(menu.question);
       this.runAfterPresentation(question, addOptions);
       return;
     }
+    this.messages.push(options);
     addOptions();
   }
   private addContextualAction(recommendation: ContextualActionRecommendation): void {
@@ -825,6 +825,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.activePresentationId = undefined;
     const afterPresentation = message.afterPresentation;
     message.afterPresentation = undefined;
+    message.cancelAfterPresentation = undefined;
     afterPresentation?.();
     this.processPresentationQueue();
   }
