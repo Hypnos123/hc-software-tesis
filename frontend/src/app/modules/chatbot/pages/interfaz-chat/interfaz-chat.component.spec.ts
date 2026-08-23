@@ -280,6 +280,121 @@ describe('InterfazChatComponent', () => {
     expect(fixture.nativeElement.querySelector('.assistant-typing-indicator')).toBeNull();
   }));
 
+  it('debe ocultar las opciones y bloquear la entrada hasta terminar la pregunta', fakeAsync(() => {
+    component.openChat();
+    (component as any).addMenuBlock('manejo');
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.chatbot-footer input') as HTMLInputElement;
+    expect(component.messages.some(message => message.menuId === 'manejo')).toBeFalse();
+    expect(fixture.nativeElement.querySelectorAll('[data-block-id][aria-label="Opciones del asistente"]').length).toBe(1);
+    expect(input.disabled).toBeTrue();
+    expect(fixture.nativeElement.querySelector('[aria-label="Enviar consulta"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Detener escritura"]')).not.toBeNull();
+
+    component.userMessage = 'no debe enviarse';
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    spyOn(component, 'sendMessage').and.callThrough();
+    component.onEnter(enter);
+    expect(enter.defaultPrevented).toBeTrue();
+    expect(component.sendMessage).not.toHaveBeenCalled();
+
+    tick(30_000);
+    fixture.detectChanges();
+    expect(component.messages.some(message => message.menuId === 'manejo')).toBeTrue();
+    expect(input.disabled).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[aria-label="Enviar consulta"]')).not.toBeNull();
+  }));
+
+  it('debe detener solo el texto activo sin ejecutar su continuación ni mover el ancla', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const callback = jasmine.createSpy('afterPresentation');
+    const message = (component as any).addBotMessage('Un mensaje suficientemente largo');
+    (component as any).runAfterPresentation(message, callback);
+    (component as any).interactionScrollAnchorId = 'anchor-actual';
+    const scrollSpy = spyOn<any>(component, 'scrollToNewBlock');
+    tick(60);
+    const partialText = message.visibleText;
+
+    component.stopPresentation();
+    fixture.detectChanges();
+
+    expect(message.visibleText).toBe(partialText);
+    expect(message.presentationState).toBe('visible');
+    expect(callback).not.toHaveBeenCalled();
+    expect(component.asistenteEscribiendo).toBeFalse();
+    expect((component as any).interactionScrollAnchorId).toBe('anchor-actual');
+    expect(scrollSpy).not.toHaveBeenCalled();
+    expect((fixture.nativeElement.querySelector('.chatbot-footer input') as HTMLInputElement).disabled).toBeFalse();
+  }));
+
+  it('no debe agregar el menú programado cuando se detiene su pregunta', fakeAsync(() => {
+    component.openChat();
+    (component as any).addMenuBlock('consultar');
+    tick(60);
+
+    component.stopPresentation();
+    fixture.detectChanges();
+
+    expect(component.messages.some(message => message.menuId === 'consultar')).toBeFalse();
+    expect(fixture.nativeElement.querySelectorAll('[data-block-id][aria-label="Opciones del asistente"]').length).toBe(1);
+  }));
+
+  it('debe conservar el ancla al agregar la respuesta y sus opciones posteriores', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const principal = component.messages.find(message => message.menuId === 'principal')!;
+    spyOn(component, 'scrollToBottom').and.callThrough();
+    const genericScrollSpy = spyOn<any>(component, 'scrollToNewBlock').and.callThrough();
+    const anchorScrollSpy = spyOn<any>(component, 'positionInteractionAnchor').and.callThrough();
+
+    component.selectHistoricalMenuOption(principal, principal.options![0]);
+    const selection = component.messages.find(message => message.sender === 'user' && message.text === 'Manejo del sistema')!;
+    expect((component as any).interactionScrollAnchorId).toBe(selection.id);
+    expect(anchorScrollSpy).toHaveBeenCalledOnceWith(selection.id);
+
+    tick(30_000);
+    fixture.detectChanges();
+    expect(component.messages.some(message => message.menuId === 'manejo')).toBeTrue();
+    expect(component.scrollToBottom).not.toHaveBeenCalled();
+    expect(genericScrollSpy).not.toHaveBeenCalled();
+    expect((component as any).interactionScrollAnchorId).toBe(selection.id);
+  }));
+
+  it('debe conservar el seguimiento automático cuando no existe un ancla', fakeAsync(() => {
+    component.openChat();
+    fixture.detectChanges();
+    const body = fixture.nativeElement.querySelector('.chatbot-body') as HTMLElement;
+    Object.defineProperty(body, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 240 });
+    body.scrollTop = 0;
+
+    (component as any).addBotMessage('A');
+    tick(20);
+    tick(20);
+
+    expect((component as any).interactionScrollAnchorId).toBeUndefined();
+    expect(body.scrollTop).toBe(140);
+  }));
+
+  it('debe crear una nueva ancla y permitir otra interacción después de detener', fakeAsync(() => {
+    component.openChat();
+    const interrupted = (component as any).addBotMessage('Texto interrumpido');
+    (component as any).runAfterPresentation(interrupted, () => (component as any).addMenuBlock('manejo'));
+    tick(20);
+    component.stopPresentation();
+
+    component.quickAsk('Verificar historia clínica');
+
+    const selection = component.messages.find(message => message.sender === 'user' && message.text === 'Verificar historia clínica')!;
+    expect(selection).toBeDefined();
+    expect((component as any).interactionScrollAnchorId).toBe(selection.id);
+    expect(component.messages.some(message => message.menuId === 'manejo')).toBeFalse();
+    expect(component.asistenteEscribiendo).toBeTrue();
+    tick(30_000);
+  }));
+
   it('debe respetar texto, texto y componente sin mostrar el componente antes de su turno', fakeAsync(() => {
     component.openChat();
     const primero = (component as any).addBotMessage('AB');
