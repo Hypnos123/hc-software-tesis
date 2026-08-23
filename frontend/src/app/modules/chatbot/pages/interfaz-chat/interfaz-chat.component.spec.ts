@@ -329,6 +329,41 @@ describe('InterfazChatComponent', () => {
     expect((fixture.nativeElement.querySelector('.chatbot-footer input') as HTMLInputElement).disabled).toBeFalse();
   }));
 
+  it('debe ejecutar todas las continuaciones registradas al finalizar normalmente', fakeAsync(() => {
+    component.openChat();
+    const firstCallback = jasmine.createSpy('firstCallback');
+    const secondCallback = jasmine.createSpy('secondCallback');
+    const message = (component as any).addBotMessage('AB');
+    (component as any).runAfterPresentation(message, firstCallback);
+    (component as any).runAfterPresentation(message, secondCallback);
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).not.toHaveBeenCalled();
+    tick(40);
+
+    expect(message.presentationState).toBe('visible');
+    expect(firstCallback).toHaveBeenCalledTimes(1);
+    expect(secondCallback).toHaveBeenCalledTimes(1);
+    expect((component as any).presentationContinuations.has(message.id)).toBeFalse();
+  }));
+
+  it('debe cancelar todas las continuaciones de la presentación detenida', fakeAsync(() => {
+    component.openChat();
+    const firstCallback = jasmine.createSpy('firstCallback');
+    const secondCallback = jasmine.createSpy('secondCallback');
+    const message = (component as any).addBotMessage('Mensaje interrumpido');
+    (component as any).runAfterPresentation(message, firstCallback);
+    (component as any).runAfterPresentation(message, secondCallback);
+    tick(40);
+
+    component.stopPresentation();
+    tick(30_000);
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).not.toHaveBeenCalled();
+    expect((component as any).presentationContinuations.has(message.id)).toBeFalse();
+  }));
+
   it('no debe agregar el menú programado cuando se detiene su pregunta', fakeAsync(() => {
     component.openChat();
     (component as any).addMenuBlock('consultar');
