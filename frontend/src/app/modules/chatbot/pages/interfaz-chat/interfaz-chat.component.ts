@@ -49,7 +49,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; afterPresentation?: () => void; cancelAfterPresentation?: () => void; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -283,7 +283,7 @@ export class InterfazChatComponent implements OnDestroy {
   }
   sendMessage(): void {
     const pregunta = this.userMessage.trim();
-    if (!this.autenticado || this.isLoading) return;
+    if (!this.autenticado || this.isLoading || (this.isOpen && this.asistenteEscribiendo)) return;
     if (this.resumenConsultasState) {
       if (!pregunta || !['prompt', 'error'].includes(this.resumenConsultasState.vista)) return;
       const criterioMessage = this.addUserMessage(pregunta); this.userMessage = '';
@@ -304,21 +304,37 @@ export class InterfazChatComponent implements OnDestroy {
     }
     this.askBackend(pregunta, true);
   }
-  onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey) return; keyboardEvent.preventDefault(); this.sendMessage(); }
+  onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey && !this.asistenteEscribiendo) return; keyboardEvent.preventDefault(); if (!this.asistenteEscribiendo) this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
-    if (!this.autenticado || this.isLoading) return;
+    if (!this.autenticado || this.isLoading || (this.isOpen && this.asistenteEscribiendo)) return;
     const selection = this.addUserMessage(option.label);
+    this.pinInteractionStart(selection.id);
     this.removeMenuOption(menuMessage, option);
     this.executeMenuOption(option, selection.id);
   }
   quickAsk(text: string): void {
-    if (!this.autenticado || this.isLoading) return;
-    if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.addMenuBlock('principal'); this.scrollToNewBlock(selection.id); return; }
+    if (!this.autenticado || this.isLoading || this.asistenteEscribiendo) return;
+    if (text === 'Menú principal') { this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.stopClinicalHistoryRequest(); this.resetClinicalHistoryFlow(); const selection = this.addUserMessage(text); this.pinInteractionStart(selection.id); this.addMenuBlock('principal'); return; }
     const quickOption = text === 'Buscar paciente por DNI'
       ? this.menus['pacientes'].options[2]
       : this.quickQuestionOptions[text] ?? { label: text, action: 'request' as MenuAction };
     const selection = this.addUserMessage(quickOption.label);
+    this.pinInteractionStart(selection.id);
     this.executeMenuOption(quickOption, selection.id);
+  }
+  stopPresentation(): void {
+    if (!this.activePresentationId) return;
+    const message = this.messages.find(candidate => candidate.id === this.activePresentationId);
+    if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
+    this.presentationTimer = undefined;
+    this.activePresentationId = undefined;
+    if (message) {
+      message.presentationState = 'visible';
+      message.cancelAfterPresentation?.();
+      message.cancelAfterPresentation = undefined;
+      message.afterPresentation = undefined;
+    }
+    this.processPresentationQueue();
   }
   mostrarOpcionesPacientes(): void {
     const selection = this.addUserMessage('Volver a opciones de Pacientes');
@@ -695,16 +711,16 @@ export class InterfazChatComponent implements OnDestroy {
   private addBotMessage(text: string): ChatMessage { return this.addMessage(this.createTextMessage('bot', text)); }
   private addMenuBlock(menuId: string, waitForQuestion = false): void {
     const menu = this.menus[menuId];
-    const addOptions = (): void => {
-      this.addMessage(this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) }));
-    };
+    const options = this.createBlockMessage('menu', { menuId, options: this.createMenuOptions(menuId) });
+    const addOptions = (): void => this.enqueueForPresentation(options);
     if (menuId !== 'principal' && menu.question) {
       const question = this.addBotMessage(menu.question);
-      if (waitForQuestion) {
-        this.runAfterPresentation(question, addOptions);
-        return;
-      }
+      this.messages.push(options);
+      question.cancelAfterPresentation = () => { this.messages = this.messages.filter(message => message !== options); };
+      this.runAfterPresentation(question, addOptions);
+      return;
     }
+    this.messages.push(options);
     addOptions();
   }
   private addContextualAction(recommendation: ContextualActionRecommendation): void {
@@ -767,12 +783,7 @@ export class InterfazChatComponent implements OnDestroy {
     }
     if (!this.isAnimatedBotText(message)) {
       this.revealMessageImmediately(message);
-      if (this.interactionScrollAnchorId) {
-        if (!message.preserveInteractionAnchor) {
-          this.interactionScrollAnchorId = undefined;
-          this.autoFollowPresentation = false;
-        }
-      } else if (this.presentationSequenceHadText) {
+      if (!this.interactionScrollAnchorId && this.presentationSequenceHadText) {
         this.focusPresentedBlock(message.id);
       }
       this.presentationSequenceHadText = false;
@@ -806,6 +817,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.activePresentationId = undefined;
     const afterPresentation = message.afterPresentation;
     message.afterPresentation = undefined;
+    message.cancelAfterPresentation = undefined;
     afterPresentation?.();
     this.processPresentationQueue();
   }
