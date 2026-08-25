@@ -364,6 +364,27 @@ describe('InterfazChatComponent', () => {
     expect((component as any).presentationContinuations.has(message.id)).toBeFalse();
   }));
 
+  it('debe detener la presentación al pulsar el botón Detener', fakeAsync(() => {
+    component.openChat();
+    const callback = jasmine.createSpy('afterPresentation');
+    const message = (component as any).addBotMessage('Texto que todavía se está presentando');
+    (component as any).runAfterPresentation(message, callback);
+    tick(60);
+    fixture.detectChanges();
+    const partialText = message.visibleText;
+
+    const stopButton = fixture.nativeElement.querySelector('[aria-label="Detener escritura"]') as HTMLButtonElement;
+    expect(stopButton).not.toBeNull();
+    stopButton.click();
+    fixture.detectChanges();
+
+    expect(message.visibleText).toBe(partialText);
+    expect(callback).not.toHaveBeenCalled();
+    expect(component.asistenteEscribiendo).toBeFalse();
+    expect((fixture.nativeElement.querySelector('.chatbot-footer input') as HTMLInputElement).disabled).toBeFalse();
+    expect(fixture.nativeElement.querySelector('[aria-label="Enviar consulta"]')).not.toBeNull();
+  }));
+
   it('no debe agregar el menú programado cuando se detiene su pregunta', fakeAsync(() => {
     component.openChat();
     (component as any).addMenuBlock('consultar');
@@ -1570,6 +1591,32 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.text).toBe('Respuesta del asistente');
     expect(component.isLoading).toBeFalse();
   }));
+
+  it('debe retirar la recomendación de historia clínica solo de la búsqueda informativa por DNI', () => {
+    const respuesta = [
+      'ID: 8',
+      'Nombre: PACIENTE PRUEBA',
+      `DNI: ${DNI_PRUEBA}`,
+      'Fecha de registro: 20/08/2026',
+      '',
+      'No se recomienda crear una nueva historia clínica para este paciente.'
+    ].join('\n');
+
+    const resultado = (component as any).formatResponse({ intencion: 'BUSQUEDA_PACIENTE_DNI', respuesta });
+
+    expect(resultado).toContain('ID: 8');
+    expect(resultado).toContain(`DNI: ${DNI_PRUEBA}`);
+    expect(resultado).toContain('Fecha de registro: 20/08/2026');
+    expect(resultado).not.toContain('No se recomienda crear una nueva historia clínica');
+  });
+
+  it('debe conservar recomendaciones de historia clínica fuera de la búsqueda informativa por DNI', () => {
+    const respuesta = 'No se recomienda crear una nueva historia clínica para este paciente.';
+
+    const resultado = (component as any).formatResponse({ intencion: 'VALIDACION_HISTORIA_CLINICA', respuesta });
+
+    expect(resultado).toBe(respuesta);
+  });
 
   it('debe enviar un mensaje escrito al backend', fakeAsync(() => {
     component.userMessage = '  ¿Cómo registro un paciente?  ';
