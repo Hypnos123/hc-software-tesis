@@ -32,6 +32,10 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   @Query(value = "select * from consulta c where c.idhistoriaclinica = :idHistoriaClinica order by coalesce(c.fechaconsulta, c.fechacreacion) desc limit 1", nativeQuery = true)
   Optional<Consulta> findUltimaByHistoriaClinica(@Param("idHistoriaClinica") Integer idHistoriaClinica);
   List<Consulta> findByDoctorResponsableIdEmpleado(Integer idEmpleado);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.idConsulta = :idConsulta")
+  Optional<Consulta> findByIdForReporte(@Param("idConsulta") Integer idConsulta);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by c.idConsulta")
+  List<Consulta> findByPacienteIdForReporte(@Param("idPaciente") Integer idPaciente);
   long countByFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(LocalDateTime inicio, LocalDateTime fin);
   long countByEstado(String estado);
   long countByEstadoAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThan(String estado, LocalDateTime inicio, LocalDateTime fin);
