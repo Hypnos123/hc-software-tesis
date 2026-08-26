@@ -91,16 +91,27 @@
         <td class="acciones">
 
           <button pButton icon="pi pi-eye"
+                  data-testid="ver-consulta"
                   class="p-button-rounded p-button-text"
                   pTooltip="Ver" (click)="ver(r)">
           </button>
 
           <button *ngIf="r.estado==='Por atender'"
+            data-testid="comenzar-atencion"
             pButton icon="pi pi-user-plus"
             class="p-button-rounded p-button-text"
             pTooltip="Comenzar atención" 
             (click)="abrirConfirmacionAtencion(r)">
          </button>
+
+          <button *ngIf="r.estado==='Atendido'"
+            pButton icon="pi pi-print"
+            data-testid="imprimir-evaluacion"
+            class="p-button-rounded p-button-text"
+            pTooltip="Imprimir evaluación médica"
+            [disabled]="cargandoReporte"
+            (click)="imprimirEvaluacion(r)">
+          </button>
 
         </td>
       </tr>
@@ -151,3 +162,14 @@
     </div>
   </ng-template>
 </p-dialog>
+
+<app-pdf-preview
+  [visible]="mostrarVistaPreviaReporte"
+  [pdfBlob]="reportePdf?.blob"
+  [nombreArchivo]="reportePdf?.nombreArchivo || 'reporte-medico.pdf'"
+  [cargando]="cargandoReporte"
+  [error]="errorReporte"
+  titulo="Vista previa de evaluación médica"
+  textoCarga="Generando evaluación médica..."
+  (cerrarVista)="cerrarVistaPreviaReporte()">
+</app-pdf-preview>

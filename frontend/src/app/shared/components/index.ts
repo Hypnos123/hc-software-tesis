@@ -4,6 +4,7 @@ export * from '@app/shared/components/footer/footer.component';
 export * from '@app/shared/components/footer-template/footer-template.component';
 export * from '@app/shared/components/loader/loader.component';
 export * from '@app/shared/components/loading/loading.component';
+export * from '@app/shared/components/pdf-preview/pdf-preview.component';
 export * from '@app/shared/components/navbar/navbar.component';
 export * from '@app/shared/components/navbar-template/navbar-template.component';
 export * from '@app/shared/components/sidebar/sidebar.component';
