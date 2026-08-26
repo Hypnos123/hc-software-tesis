@@ -1,0 +1,44 @@
+<p-dialog
+  [(visible)]="dialogVisible"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="true"
+  [style]="{ width: '92vw', maxWidth: '1180px' }"
+  [contentStyle]="{ padding: '0' }"
+  styleClass="pdf-preview-dialog"
+  (onHide)="alOcultar()">
+  <ng-template pTemplate="header">
+    <div class="preview-title"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ titulo }}</span></div>
+  </ng-template>
+
+  <div class="preview-body">
+    <div *ngIf="cargando" class="preview-state loading-state" role="status">
+      <p-progressSpinner strokeWidth="4" ariaLabel="Generando reporte PDF"></p-progressSpinner>
+      <p>{{ textoCarga }}</p>
+    </div>
+
+    <div *ngIf="!cargando && mensajeError" class="preview-state error-state" role="alert">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      <strong>No se pudo mostrar el reporte</strong>
+      <p>{{ mensajeError }}</p>
+    </div>
+
+    <iframe *ngIf="mostrarVisor" #visorPdf class="pdf-frame" [src]="pdfUrl"
+      title="Documento PDF para vista previa"></iframe>
+
+    <div *ngIf="!cargando && !mensajeError && !mostrarVisor" class="preview-state empty-state">
+      <i class="pi pi-file" aria-hidden="true"></i><p>No hay un documento disponible para mostrar.</p>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="preview-actions">
+      <button pButton type="button" label="Descargar PDF" icon="pi pi-download"
+        [disabled]="accionesDeshabilitadas" (click)="descargar()"></button>
+      <button pButton type="button" label="Imprimir" icon="pi pi-print" class="p-button-outlined"
+        [disabled]="accionesDeshabilitadas" (click)="imprimir()"></button>
+      <button pButton type="button" label="Cerrar" icon="pi pi-times" class="p-button-text"
+        (click)="cerrar()"></button>
+    </div>
+  </ng-template>
+</p-dialog>

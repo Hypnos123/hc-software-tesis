@@ -1,0 +1,71 @@
+<p-dialog [(visible)]="dialogVisible" header="Generar reporte de consultas" [modal]="true"
+  [draggable]="false" [style]="{ width: '620px', maxWidth: 'calc(100vw - 28px)' }" (onHide)="cerrar()">
+  <div class="report-form">
+    <div class="field full-field">
+      <label for="reportePaciente">Paciente</label>
+      <p-dropdown inputId="reportePaciente" [options]="pacientes" optionLabel="etiqueta" optionValue="idPaciente"
+        [(ngModel)]="idPaciente" placeholder="Seleccione un paciente" [filter]="true"
+        filterBy="etiqueta" appendTo="body" (ngModelChange)="criterioCambiado()"></p-dropdown>
+    </div>
+    <div class="field full-field">
+      <label for="reporteAlcance">Alcance</label>
+      <p-dropdown inputId="reporteAlcance" [options]="alcanceOptions" optionLabel="label" optionValue="value"
+        [(ngModel)]="alcance" appendTo="body" (ngModelChange)="criterioCambiado()"></p-dropdown>
+    </div>
+    <div *ngIf="requiereFecha" class="field full-field">
+      <label for="reporteFecha">Fecha</label>
+      <p-calendar inputId="reporteFecha" [(ngModel)]="fecha" dateFormat="dd/mm/yy" [showIcon]="true"
+        appendTo="body" (ngModelChange)="criterioCambiado()"></p-calendar>
+    </div>
+    <ng-container *ngIf="requiereRango">
+      <div class="field">
+        <label for="reporteDesde">Fecha desde</label>
+        <p-calendar inputId="reporteDesde" [(ngModel)]="fechaDesde" dateFormat="dd/mm/yy" [showIcon]="true"
+          appendTo="body" (ngModelChange)="criterioCambiado()"></p-calendar>
+      </div>
+      <div class="field">
+        <label for="reporteHasta">Fecha hasta</label>
+        <p-calendar inputId="reporteHasta" [(ngModel)]="fechaHasta" dateFormat="dd/mm/yy" [showIcon]="true"
+          appendTo="body" (ngModelChange)="criterioCambiado()"></p-calendar>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="selection-action">
+    <button pButton type="button" label="Consultar" icon="pi pi-search" [disabled]="cargandoSeleccion"
+      (click)="consultarSeleccion()"></button>
+  </div>
+
+  <div *ngIf="cargandoSeleccion" class="selection-loading" role="status">
+    <p-progressSpinner strokeWidth="4" ariaLabel="Consultando reporte"></p-progressSpinner>
+    <span>Consultando las atenciones del paciente...</span>
+  </div>
+
+  <div *ngIf="errorSeleccion && !cargandoSeleccion" class="selection-error" role="alert">
+    <i class="pi pi-exclamation-triangle" aria-hidden="true"></i><span>{{ errorSeleccion }}</span>
+  </div>
+
+  <section *ngIf="seleccion && !cargandoSeleccion" class="selection-summary" aria-label="Resultado de selección">
+    <h3>Resultado del reporte</h3>
+    <dl>
+      <div><dt>Paciente</dt><dd>{{ seleccion.paciente || 'No registrado.' }}</dd></div>
+      <div><dt>Consultas encontradas</dt><dd>{{ seleccion.totalConsultasEncontradas }}</dd></div>
+      <div><dt>Consultas atendidas incluidas</dt><dd>{{ seleccion.consultasAtendidasIncluidas }}</dd></div>
+      <div><dt>Consultas excluidas</dt><dd>{{ seleccion.consultasNoAtendidasExcluidas }}</dd></div>
+      <div><dt>Historias clínicas</dt><dd>{{ seleccion.idsHistoriasClinicasIncluidas.length ? seleccion.idsHistoriasClinicasIncluidas.join(', ') : 'No registrado.' }}</dd></div>
+    </dl>
+    <p class="selection-message" [class.no-report]="!seleccion.puedeGenerar">{{ seleccion.mensaje }}</p>
+    <button pButton type="button" label="Vista previa del reporte" icon="pi pi-file-pdf"
+      [disabled]="!puedeGenerar" (click)="generarVistaPrevia()"></button>
+  </section>
+
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cerrar" icon="pi pi-times" class="p-button-text" (click)="cerrar()"></button>
+  </ng-template>
+</p-dialog>
+
+<app-pdf-preview [visible]="mostrarPdf" [pdfBlob]="reportePdf?.blob"
+  [nombreArchivo]="reportePdf?.nombreArchivo || 'reporte-medico.pdf'" [cargando]="cargandoPdf"
+  [error]="errorPdf" titulo="Vista previa del reporte de consultas"
+  textoCarga="Generando reporte de consultas..." (cerrarVista)="cerrarVistaPrevia()">
+</app-pdf-preview>
