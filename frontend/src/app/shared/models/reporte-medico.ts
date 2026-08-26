@@ -31,3 +31,10 @@ export interface ApiReporteError {
   codigo?: string;
   mensaje?: string;
 }
+
+export interface ReportePacienteOpcion {
+  idPaciente: number;
+  nombreCompleto: string;
+  dni?: string;
+  etiqueta: string;
+}

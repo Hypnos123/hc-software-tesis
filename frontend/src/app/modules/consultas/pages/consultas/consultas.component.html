@@ -5,6 +5,11 @@
     [icono]="'pi pi-sync'"
     (click)="cargarConsultas()"
   ></app-button>
+  <app-button
+    [label]="'Generar reporte de consultas'"
+    [icono]="'pi pi-file-pdf'"
+    (click)="abrirReporteConsolidado()"
+  ></app-button>
 </div>
 
 <br>
@@ -173,3 +178,9 @@
   textoCarga="Generando evaluación médica..."
   (cerrarVista)="cerrarVistaPreviaReporte()">
 </app-pdf-preview>
+
+<app-reporte-consultas-dialog
+  [visible]="mostrarReporteConsolidado"
+  [pacientes]="pacientesReporte"
+  (cerrarDialog)="cerrarReporteConsolidado()">
+</app-reporte-consultas-dialog>
