@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<apache-poi.version>5.4.1</apache-poi.version>
+		<openpdf.version>2.0.3</openpdf.version>
 	</properties>
 	<dependencies>
         <dependency>
@@ -76,9 +77,26 @@
 			<artifactId>poi-ooxml</artifactId>
 			<version>${apache-poi.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>${openpdf.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>../frontend/src/assets/images</directory>
+				<includes>
+					<include>HSJ-LOGO.png</include>
+				</includes>
+				<targetPath>reportes</targetPath>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
