@@ -215,6 +215,7 @@ export class InterfazChatComponent implements OnDestroy {
   private readonly characterPresentationDelay = 20;
   private presentationScrollFrame?: number;
   private reportScrollFrame?: number;
+  private reporteCargaTemporal?: ChatMessage;
   private autoFollowPresentation = true;
   private readonly autoFollowThreshold = 48;
   private presentationSequenceHadText = false;
@@ -351,6 +352,22 @@ export class InterfazChatComponent implements OnDestroy {
   manejarMensajeReporte(texto: string): void {
     if (!this.reporteConsultasActivo || !texto.trim()) return;
     this.addBotMessage(texto);
+  }
+  manejarCargaTemporalReporte(texto: string | null): void {
+    if (this.reporteCargaTemporal) {
+      this.removeMessageFromPresentation(this.reporteCargaTemporal);
+      const indice = this.messages.indexOf(this.reporteCargaTemporal);
+      if (indice >= 0) this.messages.splice(indice, 1);
+      this.reporteCargaTemporal = undefined;
+    }
+    const bloque = [...this.messages].reverse().find(message => message.type === 'patient-consultation-report');
+    if (!bloque) return;
+    if (texto) {
+      bloque.reportActive = false;
+      this.reporteCargaTemporal = this.addBotMessage(texto);
+      return;
+    }
+    this.moverBloqueReporte(bloque);
   }
   avanzarFlujoReporte(mensajes: string[]): void {
     const bloque = this.bloqueReporteActivo();
@@ -1032,7 +1049,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.resumenContextualActivo = false; this.reporteConsultasActivo = false; this.cerrarVistaPreviaReporteChat(); this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.resumenContextualActivo = false; this.reporteConsultasActivo = false; this.reporteCargaTemporal = undefined; this.cerrarVistaPreviaReporteChat(); this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void {
     const message = this.messages[this.messages.length - 1];
     if (message?.text !== 'Escribiendo...') return;

@@ -42,6 +42,7 @@
       </div>
       <div #conversationBlock *ngIf="message.type === 'patient-consultation-report'" [hidden]="message.presentationState !== 'visible' || !message.reportActive" [attr.data-block-id]="message.id" class="bot-message consultation-summary-message-block">
         <app-reporte-consultas-chat (mensajeConversacional)="manejarMensajeReporte($event)"
+          (cargaTemporal)="manejarCargaTemporalReporte($event)"
           (avanzarFlujo)="avanzarFlujoReporte($event)" (reposicionar)="reposicionarBloqueReporte()"
           (pdfCargando)="cambiarCargaPdfReporte($event)" (pdfGenerado)="mostrarPdfReporte($event)"
           (pdfError)="mostrarErrorPdfReporte($event)" (volverConsultas)="volverMenuConsultasDesdeReporte()"></app-reporte-consultas-chat>

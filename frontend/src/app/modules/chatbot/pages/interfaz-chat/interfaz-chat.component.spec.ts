@@ -214,6 +214,22 @@ describe('InterfazChatComponent', () => {
     expect(scrollExterno).not.toHaveBeenCalled();
   }));
 
+  it('presenta y retira la carga del reporte como un mensaje normal del historial', () => {
+    (component as any).reporteConsultasActivo = true;
+    (component as any).addReportBlock(true);
+    const bloque = component.messages.find((mensaje: any) => mensaje.type === 'patient-consultation-report')!;
+
+    component.manejarCargaTemporalReporte('Buscando paciente...');
+
+    expect(bloque.reportActive).toBeFalse();
+    expect(component.messages.some((mensaje: any) => mensaje.type === 'text' && mensaje.text === 'Buscando paciente...')).toBeTrue();
+
+    component.manejarCargaTemporalReporte(null);
+
+    expect(component.messages.some((mensaje: any) => mensaje.text === 'Buscando paciente...')).toBeFalse();
+    expect(bloque.reportActive).toBeTrue();
+  });
+
   it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
     expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
     expect(component.messages[0].visibleText).toBe(component.messages[0].text);
