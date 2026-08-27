@@ -1,0 +1,26 @@
+.report-form { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.field { display: flex; flex-direction: column; gap: .4rem; }
+.field label { color: #334155; font-weight: 600; }
+.full-field { grid-column: 1 / -1; }
+:host ::ng-deep .field .p-dropdown,
+:host ::ng-deep .field .p-calendar,
+:host ::ng-deep .field .p-calendar .p-inputtext { width: 100%; }
+.selection-action { display: flex; justify-content: flex-end; margin-top: 1.1rem; }
+.selection-loading { display: flex; flex-direction: column; align-items: center; gap: .7rem; padding: 1.5rem; color: #475569; }
+.selection-loading p-progressSpinner { width: 42px; height: 42px; }
+.selection-error { display: flex; gap: .6rem; align-items: flex-start; margin-top: 1rem; padding: .8rem;
+  border-radius: 8px; background: #fff3f3; color: #a12828; }
+.selection-summary { margin-top: 1rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.selection-summary h3 { margin: 0 0 .8rem; color: #092a5b; }
+.selection-summary dl { display: grid; gap: .45rem; margin: 0; }
+.selection-summary dl > div { display: grid; grid-template-columns: minmax(180px, 1fr) 1.25fr; gap: .7rem; }
+.selection-summary dt { font-weight: 600; color: #475569; }
+.selection-summary dd { margin: 0; color: #1e293b; }
+.selection-message { margin: .9rem 0; padding: .7rem; border-radius: 7px; background: #e8f4fd; color: #174f78; }
+.selection-message.no-report { background: #fff7e6; color: #8a5300; }
+
+@media (max-width: 560px) {
+  .report-form { grid-template-columns: 1fr; }
+  .full-field { grid-column: auto; }
+  .selection-summary dl > div { grid-template-columns: 1fr; gap: .15rem; }
+}
