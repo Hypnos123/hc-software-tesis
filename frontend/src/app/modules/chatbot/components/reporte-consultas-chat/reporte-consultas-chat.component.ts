@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { ReporteConsultaAlcance, ReporteConsultaFiltro, ReporteConsultaSeleccion, ReportePdfArchivo } from '@app/shared/models/reporte-medico';
@@ -14,7 +14,6 @@ type VistaReporteChat = 'metodo' | 'busqueda' | 'pacientes' | 'alcance' | 'fecha
   templateUrl: './reporte-consultas-chat.component.html', styleUrl: './reporte-consultas-chat.component.scss'
 })
 export class ReporteConsultasChatComponent implements OnDestroy {
-  @Input() active = false;
   @Output() pdfGenerado = new EventEmitter<ReportePdfArchivo>();
   @Output() pdfCargando = new EventEmitter<boolean>();
   @Output() pdfError = new EventEmitter<string>();

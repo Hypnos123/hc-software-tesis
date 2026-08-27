@@ -1,4 +1,4 @@
-<section *ngIf="active" class="report-chat" aria-label="Generar reporte de consultas">
+<section class="report-chat" aria-label="Generar reporte de consultas">
   <div *ngIf="cargando" class="loading" role="status"><i class="pi pi-spin pi-spinner"></i><span>{{ paciente ? 'Preparando información del reporte...' : 'Buscando paciente...' }}</span></div>
 
   <ng-container *ngIf="!cargando">
