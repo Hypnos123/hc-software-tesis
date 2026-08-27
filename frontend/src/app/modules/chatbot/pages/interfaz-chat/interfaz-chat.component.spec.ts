@@ -21,6 +21,7 @@ import { crearGestionHistoriasDuplicadasState } from '../../models/historia-clin
 import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestion-historias-duplicadas-chat/gestion-historias-duplicadas-chat.component';
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 import { ChatbotNavigationService } from '../../services/chatbot-navigation.service';
+import { ReporteMedicoService } from '@app/shared/services/reporte-medico.service';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -41,6 +42,7 @@ describe('InterfazChatComponent', () => {
   let historiasDuplicadasService: jasmine.SpyObj<HistoriaClinicaDuplicadaChatService>;
   let authServiceMock: any;
   let resumenConsultasService: jasmine.SpyObj<ResumenConsultasPacienteService>;
+  let reporteMedicoService: jasmine.SpyObj<ReporteMedicoService>;
   const paciente = {
     idPaciente: 8, dni: DNI_PRUEBA, numDocumento: DNI_PRUEBA, nombres: 'NOMBRE PRUEBA',
     apellidos: 'APELLIDO UNO APELLIDO DOS', fechaIngreso: '2020-03-10', fechaNacimiento: '1992-01-01', estadoCivil: 'SOLTERO'
@@ -86,6 +88,8 @@ describe('InterfazChatComponent', () => {
       antecedentes: {}, resumenAtencion: { totalConsultasAtendidas: 1, proximasCitas: [] }, tiposEnfermedad: [], especialidades: [], funcionesVitales: {}, evaluacionesRecientes: [], consultasRecientes: [],
       calidadDatos: { consultasSinFecha: 0, consultasSinTipoEnfermedad: 0, consultasSinEspecialidad: 0, valoresVitalesDescartados: 0, consultasConRelacionInconsistente: 0 }
     }));
+    reporteMedicoService = jasmine.createSpyObj<ReporteMedicoService>('ReporteMedicoService', ['obtenerSeleccion', 'obtenerReporteConsolidado', 'obtenerMensajeError']);
+    reporteMedicoService.obtenerMensajeError.and.resolveTo('No se pudo generar el reporte médico.');
 
     await TestBed.configureTestingModule({
       imports: [InterfazChatComponent],
@@ -100,6 +104,7 @@ describe('InterfazChatComponent', () => {
         { provide: PacienteListRefreshService, useValue: jasmine.createSpyObj('PacienteListRefreshService', ['solicitarActualizacion']) },
         { provide: AuthService, useValue: authServiceMock }
         ,{ provide: ResumenConsultasPacienteService, useValue: resumenConsultasService }
+        ,{ provide: ReporteMedicoService, useValue: reporteMedicoService }
       ]
     }).compileComponents();
 
@@ -179,6 +184,35 @@ describe('InterfazChatComponent', () => {
     expect(component.messages[1]).toEqual(jasmine.objectContaining({ sender: 'bot', type: 'menu', menuId: 'principal' }));
     expect(component.messages[1].options?.length).toBe(3);
   });
+
+  it('incluye Generar reporte de consultas como flujo independiente en Asistencia Guiada', fakeAsync(() => {
+    const opciones = (component as any).createMenuOptions('asistencia-consultas');
+    const reporte = opciones.find((opcion: any) => opcion.label === 'Generar reporte de consultas');
+    expect(reporte?.action).toBe('patient-consultation-report-flow');
+    (component as any).executeMenuOption(reporte, 'seleccion-reporte');
+    tick(20_000); fixture.detectChanges();
+    expect(component.reporteConsultasActivo).toBeTrue();
+    expect(component.messages.some((mensaje: any) => mensaje.type === 'patient-consultation-report')).toBeTrue();
+  }));
+
+  it('reposiciona el reporte desplazando solo el viewport interno y no usa scrollIntoView', fakeAsync(() => {
+    component.isOpen = true;
+    (component as any).reporteConsultasActivo = true;
+    (component as any).addReportBlock(true);
+    fixture.detectChanges();
+    const viewport = component.chatBody.nativeElement as HTMLElement;
+    const scrollInterno = jasmine.createSpy('scrollTo');
+    (viewport as any).scrollTo = scrollInterno;
+    const bloque = fixture.nativeElement.querySelector('[data-block-id][class*="consultation-summary-message-block"]') as HTMLElement;
+    const scrollExterno = jasmine.createSpy('scrollIntoView');
+    (bloque as any).scrollIntoView = scrollExterno;
+
+    component.reposicionarBloqueReporte();
+    fixture.detectChanges(); tick(20);
+
+    expect(scrollInterno).toHaveBeenCalled();
+    expect(scrollExterno).not.toHaveBeenCalled();
+  }));
 
   it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
     expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);

@@ -40,6 +40,12 @@
           (seleccionar)="seleccionarPacienteResumen($event)" (generar)="generarResumenConsultas()"
           (cancelar)="cancelarResumenConsultas()" (buscarOtro)="buscarOtroPacienteResumen()"></app-resumen-consultas-paciente-chat>
       </div>
+      <div #conversationBlock *ngIf="message.type === 'patient-consultation-report'" [hidden]="message.presentationState !== 'visible' || !message.reportActive" [attr.data-block-id]="message.id" class="bot-message consultation-summary-message-block">
+        <app-reporte-consultas-chat [active]="!!message.reportActive" (mensajeConversacional)="manejarMensajeReporte($event)"
+          (avanzarFlujo)="avanzarFlujoReporte($event)" (reposicionar)="reposicionarBloqueReporte()"
+          (pdfCargando)="cambiarCargaPdfReporte($event)" (pdfGenerado)="mostrarPdfReporte($event)"
+          (pdfError)="mostrarErrorPdfReporte($event)" (volverConsultas)="volverMenuConsultasDesdeReporte()"></app-reporte-consultas-chat>
+      </div>
     </ng-container>
     <div *ngIf="asistenteEscribiendo" class="assistant-typing-indicator" role="status" aria-live="polite">Asistente escribiendo…</div>
   </div>
@@ -54,8 +60,14 @@
   </div>
 
   <div *ngIf="autenticado" class="chatbot-footer">
-    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="asistenteEscribiendo || isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista))" />
+    <input type="text" placeholder="Escribe tu consulta..." aria-label="Escribe tu consulta" [(ngModel)]="userMessage" (keydown.enter)="onEnter($event)" [disabled]="asistenteEscribiendo || isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || reporteConsultasActivo || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista))" />
     <button *ngIf="asistenteEscribiendo; else sendButton" type="button" class="stop-presentation" title="Detener escritura" aria-label="Detener escritura" (click)="stopPresentation()"><i class="pi pi-stop" aria-hidden="true"></i><span>Detener</span></button>
-    <ng-template #sendButton><button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista)) || !userMessage.trim()">Enviar</button></ng-template>
+    <ng-template #sendButton><button type="button" title="Enviar consulta" aria-label="Enviar consulta" (click)="sendMessage()" [disabled]="isLoading || gestionDuplicadosActiva || gestionHistoriasDuplicadasActiva || reporteConsultasActivo || (!!resumenConsultasState && !['prompt','error'].includes(resumenConsultasState.vista)) || !userMessage.trim()">Enviar</button></ng-template>
   </div>
 </div>
+
+<app-pdf-preview [visible]="mostrarReportePdf" [pdfBlob]="reportePdf?.blob"
+  [nombreArchivo]="reportePdf?.nombreArchivo || 'reporte-medico.pdf'" [cargando]="cargandoReportePdf"
+  [error]="errorReportePdf" titulo="Vista previa del reporte de consultas"
+  textoCarga="Generando reporte de consultas..." (cerrarVista)="cerrarVistaPreviaReporteChat()">
+</app-pdf-preview>

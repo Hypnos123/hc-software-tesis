@@ -1,0 +1,19 @@
+:host { display: contents; }
+
+.preview-title { display: flex; align-items: center; gap: .65rem; color: #092a5b; font-size: 1.05rem; }
+.preview-title i { color: #c62828; font-size: 1.25rem; }
+.preview-body { height: min(74vh, 850px); min-height: 440px; background: #e9edf2; overflow: auto; }
+.pdf-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.preview-state { height: 100%; min-height: 320px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .8rem; padding: 2rem; text-align: center; color: #455468; }
+.preview-state p { margin: 0; max-width: 620px; }
+.loading-state p { font-weight: 600; }
+.error-state { color: #9f2424; background: #fff8f8; }
+.error-state > i { font-size: 2rem; }
+.empty-state > i { font-size: 2rem; color: #718096; }
+.preview-actions { width: 100%; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .65rem; }
+
+@media (max-width: 700px) {
+  .preview-body { min-height: 360px; height: 68vh; }
+  .preview-actions > button { flex: 1 1 145px; }
+}
