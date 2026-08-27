@@ -195,6 +195,25 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some((mensaje: any) => mensaje.type === 'patient-consultation-report')).toBeTrue();
   }));
 
+  it('reposiciona el reporte desplazando solo el viewport interno y no usa scrollIntoView', fakeAsync(() => {
+    component.isOpen = true;
+    (component as any).reporteConsultasActivo = true;
+    (component as any).addReportBlock(true);
+    fixture.detectChanges();
+    const viewport = component.chatBody.nativeElement as HTMLElement;
+    const scrollInterno = jasmine.createSpy('scrollTo');
+    (viewport as any).scrollTo = scrollInterno;
+    const bloque = fixture.nativeElement.querySelector('[data-block-id][class*="consultation-summary-message-block"]') as HTMLElement;
+    const scrollExterno = jasmine.createSpy('scrollIntoView');
+    (bloque as any).scrollIntoView = scrollExterno;
+
+    component.reposicionarBloqueReporte();
+    fixture.detectChanges(); tick(20);
+
+    expect(scrollInterno).toHaveBeenCalled();
+    expect(scrollExterno).not.toHaveBeenCalled();
+  }));
+
   it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
     expect(component.messages.map(mensaje => mensaje.presentationState)).toEqual(['visible', 'visible']);
     expect(component.messages[0].visibleText).toBe(component.messages[0].text);

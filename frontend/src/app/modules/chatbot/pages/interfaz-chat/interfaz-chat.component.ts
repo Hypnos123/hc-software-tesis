@@ -214,6 +214,7 @@ export class InterfazChatComponent implements OnDestroy {
   private presentationTimer?: ReturnType<typeof setTimeout>;
   private readonly characterPresentationDelay = 20;
   private presentationScrollFrame?: number;
+  private reportScrollFrame?: number;
   private autoFollowPresentation = true;
   private readonly autoFollowThreshold = 48;
   private presentationSequenceHadText = false;
@@ -279,7 +280,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.chatbotNavigationSubscription = this.chatbotNavigation.resumenConsultas$.subscribe(contexto => this.abrirResumenContextual(contexto));
     if (this.autenticado) this.scheduleFloatingMessage(10_000);
   }
-  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.resumenPacienteRequest?.unsubscribe(); this.resumenConsultasRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); this.chatbotNavigationSubscription.unsubscribe(); }
+  ngOnDestroy(): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.cancelReportScroll(); this.resetPresentationCoordinator(); this.gestionDuplicadosComponents?.forEach(component => component.limpiarFlujo()); this.historiasFaltantesComponents?.forEach(component => component.limpiarFlujo()); this.historiasDuplicadasComponents?.forEach(component => component.limpiarFlujo()); this.activeRequest?.unsubscribe(); this.clinicalHistoryRequest?.unsubscribe(); this.missingHistoriesRequest?.unsubscribe(); this.resumenPacienteRequest?.unsubscribe(); this.resumenConsultasRequest?.unsubscribe(); this.logoutSubscription.unsubscribe(); this.sessionChangedSubscription.unsubscribe(); this.feedbackSubscription.unsubscribe(); this.chatbotNavigationSubscription.unsubscribe(); }
   toggleChat(): void { this.isOpen ? this.minimizeChat() : this.openChat(); }
   openChat(): void { this.clearFloatingMessageTimer(); this.hideFloatingMessage(); this.isOpen = true; this.restoreScrollPosition(); }
   minimizeChat(): void { this.gestionDuplicadosComponents?.forEach(component => component.limpiarPassword()); this.cancelarHistoriasDuplicadasSilenciosamente(); if (this.resumenContextualActivo) this.limpiarResumenContextual(); this.saveScrollPosition(); this.autoFollowPresentation = false; this.isOpen = false; this.scheduleFloatingMessage(90_000); }
@@ -829,7 +830,25 @@ export class InterfazChatComponent implements OnDestroy {
     if (indice < 0) return;
     this.messages.splice(indice, 1); this.messages.push(bloque); bloque.reportActive = true;
     this.interactionScrollAnchorId = undefined;
-    this.pinInteractionStart(bloque.id);
+    this.positionReportBlockInMessagesViewport(bloque.id);
+  }
+  private positionReportBlockInMessagesViewport(blockId: string): void {
+    this.cancelReportScroll();
+    this.autoFollowPresentation = false;
+    this.reportScrollFrame = requestAnimationFrame(() => {
+      this.reportScrollFrame = undefined;
+      const viewport = this.chatBody?.nativeElement;
+      const target = this.conversationBlocks?.find(block => block.nativeElement.dataset['blockId'] === blockId)?.nativeElement;
+      if (!viewport || !target) return;
+      const viewportRect = viewport.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      viewport.scrollTo({ top: viewport.scrollTop + targetRect.top - viewportRect.top, behavior: 'smooth' });
+    });
+  }
+  private cancelReportScroll(): void {
+    if (this.reportScrollFrame === undefined) return;
+    cancelAnimationFrame(this.reportScrollFrame);
+    this.reportScrollFrame = undefined;
   }
   private addMessage(message: ChatMessage): ChatMessage {
     this.messages.push(message);
@@ -927,6 +946,7 @@ export class InterfazChatComponent implements OnDestroy {
     this.positionInteractionAnchor(blockId);
   }
   private resetPresentationCoordinator(): void {
+    this.cancelReportScroll();
     if (this.presentationTimer !== undefined) clearTimeout(this.presentationTimer);
     this.presentationTimer = undefined;
     if (this.presentationScrollFrame !== undefined) cancelAnimationFrame(this.presentationScrollFrame);
