@@ -34,7 +34,7 @@ describe('ReporteConsultasChatComponent', () => {
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); tick(3000);
   }
 
-  it('busca por DNI y conserva el paciente seleccionado después del spinner mínimo', fakeAsync(() => {
+  it('busca por DNI y conserva el paciente seleccionado después de la espera mínima', fakeAsync(() => {
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar();
     expect(component.cargando).toBeTrue(); tick(2999); expect(component.paciente).toBeUndefined(); tick(1);
     expect(historias.buscarPacientesPorDni).toHaveBeenCalledWith('12345678');
@@ -42,11 +42,34 @@ describe('ReporteConsultasChatComponent', () => {
   }));
 
   it('muestra solo las opciones de búsqueda sin repetir la pregunta del chatbot', () => {
-    component.active = true; fixture.detectChanges();
+    fixture.detectChanges();
     const texto = fixture.nativeElement.textContent;
     expect(texto).not.toContain('¿Cómo deseas buscar al paciente?');
     expect(texto).toContain('Buscar por DNI'); expect(texto).toContain('Buscar por nombre');
   });
+
+  it('emite el mensaje temporal de búsqueda por DNI hasta completar la espera', fakeAsync(() => {
+    const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
+    component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar();
+    expect(cargas).toEqual(['Buscando paciente...']);
+    tick(2999); expect(cargas).toEqual(['Buscando paciente...']);
+    tick(1); expect(cargas).toEqual(['Buscando paciente...', null]);
+  }));
+
+  it('emite el mensaje temporal de búsqueda por nombre hasta completar la espera', fakeAsync(() => {
+    const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
+    component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar();
+    expect(cargas).toEqual(['Buscando paciente...']); tick(3000);
+    expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(component.paciente?.idPaciente).toBe(8);
+  }));
+
+  it('no renderiza spinner ni contenedor de carga dentro del bloque de reporte', fakeAsync(() => {
+    component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.pi-spinner')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.loading')).toBeNull();
+    tick(3000);
+  }));
 
   it('enriquece y permite elegir una coincidencia cuando el nombre devuelve varios pacientes', fakeAsync(() => {
     historias.buscarPacientesPorNombre.and.returnValue(of([paciente, { ...paciente, idPaciente: 9, dni: '87654321', numDocumento: '87654321' }]));
@@ -57,7 +80,7 @@ describe('ReporteConsultasChatComponent', () => {
 
   it('presenta ID, fecha de registro y cantidad de consultas en pacientes repetidos', fakeAsync(() => {
     historias.buscarPacientesPorNombre.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }]));
-    component.active = true; component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar(); tick(3000); fixture.detectChanges();
+    component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar(); tick(3000); fixture.detectChanges();
     const texto = fixture.nativeElement.textContent;
     expect(texto).toContain('Paciente ID 8'); expect(texto).toContain('Registrado: 14/08/2026'); expect(texto).toContain('Consultas: 4');
   }));
@@ -75,6 +98,30 @@ describe('ReporteConsultasChatComponent', () => {
     expect(reportes.obtenerSeleccion).toHaveBeenCalledWith(8, { alcance: 'TODAS' });
     expect(component.seleccion?.consultasAtendidasIncluidas).toBe(4);
   }));
+
+  it('emite la preparación temporal del reporte para ULTIMA, TODAS, FECHA y RANGO_FECHAS', fakeAsync(() => {
+    seleccionarPacientePorDni();
+    const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
+    const verificarCarga = (): void => {
+      expect(cargas).toEqual(['Preparando información del reporte...']);
+      tick(2999); expect(cargas).toEqual(['Preparando información del reporte...']);
+      tick(1); expect(cargas).toEqual(['Preparando información del reporte...', null]);
+      cargas.length = 0;
+      component.cambiarCriterio();
+    };
+    component.elegirAlcance('ULTIMA'); verificarCarga();
+    component.elegirAlcance('TODAS'); verificarCarga();
+    component.elegirAlcance('FECHA'); component.fecha = '2026-08-15'; component.consultarFecha(); verificarCarga();
+    component.elegirAlcance('RANGO_FECHAS'); component.fechaDesde = '2026-08-01'; component.fechaHasta = '2026-08-31'; component.consultarRango(); verificarCarga();
+  }));
+
+  it('calcula una demora aleatoria inclusiva entre tres y seis segundos', () => {
+    (component as any).demoraAleatoria.and.callThrough();
+    for (let intento = 0; intento < 100; intento++) {
+      const demora = (component as any).demoraAleatoria();
+      expect(demora).toBeGreaterThanOrEqual(3000); expect(demora).toBeLessThanOrEqual(6000);
+    }
+  });
 
   it('envía FECHA y RANGO_FECHAS en formato ISO', fakeAsync(() => {
     seleccionarPacientePorDni(); component.elegirAlcance('FECHA'); component.fecha = '2026-08-15'; component.consultarFecha(); tick(3000);

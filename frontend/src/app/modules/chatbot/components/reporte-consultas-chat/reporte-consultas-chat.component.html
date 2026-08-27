@@ -1,6 +1,4 @@
-<section *ngIf="active" class="report-chat" aria-label="Generar reporte de consultas">
-  <div *ngIf="cargando" class="loading" role="status"><i class="pi pi-spin pi-spinner"></i><span>{{ paciente ? 'Preparando información del reporte...' : 'Buscando paciente...' }}</span></div>
-
+<section class="report-chat" aria-label="Generar reporte de consultas">
   <ng-container *ngIf="!cargando">
     <div *ngIf="vista === 'metodo'">
       <div class="actions"><button type="button" (click)="elegirMetodo('DNI')">Buscar por DNI</button><button type="button" (click)="elegirMetodo('NOMBRE')">Buscar por nombre</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>

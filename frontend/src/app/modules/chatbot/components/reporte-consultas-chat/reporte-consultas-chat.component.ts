@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { ReporteConsultaAlcance, ReporteConsultaFiltro, ReporteConsultaSeleccion, ReportePdfArchivo } from '@app/shared/models/reporte-medico';
@@ -14,7 +14,6 @@ type VistaReporteChat = 'metodo' | 'busqueda' | 'pacientes' | 'alcance' | 'fecha
   templateUrl: './reporte-consultas-chat.component.html', styleUrl: './reporte-consultas-chat.component.scss'
 })
 export class ReporteConsultasChatComponent implements OnDestroy {
-  @Input() active = false;
   @Output() pdfGenerado = new EventEmitter<ReportePdfArchivo>();
   @Output() pdfCargando = new EventEmitter<boolean>();
   @Output() pdfError = new EventEmitter<string>();
@@ -22,6 +21,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
   @Output() volverConsultas = new EventEmitter<void>();
   @Output() avanzarFlujo = new EventEmitter<string[]>();
   @Output() reposicionar = new EventEmitter<void>();
+  @Output() cargaTemporal = new EventEmitter<string | null>();
 
   vista: VistaReporteChat = 'metodo';
   metodo?: 'DNI' | 'NOMBRE';
@@ -37,6 +37,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
   error?: string;
   cargando = false;
   private solicitud?: Subscription;
+  private cargaTemporalActiva = false;
 
   constructor(private historiasService: HistoriaClinicaService, private reportesService: ReporteMedicoService) {}
   ngOnDestroy(): void { this.solicitud?.unsubscribe(); }
@@ -51,7 +52,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
     if (!criterio || (this.metodo === 'DNI' && !/^\d{8}$/.test(criterio))) {
       this.error = this.metodo === 'DNI' ? 'El DNI debe contener exactamente ocho dígitos.' : 'Ingresa el nombre del paciente.'; return;
     }
-    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.reposicionar.emit();
+    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.iniciarCargaTemporal('Buscando paciente...');
     const consulta = this.metodo === 'DNI'
       ? this.historiasService.buscarPacientesPorDni(criterio)
       : this.historiasService.buscarPacientesPorNombre(criterio);
@@ -59,7 +60,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
       map(({ respuesta }) => respuesta), finalize(() => this.cargando = false)
     ).subscribe({
       next: respuesta => {
-        if ('error' in respuesta) { this.mostrarError('No se pudo consultar al paciente en este momento.'); this.reposicionar.emit(); return; }
+        if ('error' in respuesta) { this.finalizarCargaTemporal(); this.mostrarError('No se pudo consultar al paciente en este momento.'); this.reposicionar.emit(); return; }
         const resultados = respuesta.resultados;
         const filtrados = this.metodo === 'DNI'
           ? resultados.filter(item => (item.numDocumento ?? item.dni ?? '').trim() === criterio) : resultados;
@@ -67,8 +68,8 @@ export class ReporteConsultasChatComponent implements OnDestroy {
           idPaciente: item.idPaciente!, nombreCompleto: [item.nombres, item.apellidos].filter(Boolean).join(' ').trim(),
           dni: (item.numDocumento ?? item.dni ?? '').trim(), fechaRegistro: item.fechaIngreso, cantidadConsultas: 0
         }));
-        if (!basicos.length) { this.mostrarError('No se encontró un paciente con los datos ingresados.'); this.reposicionar.emit(); return; }
-        if (basicos.length === 1) { this.pacientes = basicos; this.seleccionarPaciente(basicos[0]); return; }
+        if (!basicos.length) { this.finalizarCargaTemporal(); this.mostrarError('No se encontró un paciente con los datos ingresados.'); this.reposicionar.emit(); return; }
+        if (basicos.length === 1) { this.finalizarCargaTemporal(); this.pacientes = basicos; this.seleccionarPaciente(basicos[0]); return; }
         this.enriquecerPacientes(basicos);
       }
     });
@@ -117,12 +118,13 @@ export class ReporteConsultasChatComponent implements OnDestroy {
 
   private consultarSeleccion(filtro: ReporteConsultaFiltro): void {
     if (!this.paciente || this.cargando) return;
-    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.seleccion = undefined; this.reposicionar.emit();
+    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.seleccion = undefined; this.iniciarCargaTemporal('Preparando información del reporte...');
     const filtroExacto = { ...filtro };
     this.solicitud = forkJoin({ respuesta: this.reportesService.obtenerSeleccion(this.paciente.idPaciente, filtroExacto)
       .pipe(map(seleccion => ({ seleccion })), catchError(error => of({ error }))), espera: timer(this.demoraAleatoria()) })
       .pipe(map(({ respuesta }) => respuesta), finalize(() => this.cargando = false)).subscribe({
         next: respuesta => {
+          this.finalizarCargaTemporal();
           if ('error' in respuesta) {
             this.reportesService.obtenerMensajeError(respuesta.error).then(mensaje => { this.mostrarError(mensaje); this.reposicionar.emit(); }); return;
           }
@@ -146,12 +148,14 @@ export class ReporteConsultasChatComponent implements OnDestroy {
     this.solicitud = forkJoin(pacientes.map(paciente => this.historiasService.getByPaciente(paciente.idPaciente).pipe(
       map(historias => ({ ...paciente, cantidadConsultas: historias.reduce((total, historia) => total + (historia.cantidadConsultas ?? 0), 0) }))
     ))).pipe(finalize(() => this.cargando = false)).subscribe({
-      next: enriquecidos => { this.pacientes = enriquecidos; this.vista = 'pacientes'; this.reposicionar.emit(); },
-      error: () => { this.pacientes = pacientes; this.vista = 'pacientes'; this.reposicionar.emit(); }
+      next: enriquecidos => { this.finalizarCargaTemporal(); this.pacientes = enriquecidos; this.vista = 'pacientes'; this.reposicionar.emit(); },
+      error: () => { this.finalizarCargaTemporal(); this.pacientes = pacientes; this.vista = 'pacientes'; this.reposicionar.emit(); }
     });
   }
   private demoraAleatoria(): number { return 3000 + Math.floor(Math.random() * 3001); }
   private limpiarSeleccion(): void { this.seleccion = undefined; this.filtroConfirmado = undefined; this.error = undefined; }
   private reiniciar(): void { this.vista = 'metodo'; this.metodo = undefined; this.criterio = ''; this.pacientes = []; this.paciente = undefined; this.alcance = undefined; this.fecha = ''; this.fechaDesde = ''; this.fechaHasta = ''; this.limpiarSeleccion(); }
-  private cancelarSolicitud(): void { this.solicitud?.unsubscribe(); this.solicitud = undefined; this.cargando = false; }
+  private iniciarCargaTemporal(mensaje: string): void { this.cargaTemporalActiva = true; this.cargaTemporal.emit(mensaje); }
+  private finalizarCargaTemporal(): void { if (!this.cargaTemporalActiva) return; this.cargaTemporalActiva = false; this.cargaTemporal.emit(null); }
+  private cancelarSolicitud(): void { this.solicitud?.unsubscribe(); this.solicitud = undefined; this.cargando = false; this.finalizarCargaTemporal(); }
 }
