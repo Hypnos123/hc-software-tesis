@@ -1,0 +1,15 @@
+.report-chat { display: grid; gap: .75rem; min-width: 0; }
+.report-chat strong, .report-chat label { display: block; margin-bottom: .45rem; color: #183b56; }
+.report-chat input { width: 100%; box-sizing: border-box; border: 1px solid #b9c7d5; border-radius: 6px; padding: .55rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .7rem; }
+.actions.vertical { flex-direction: column; align-items: stretch; }
+button { border: 0; border-radius: 6px; padding: .55rem .7rem; color: #fff; background: #1769aa; cursor: pointer; text-align: left; }
+button.secondary { color: #245; background: #e7edf3; }
+button.patient { display: flex; flex-direction: column; width: 100%; margin-top: .45rem; }
+button:disabled { opacity: .55; cursor: default; }
+.loading { display: flex; align-items: center; gap: .55rem; color: #49677e; }
+.error, .error-panel { color: #a52828; }
+.range { display: grid; gap: .35rem; }
+.result dl { display: grid; gap: .3rem; margin: .65rem 0; }
+.result dl div { display: flex; justify-content: space-between; gap: .75rem; border-bottom: 1px solid #e5ebef; }
+.result dt { color: #506777; }.result dd { margin: 0; font-weight: 700; }
