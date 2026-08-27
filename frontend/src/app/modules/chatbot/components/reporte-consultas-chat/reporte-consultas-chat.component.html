@@ -1,9 +1,8 @@
-<section class="report-chat" aria-label="Generar reporte de consultas">
-  <div *ngIf="cargando" class="loading" role="status"><i class="pi pi-spin pi-spinner"></i><span>Procesando información...</span></div>
+<section *ngIf="active" class="report-chat" aria-label="Generar reporte de consultas">
+  <div *ngIf="cargando" class="loading" role="status"><i class="pi pi-spin pi-spinner"></i><span>{{ paciente ? 'Preparando información del reporte...' : 'Buscando paciente...' }}</span></div>
 
   <ng-container *ngIf="!cargando">
     <div *ngIf="vista === 'metodo'">
-      <strong>¿Cómo deseas buscar al paciente?</strong>
       <div class="actions"><button type="button" (click)="elegirMetodo('DNI')">Buscar por DNI</button><button type="button" (click)="elegirMetodo('NOMBRE')">Buscar por nombre</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
     </div>
     <div *ngIf="vista === 'busqueda'">
@@ -14,12 +13,11 @@
     </div>
     <div *ngIf="vista === 'pacientes'">
       <strong>Selecciona el paciente correcto:</strong>
-      <button *ngFor="let item of pacientes" type="button" class="patient" (click)="seleccionarPaciente(item)"><b>{{ item.nombreCompleto }}</b><small>DNI: {{ item.dni || 'No registrado' }}</small></button>
+      <button *ngFor="let item of pacientes" type="button" class="patient" (click)="seleccionarPaciente(item)"><b>Paciente ID {{ item.idPaciente }}</b><span>{{ item.nombreCompleto }}</span><small>DNI: {{ item.dni || 'No registrado' }}</small><small>Registrado: {{ formatearFecha(item.fechaRegistro) }}</small><small>Consultas: {{ item.cantidadConsultas }}</small></button>
       <div class="actions"><button type="button" class="secondary" (click)="buscarOtroPaciente()">Buscar nuevamente</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
     </div>
     <div *ngIf="vista === 'alcance'">
       <p><b>Paciente:</b> {{ paciente?.nombreCompleto }}<br><small *ngIf="paciente?.dni">DNI: {{ paciente?.dni }}</small></p>
-      <strong>¿Qué consultas deseas incluir?</strong>
       <div class="actions vertical"><button type="button" (click)="elegirAlcance('ULTIMA')">Última consulta atendida</button><button type="button" (click)="elegirAlcance('TODAS')">Todas las consultas</button><button type="button" (click)="elegirAlcance('FECHA')">Consultas de una fecha</button><button type="button" (click)="elegirAlcance('RANGO_FECHAS')">Consultas por rango de fechas</button><button type="button" class="secondary" (click)="buscarOtroPaciente()">Elegir otro paciente</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
     </div>
     <div *ngIf="vista === 'fecha'">
@@ -34,7 +32,6 @@
     <div *ngIf="vista === 'resultado' && seleccion" class="result">
       <strong>Resultado de la selección</strong>
       <dl><div><dt>Consultas encontradas</dt><dd>{{ seleccion.totalConsultasEncontradas }}</dd></div><div><dt>Incluidas</dt><dd>{{ seleccion.consultasAtendidasIncluidas }}</dd></div><div><dt>Excluidas</dt><dd>{{ seleccion.consultasNoAtendidasExcluidas }}</dd></div><div><dt>Historias clínicas</dt><dd>{{ seleccion.idsHistoriasClinicasIncluidas.length ? seleccion.idsHistoriasClinicasIncluidas.join(', ') : 'No registradas' }}</dd></div></dl>
-      <p>{{ seleccion.mensaje }}</p>
       <div class="actions"><button *ngIf="seleccion.puedeGenerar" type="button" (click)="generarPdf()">Vista previa del reporte</button><button type="button" class="secondary" (click)="cambiarCriterio()">Cambiar criterio</button><button type="button" class="secondary" (click)="buscarOtroPaciente()">Elegir otro paciente</button><button type="button" class="secondary" (click)="cancelar()">Volver a Consultas</button></div>
     </div>
     <div *ngIf="vista === 'error'" class="error-panel"><p role="alert">{{ error }}</p><div class="actions"><button type="button" (click)="reintentar()">Reintentar</button><button *ngIf="paciente" type="button" class="secondary" (click)="cambiarCriterio()">Cambiar criterio</button><button type="button" class="secondary" (click)="buscarOtroPaciente()">Elegir otro paciente</button><button type="button" class="secondary" (click)="cancelar()">Volver a Consultas</button></div></div>

@@ -351,6 +351,21 @@ export class InterfazChatComponent implements OnDestroy {
     if (!this.reporteConsultasActivo || !texto.trim()) return;
     this.addBotMessage(texto);
   }
+  avanzarFlujoReporte(mensajes: string[]): void {
+    const bloque = this.bloqueReporteActivo();
+    if (!bloque || !mensajes.length) return;
+    bloque.reportActive = false;
+    const presentar = (indice: number): void => {
+      if (indice >= mensajes.length) { this.moverBloqueReporte(bloque); return; }
+      const mensaje = this.addBotMessage(mensajes[indice]);
+      this.runAfterPresentation(mensaje, () => presentar(indice + 1));
+    };
+    presentar(0);
+  }
+  reposicionarBloqueReporte(): void {
+    const bloque = this.bloqueReporteActivo();
+    if (bloque) this.moverBloqueReporte(bloque);
+  }
   mostrarPdfReporte(pdf: ReportePdfArchivo): void {
     if (!this.reporteConsultasActivo) return;
     this.reportePdf = pdf; this.errorReportePdf = undefined; this.cargandoReportePdf = false; this.mostrarReportePdf = true;
@@ -805,6 +820,16 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private addReportBlock(active: boolean): void {
     this.addMessage(this.createBlockMessage('patient-consultation-report', { reportActive: active }));
+  }
+  private bloqueReporteActivo(): ChatMessage | undefined {
+    return [...this.messages].reverse().find(message => message.type === 'patient-consultation-report' && message.reportActive);
+  }
+  private moverBloqueReporte(bloque: ChatMessage): void {
+    const indice = this.messages.indexOf(bloque);
+    if (indice < 0) return;
+    this.messages.splice(indice, 1); this.messages.push(bloque); bloque.reportActive = true;
+    this.interactionScrollAnchorId = undefined;
+    this.pinInteractionStart(bloque.id);
   }
   private addMessage(message: ChatMessage): ChatMessage {
     this.messages.push(message);
