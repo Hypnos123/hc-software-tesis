@@ -41,7 +41,7 @@
           (cancelar)="cancelarResumenConsultas()" (buscarOtro)="buscarOtroPacienteResumen()"></app-resumen-consultas-paciente-chat>
       </div>
       <div #conversationBlock *ngIf="message.type === 'patient-consultation-report'" [hidden]="message.presentationState !== 'visible' || !message.reportActive" [attr.data-block-id]="message.id" class="bot-message consultation-summary-message-block">
-        <app-reporte-consultas-chat [active]="!!message.reportActive" (mensajeConversacional)="manejarMensajeReporte($event)"
+        <app-reporte-consultas-chat (mensajeConversacional)="manejarMensajeReporte($event)"
           (avanzarFlujo)="avanzarFlujoReporte($event)" (reposicionar)="reposicionarBloqueReporte()"
           (pdfCargando)="cambiarCargaPdfReporte($event)" (pdfGenerado)="mostrarPdfReporte($event)"
           (pdfError)="mostrarErrorPdfReporte($event)" (volverConsultas)="volverMenuConsultasDesdeReporte()"></app-reporte-consultas-chat>
