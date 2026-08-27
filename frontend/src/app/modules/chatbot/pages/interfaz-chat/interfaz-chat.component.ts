@@ -26,6 +26,9 @@ import { GestionDuplicadosChatComponent } from '../../components/gestion-duplica
 import { HistoriasClinicasFaltantesChatComponent } from '../../components/historias-clinicas-faltantes-chat/historias-clinicas-faltantes-chat.component';
 import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestion-historias-duplicadas-chat/gestion-historias-duplicadas-chat.component';
 import { ResumenConsultasPacienteChatComponent } from '../../components/resumen-consultas-paciente-chat/resumen-consultas-paciente-chat.component';
+import { ReporteConsultasChatComponent } from '../../components/reporte-consultas-chat/reporte-consultas-chat.component';
+import { PdfPreviewComponent } from '@app/shared/components';
+import { ReportePdfArchivo } from '@app/shared/models/reporte-medico';
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 import { crearResumenConsultasState, ResumenConsultasChatState, ResumenPacienteCandidato, ResumenConsultasVista } from '../../models/resumen-consultas-paciente';
 import { ChatbotNavigationService, ResumenConsultasContexto } from '../../services/chatbot-navigation.service';
@@ -49,8 +52,8 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; }
-type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow';
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary' | 'patient-consultation-report'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; reportActive?: boolean; }
+type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow' | 'patient-consultation-report-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
 interface ContextualActionRecommendation {
@@ -100,7 +103,7 @@ type PatientResolution =
   | { kind: 'multiple' }
   | { kind: 'unique'; patient: IPacienteBusqueda; antecedentes: IPaciente | undefined; existingClinicalHistoryCount: number };
 
-@Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule, ImportacionPacientesChatComponent, GestionDuplicadosChatComponent, HistoriasClinicasFaltantesChatComponent, GestionHistoriasDuplicadasChatComponent, ResumenConsultasPacienteChatComponent], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
+@Component({ selector: 'app-interfaz-chat', standalone: true, imports: [CommonModule, FormsModule, ImportacionPacientesChatComponent, GestionDuplicadosChatComponent, HistoriasClinicasFaltantesChatComponent, GestionHistoriasDuplicadasChatComponent, ResumenConsultasPacienteChatComponent, ReporteConsultasChatComponent, PdfPreviewComponent], templateUrl: './interfaz-chat.component.html', styleUrl: './interfaz-chat.component.scss' })
 export class InterfazChatComponent implements OnDestroy {
   @ViewChild('chatBody') chatBody!: ElementRef;
   @ViewChildren('conversationBlock') conversationBlocks!: QueryList<ElementRef<HTMLElement>>;
@@ -159,7 +162,8 @@ export class InterfazChatComponent implements OnDestroy {
       { label: 'Analizar historias clínicas duplicadas', description: 'Compara historias repetidas y revisa cuál convendría conservar, sin modificar datos.', icon: 'pi pi-clone', action: 'clinical-history-duplicate-flow' }
     ] },
     'asistencia-consultas': { question: 'Selecciona una opción o escribe tu solicitud sobre consultas.', options: [
-      { label: 'Resumen de consultas del paciente', description: 'Revisa visualmente antecedentes, atenciones y evolución registrada.', icon: 'pi pi-chart-line', action: 'patient-consultation-summary-flow' }
+      { label: 'Resumen de consultas del paciente', description: 'Revisa visualmente antecedentes, atenciones y evolución registrada.', icon: 'pi pi-chart-line', action: 'patient-consultation-summary-flow' },
+      { label: 'Generar reporte de consultas', description: 'Selecciona las consultas atendidas y genera un único PDF para el paciente.', icon: 'pi pi-file-pdf', action: 'patient-consultation-report-flow' }
     ] },
     manejo: { question: '¿Sobre qué proceso del sistema necesitas ayuda? Selecciona una opción o escribe tu pregunta.', options: [
       { label: 'Pacientes', icon: 'pi pi-users', action: 'menu', target: 'manejo-pacientes' },
@@ -233,6 +237,11 @@ export class InterfazChatComponent implements OnDestroy {
   messages: ChatMessage[] = this.initializeMessages(this.getInitialMessages());
   clinicalHistoryFlow: ClinicalHistoryChatFlow = { step: 'idle' };
   resumenConsultasState?: ResumenConsultasChatState;
+  reporteConsultasActivo = false;
+  mostrarReportePdf = false;
+  cargandoReportePdf = false;
+  errorReportePdf?: string;
+  reportePdf?: ReportePdfArchivo;
   quickQuestions = ['Menú principal', '¿Qué preguntas puedo hacer?', 'Buscar paciente por DNI', 'Verificar historia clínica', 'Consultas médicas de un paciente'];
   private readonly quickQuestionOptions: Record<string, MenuOption> = {
     'Verificar historia clínica': VERIFY_CLINICAL_HISTORY_OPTION,
@@ -337,6 +346,32 @@ export class InterfazChatComponent implements OnDestroy {
     }
     this.presentationSequenceHadText = false;
     this.processPresentationQueue();
+  }
+  manejarMensajeReporte(texto: string): void {
+    if (!this.reporteConsultasActivo || !texto.trim()) return;
+    this.addBotMessage(texto);
+  }
+  mostrarPdfReporte(pdf: ReportePdfArchivo): void {
+    if (!this.reporteConsultasActivo) return;
+    this.reportePdf = pdf; this.errorReportePdf = undefined; this.cargandoReportePdf = false; this.mostrarReportePdf = true;
+  }
+  cambiarCargaPdfReporte(cargando: boolean): void {
+    if (!this.reporteConsultasActivo) return;
+    this.cargandoReportePdf = cargando; this.mostrarReportePdf = cargando || this.mostrarReportePdf;
+    if (cargando) { this.reportePdf = undefined; this.errorReportePdf = undefined; }
+  }
+  mostrarErrorPdfReporte(mensaje: string): void {
+    if (!this.reporteConsultasActivo) return;
+    this.errorReportePdf = mensaje; this.cargandoReportePdf = false; this.mostrarReportePdf = true;
+  }
+  cerrarVistaPreviaReporteChat(): void {
+    this.mostrarReportePdf = false; this.cargandoReportePdf = false; this.errorReportePdf = undefined; this.reportePdf = undefined;
+  }
+  volverMenuConsultasDesdeReporte(): void {
+    this.reporteConsultasActivo = false; this.cerrarVistaPreviaReporteChat();
+    this.messages.forEach(message => { if (message.type === 'patient-consultation-report') message.reportActive = false; });
+    const cierre = this.addBotMessage('Se cerró la generación del reporte. Puedes elegir otra opción de Consultas.');
+    this.runAfterPresentation(cierre, () => this.addMenuBlock('asistencia-consultas'));
   }
   mostrarOpcionesPacientes(): void {
     const selection = this.addUserMessage('Volver a opciones de Pacientes');
@@ -768,6 +803,9 @@ export class InterfazChatComponent implements OnDestroy {
       summaryActive: active, preserveInteractionAnchor: view === 'loading' || view === 'summary'
     }));
   }
+  private addReportBlock(active: boolean): void {
+    this.addMessage(this.createBlockMessage('patient-consultation-report', { reportActive: active }));
+  }
   private addMessage(message: ChatMessage): ChatMessage {
     this.messages.push(message);
     this.enqueueForPresentation(message);
@@ -949,7 +987,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (response.intencion !== 'HISTORIAS_CLINICAS_DUPLICADAS') return false;
     return response.datos?.['hayDuplicados'] === true;
   }
-  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.resumenContextualActivo = false; this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
+  private resetChat(clearStorage: boolean): void { this.clearFloatingMessageTimer(); this.clearMissingHistoriesSearchPresentation(); this.hideFloatingMessage(); this.messages.forEach(message => { message.importacion?.cancelarSolicitud?.(); message.duplicados?.cancelarSolicitud?.(); message.historiasFaltantes?.cancelarSolicitud?.(); message.historiasDuplicadas?.cancelarSolicitud?.(); if (message.historiasFaltantes) { message.historiasFaltantes.idsSeleccionados = []; message.historiasFaltantes.idsConfirmados = []; } if (message.historiasDuplicadas) message.historiasDuplicadas.idsSeleccionados = []; }); this.cancelarGestionDuplicadosSilenciosamente(); this.cancelarHistoriasDuplicadasSilenciosamente(); this.activeRequest?.unsubscribe(); this.activeRequest = undefined; this.missingHistoriesRequest?.unsubscribe(); this.missingHistoriesRequest = undefined; this.resumenPacienteRequest?.unsubscribe(); this.resumenPacienteRequest = undefined; this.resumenConsultasRequest?.unsubscribe(); this.resumenConsultasRequest = undefined; this.resumenConsultasState = undefined; this.resumenContextualActivo = false; this.reporteConsultasActivo = false; this.cerrarVistaPreviaReporteChat(); this.stopClinicalHistoryRequest(); this.isOpen = false; this.isLoading = false; this.userMessage = ''; this.scrollPosition = 0; this.resetClinicalHistoryFlow(); this.resetPresentationCoordinator(); this.messages = this.initializeMessages(this.getInitialMessages()); if (clearStorage) this.clearStoredChat(); }
   private removeTypingMessage(): void {
     const message = this.messages[this.messages.length - 1];
     if (message?.text !== 'Escribiendo...') return;
@@ -976,6 +1014,10 @@ export class InterfazChatComponent implements OnDestroy {
     if (option.action === 'prompt') { this.addBotMessage(option.text || ''); this.scrollToNewBlock(selectionId); return; }
     if (option.action === 'patient-consultation-summary-flow') {
       this.iniciarResumenConsultas(selectionId);
+      return;
+    }
+    if (option.action === 'patient-consultation-report-flow') {
+      this.iniciarReporteConsultas(selectionId);
       return;
     }
     if (option.action === 'clinical-history-flow') {
@@ -1096,6 +1138,17 @@ export class InterfazChatComponent implements OnDestroy {
     const cargo = this.normalizarCargo(this.authService.usuario?.cargo);
     return tipoUsuario === 'ADMINISTRADOR' || tipoUsuario === 'DOCTOR'
       || cargo === 'ADMINISTRADOR' || cargo === 'DOCTOR';
+  }
+
+  private iniciarReporteConsultas(selectionId: string): void {
+    if (this.reporteConsultasActivo) return;
+    this.reporteConsultasActivo = true;
+    const introduccion = this.addBotMessage('Te ayudaré a generar un único reporte PDF con las consultas atendidas del paciente. Primero identificaremos al paciente y revisaremos los conteos antes de generar el documento.');
+    this.runAfterPresentation(introduccion, () => {
+      const pregunta = this.addBotMessage('¿Cómo deseas buscar al paciente?');
+      this.runAfterPresentation(pregunta, () => this.addReportBlock(true));
+    });
+    this.pinInteractionStart(selectionId);
   }
 
   private iniciarResumenConsultas(selectionId: string): void {
