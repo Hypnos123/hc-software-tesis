@@ -2,7 +2,7 @@
   <ng-container [ngSwitch]="view">
     <div *ngSwitchCase="'loading'" class="flow-step centered" role="status">
       <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
-      <strong>Consultando historias clínicas duplicadas...</strong>
+      <strong>Buscando historias clínicas duplicadas...</strong>
       <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
     </div>
 
@@ -34,14 +34,14 @@
       </div>
       <p class="selection-count">{{ state.idsSeleccionados.length }} seleccionadas</p>
       <div class="actions">
-        <button type="button" class="primary" (click)="analizar()" [disabled]="!active || state.idsSeleccionados.length < 2">Analizar selección</button>
+        <button type="button" class="primary" (click)="analizar()" [disabled]="!active || state.estado === 'ANALIZANDO_HISTORIAS' || state.idsSeleccionados.length < 2">Analizar selección</button>
         <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
       </div>
     </div>
 
     <div *ngSwitchCase="'analyzing'" class="flow-step centered" role="status">
       <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
-      <strong>Comparando información clínica...</strong>
+      <strong>Analizando historias clínicas seleccionadas...</strong>
       <span>Esta operación es únicamente de lectura.</span>
       <button type="button" class="secondary" (click)="cancelar()" [disabled]="!active">Cancelar</button>
     </div>

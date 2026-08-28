@@ -3,7 +3,7 @@ import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, 
 import { HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { catchError, forkJoin, map, of, Subscription, timer } from 'rxjs';
 import {
   GestionHistoriasDuplicadasEvento,
   GestionHistoriasDuplicadasState,
@@ -74,17 +74,25 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     const ids = [...this.state.idsSeleccionados];
     this.state.estado = 'ANALIZANDO_HISTORIAS';
     this.emitir('user', `Analizar historias clínicas ${ids.join(', ')}`, 'analyzing', false, true);
-    const solicitud = this.service.analizar(ids).subscribe({
-      next: analisis => {
-        this.solicitud = undefined;
-        this.state.cancelarSolicitud = undefined;
+    const resultado$ = this.service.analizar(ids).pipe(
+      map(analisis => ({ analisis })),
+      catchError(() => of({ error: true as const }))
+    );
+    const solicitud = forkJoin([resultado$, timer(this.duracionPresentacion())]).pipe(
+      finalize(() => this.finalizarSolicitudVisual())
+    ).subscribe({
+      next: ([resultado]) => {
+        if (!('analisis' in resultado)) {
+          this.manejarError('No fue posible analizar las historias clínicas seleccionadas.');
+          return;
+        }
+        const analisis = resultado.analisis;
         this.state.analisis = analisis;
         this.state.estado = 'MOSTRANDO_COMPARACION';
         this.emitir('bot', this.presentacionInicial(analisis.historiasComparadas), undefined, false, true);
         this.emitir('bot', `Recomiendo conservar la historia clínica ${analisis.idHistoriaClinicaRecomendada}.`, undefined);
         this.emitir('bot', this.resumenFinal(), 'comparison', true);
-      },
-      error: () => this.manejarError('No fue posible analizar las historias clínicas seleccionadas.')
+      }
     });
     this.solicitud = solicitud.closed ? undefined : solicitud;
     this.state.cancelarSolicitud = solicitud.closed ? undefined : () => solicitud.unsubscribe();
@@ -230,10 +238,19 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
   trackHistoria(_: number, historia: { idHistoriaClinica: number }): number { return historia.idHistoriaClinica; }
 
   private detectar(): void {
-    const solicitud = this.service.detectar().subscribe({
-      next: deteccion => {
-        this.solicitud = undefined;
-        this.state.cancelarSolicitud = undefined;
+    const resultado$ = this.service.detectar().pipe(
+      map(deteccion => ({ deteccion })),
+      catchError(() => of({ error: true as const }))
+    );
+    const solicitud = forkJoin([resultado$, timer(this.duracionPresentacion())]).pipe(
+      finalize(() => this.finalizarSolicitudVisual())
+    ).subscribe({
+      next: ([resultado]) => {
+        if (!('deteccion' in resultado)) {
+          this.manejarError('No fue posible consultar las historias clínicas duplicadas.');
+          return;
+        }
+        const deteccion = resultado.deteccion;
         this.state.deteccion = deteccion;
         if (!deteccion.hayDuplicados || deteccion.duplicados.length === 0) {
           this.state.estado = 'COMPLETADO';
@@ -242,8 +259,7 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
         }
         this.state.estado = 'MOSTRANDO_HISTORIAS';
         this.emitir('bot', `${deteccion.mensaje} Selecciona el grupo que deseas analizar.`, 'groups', true);
-      },
-      error: () => this.manejarError('No fue posible consultar las historias clínicas duplicadas.')
+      }
     });
     this.solicitud = solicitud.closed ? undefined : solicitud;
     this.state.cancelarSolicitud = solicitud.closed ? undefined : () => solicitud.unsubscribe();
@@ -275,6 +291,13 @@ export class GestionHistoriasDuplicadasChatComponent implements OnInit, OnDestro
     this.state.estado = 'ERROR';
     this.state.mensajeError = mensaje;
     this.emitir('bot', mensaje, 'error', true);
+  }
+
+  private duracionPresentacion(): number { return 3_000 + Math.floor(Math.random() * 3_001); }
+
+  private finalizarSolicitudVisual(): void {
+    this.solicitud = undefined;
+    this.state.cancelarSolicitud = undefined;
   }
 
   private detenerSolicitud(): void {

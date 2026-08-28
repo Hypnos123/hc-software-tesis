@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -37,17 +37,21 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     component.active = true;
   });
 
-  it('detecta, muestra el grupo y permite seleccionar todas sus historias', () => {
+  it('mantiene visible la búsqueda antes de mostrar los grupos', fakeAsync(() => {
     const eventos: GestionHistoriasDuplicadasEvento[] = [];
     component.mensajeConversacional.subscribe(evento => eventos.push(evento));
     fixture.detectChanges();
 
+    expect(component.state.estado).toBe('CONSULTANDO_DUPLICADOS');
+    expect(component.state.deteccion).toBeUndefined();
+    expect(fixture.nativeElement.textContent).toContain('Buscando historias clínicas duplicadas...');
+    tick(6_001);
     expect(component.state.estado).toBe('MOSTRANDO_HISTORIAS');
     expect(eventos.at(-1)?.vistaSiguiente).toBe('groups');
     component.seleccionarGrupo(deteccion.duplicados[0]);
     expect(component.state.idsSeleccionados).toEqual([7, 8]);
     expect(component.todasSeleccionadas).toBeTrue();
-  });
+  }));
 
   it('muestra dos historias vacías, la recomendación, el motivo y la aptitud futura', () => {
     prepararComparacion(analisis());
@@ -59,21 +63,25 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(component.state.analisis?.futuraFusionPermitida).toBeTrue();
   });
 
-  it('respeta la secuencia: emite mensajes antes de solicitar la vista comparativa', () => {
+  it('mantiene oculto el análisis antes de solicitar la vista comparativa', fakeAsync(() => {
     fixture.detectChanges();
+    tick(6_001);
     component.seleccionarGrupo(deteccion.duplicados[0]);
     service.analizar.and.returnValue(of(analisis()));
     const eventos: GestionHistoriasDuplicadasEvento[] = [];
     component.mensajeConversacional.subscribe(evento => eventos.push(evento));
 
     component.analizar();
+    expect(component.state.estado).toBe('ANALIZANDO_HISTORIAS');
+    expect(component.state.analisis).toBeUndefined();
+    tick(6_001);
 
     const eventosBot = eventos.filter(evento => evento.remitente === 'bot');
     expect(eventosBot.length).toBe(3);
     expect(eventosBot[0].vistaSiguiente).toBeUndefined();
     expect(eventosBot[1].vistaSiguiente).toBeUndefined();
     expect(eventosBot[2].vistaSiguiente).toBe('comparison');
-  });
+  }));
 
   it('muestra consultas exclusivas y posibles coincidencias como advertencia informativa', () => {
     const respuesta = analisis();
@@ -112,8 +120,9 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('no son aptas');
   });
 
-  it('soporta más de dos historias y selección parcial de al menos dos', () => {
+  it('soporta más de dos historias y selección parcial de al menos dos', fakeAsync(() => {
     fixture.detectChanges();
+    tick(6_001);
     const grupo = structuredClone(deteccion.duplicados[0]);
     grupo.historiasClinicas.push({ ...grupo.historiasClinicas[0], idHistoriaClinica: 9 });
     grupo.cantidad = 3;
@@ -122,11 +131,12 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
 
     expect(component.state.idsSeleccionados).toEqual([7, 8]);
     expect(component.todasSeleccionadas).toBeFalse();
-  });
+  }));
 
-  it('cancela solicitudes y limpia selección y análisis', () => {
+  it('cancela solicitudes y limpia selección, análisis y espera visual', fakeAsync(() => {
     const pendiente = new Subject<AnalisisHistoriasClinicasDuplicadas>();
     fixture.detectChanges();
+    tick(6_001);
     component.seleccionarGrupo(deteccion.duplicados[0]);
     service.analizar.and.returnValue(pendiente.asObservable());
     component.analizar();
@@ -137,7 +147,7 @@ describe('GestionHistoriasDuplicadasChatComponent', () => {
     expect(component.state.estado).toBe('CANCELADO');
     expect(component.state.idsSeleccionados).toEqual([]);
     expect(component.state.analisis).toBeUndefined();
-  });
+  }));
 
   it('no presenta contraseña ni eliminación antes de confirmar la vista previa', () => {
     prepararComparacion(analisis());
