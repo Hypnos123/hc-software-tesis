@@ -4,8 +4,8 @@
       <span class="step-label">Gestión de duplicados</span>
       <strong>Ingresa el DNI de ocho dígitos del paciente duplicado que deseas revisar.</strong>
       <div class="inline-form">
-        <input type="text" inputmode="numeric" maxlength="8" aria-label="DNI del paciente duplicado" [(ngModel)]="dniInput" (keydown.enter)="consultarDni()" [disabled]="!active" />
-        <button type="button" class="primary-action" (click)="consultarDni()" [disabled]="!active || !dniInput.trim()" aria-label="Analizar pacientes duplicados">Analizar</button>
+        <input type="text" inputmode="numeric" maxlength="8" aria-label="DNI del paciente duplicado" [(ngModel)]="dniInput" (keydown.enter)="consultarDni()" [disabled]="!active || state.estado === 'CONSULTANDO_DUPLICADOS'" />
+        <button type="button" class="primary-action" (click)="consultarDni()" [disabled]="!active || !dniInput.trim() || state.estado === 'CONSULTANDO_DUPLICADOS'" aria-label="Analizar pacientes duplicados">Analizar</button>
       </div>
       <p *ngIf="state.mensajeError" class="inline-error" role="alert">{{ state.mensajeError }}</p>
       <button type="button" class="link-action" (click)="cancelar()" [disabled]="!active">Cancelar y volver a Pacientes</button>

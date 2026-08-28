@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subscription } from 'rxjs';
+import { catchError, forkJoin, map, of, Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import {
   ArchivadoPacienteDuplicadoRequest,
@@ -54,11 +54,16 @@ export class GestionDuplicadosChatComponent implements OnDestroy {
     this.state.estado = 'CONSULTANDO_DUPLICADOS';
     this.state.mensajeError = undefined;
     this.emitir('user', dni, 'loading', true, true);
-    this.request = this.duplicadosService.analizar(dni).pipe(finalize(() => {
+    const resultado$ = this.duplicadosService.analizar(dni).pipe(
+      map(analisis => ({ analisis })),
+      catchError(() => of({ error: true as const }))
+    );
+    this.request = forkJoin([resultado$, timer(this.duracionAnalisis())]).pipe(finalize(() => {
       this.request = undefined;
     })).subscribe({
-      next: analisis => this.procesarAnalisis(analisis),
-      error: () => this.mostrarErrorConsulta()
+      next: ([resultado]) => 'analisis' in resultado
+        ? this.procesarAnalisis(resultado.analisis)
+        : this.mostrarErrorConsulta()
     });
     this.state.cancelarSolicitud = () => this.request?.unsubscribe();
   }
@@ -170,6 +175,10 @@ export class GestionDuplicadosChatComponent implements OnDestroy {
     this.state.pacientePrincipal = undefined;
     this.state.revisionClinicaConfirmada = false;
     this.state.mensajeError = undefined;
+  }
+
+  private duracionAnalisis(): number {
+    return 3000 + Math.floor(Math.random() * 3001);
   }
 
   formatDate(value?: string): string {
