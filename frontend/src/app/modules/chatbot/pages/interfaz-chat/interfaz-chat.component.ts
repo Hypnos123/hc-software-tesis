@@ -1403,6 +1403,11 @@ export class InterfazChatComponent implements OnDestroy {
     this.clinicalHistoryFlow = { step: 'awaitingConfirmation', dni, patient: summary, prefill };
     this.clinicalHistoryConfirmationActionsVisible = false;
     this.addBotMessage(this.formatPatientSummary(summary));
+    if (existingClinicalHistoryCount > 0) {
+      this.clinicalHistoryFlow = { step: 'awaitingDni' };
+      this.addBotMessage('Este paciente ya cuenta con una historia clínica registrada. Ingresa el DNI de otro paciente que aún no tenga una historia clínica para continuar.');
+      return;
+    }
     const orientation = this.addBotMessage('Revisa los datos del paciente encontrado. Si corresponde al paciente que deseas utilizar, pulsa “Continuar”. Si deseas salir de este proceso, pulsa “Cancelar”.');
     this.runAfterPresentation(orientation, () => {
       if (this.clinicalHistoryFlow.step === 'awaitingConfirmation' && this.clinicalHistoryFlow.dni === dni) {

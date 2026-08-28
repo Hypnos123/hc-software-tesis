@@ -1498,12 +1498,22 @@ describe('InterfazChatComponent', () => {
     expect(fixture.nativeElement.querySelector('.cancel-action')?.textContent).toContain('Cancelar');
   }));
 
-  it('debe mostrar la cantidad de varias historias existentes', () => {
+  it('debe impedir continuar y solicitar otro DNI cuando ya existe una historia', () => {
+    const segundoPaciente = { ...paciente, idPaciente: 10, dni: OTRO_DNI_PRUEBA, numDocumento: OTRO_DNI_PRUEBA };
+    historiaClinicaService.buscarPacientesPorDni.and.callFake(dni => of(dni === DNI_PRUEBA ? [paciente] : [segundoPaciente]));
     historiaClinicaService.getByPaciente.and.returnValue(of([{ idHistoriaClinica: 1 }, { idHistoriaClinica: 2 }, { idHistoriaClinica: 3 }]));
     iniciarFlujoHistoriaClinica();
     enviarDni(DNI_PRUEBA);
+    fixture.detectChanges();
 
     expect(component.messages.some(message => message.text?.includes('Historias clínicas existentes: 3'))).toBeTrue();
+    expect(component.messages.some(message => message.text?.includes('Este paciente ya cuenta con una historia clínica registrada'))).toBeTrue();
+    expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
+    expect(fixture.nativeElement.querySelector('.continue-action')).toBeNull();
+
+    historiaClinicaService.getByPaciente.and.returnValue(of([]));
+    enviarDni(OTRO_DNI_PRUEBA);
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingConfirmation');
   });
 
   it('debe ignorar Continuar fuera de awaitingConfirmation', () => {
