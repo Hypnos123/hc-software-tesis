@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { GestionDuplicadosChatComponent } from './gestion-duplicados-chat.component';
@@ -49,10 +49,13 @@ describe('GestionDuplicadosChatComponent', () => {
     expect(service.analizar).not.toHaveBeenCalled();
   });
 
-  it('consulta DNI válido y presenta tarjetas y razones del backend', () => {
+  it('mantiene el análisis visible antes de presentar las tarjetas', fakeAsync(() => {
     service.analizar.and.returnValue(of(analisis(false)));
     component.dniInput = '12345678';
     component.consultarDni();
+    expect(component.state.estado).toBe('CONSULTANDO_DUPLICADOS');
+    expect(component.state.analisis).toBeUndefined();
+    tick(6001);
     component.view = 'results';
     fixture.detectChanges();
     expect(service.analizar).toHaveBeenCalledOnceWith('12345678');
@@ -68,7 +71,7 @@ describe('GestionDuplicadosChatComponent', () => {
     expect(component.state.pacienteArchivado).toBeUndefined();
     expect(fixture.nativeElement.textContent).not.toContain('Antecedentes');
     expect(fixture.nativeElement.textContent).not.toContain('Grupos clínicos');
-  });
+  }));
 
   it('emite el DNI del usuario antes de iniciar la llamada HTTP', () => {
     const eventos: string[] = [];
@@ -87,19 +90,21 @@ describe('GestionDuplicadosChatComponent', () => {
     pendiente.complete();
   });
 
-  it('informa correctamente cuando no hay pacientes o solo existe uno', () => {
+  it('informa correctamente cuando no hay pacientes o solo existe uno', fakeAsync(() => {
     const eventos: string[] = [];
     component.mensajeConversacional.subscribe(evento => eventos.push(evento.texto));
     service.analizar.and.returnValue(of({ ...analisis(false), esDuplicado: false, cantidadPacientesActivos: 0, pacientes: [] }));
     component.dniInput = '12345678';
     component.consultarDni();
+    tick(6001);
     expect(eventos).toContain('No se encontraron pacientes activos con ese DNI.');
 
     component.state.estado = 'SOLICITANDO_DNI';
     service.analizar.and.returnValue(of({ ...analisis(false), esDuplicado: false, cantidadPacientesActivos: 1, pacientes: [principal] }));
     component.consultarDni();
+    tick(6001);
     expect(eventos).toContain('Solo existe un paciente activo con ese DNI. No hay duplicados para gestionar.');
-  });
+  }));
 
   it('selecciona pacientes distintos y permite cambiar la selección', () => {
     prepararResultados(false);

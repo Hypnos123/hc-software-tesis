@@ -77,11 +77,14 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(component.state.archivo).toBeUndefined();
   });
 
-  it('analiza y renderiza el resumen, DNI existente y duplicado', () => {
+  it('mantiene la carga visible y luego renderiza el resumen', fakeAsync(() => {
     service.validarArchivo.and.returnValue(of(preview()));
     component.state.plantillaDescargada = true;
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     component.analizarArchivo();
+    expect(component.state.operacion).toBe('ANALIZANDO');
+    expect(component.state.previsualizacion).toBeUndefined();
+    tick(6001);
     component.view = 'analysis';
     fixture.detectChanges();
 
@@ -90,21 +93,24 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('DNI EXISTENTE');
     expect(fixture.nativeElement.textContent).toContain('DNI DUPLICADO');
     expect(component.state.mensajes.map(mensaje => mensaje.texto)).toContain('Análisis completado. Estos son los resultados encontrados en el archivo.');
-  });
+  }));
 
-  it('conserva el mensaje con el nombre del archivo después de analizar', () => {
+  it('conserva el mensaje con el nombre del archivo después de analizar', fakeAsync(() => {
     service.validarArchivo.and.returnValue(of(preview()));
     component.state.plantillaDescargada = true;
     component.view = 'file-ready';
     seleccionar(new File(['excel'], 'mis-pacientes.xlsx'));
     component.analizarArchivo();
+    tick(6001);
     fixture.detectChanges();
 
     expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('He recibido el archivo «mis-pacientes.xlsx»');
     expect(fixture.nativeElement.textContent).toContain('mis-pacientes.xlsx');
-  });
+  }));
 
-  it('quita el archivo únicamente de la vista activa file-ready', () => {
+  it('quita el archivo y solicita volver inmediatamente al selector', () => {
+    const transiciones: any[] = [];
+    component.mensajeConversacional.subscribe(mensaje => transiciones.push(mensaje));
     component.view = 'file-ready';
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     fixture.detectChanges();
@@ -116,9 +122,11 @@ describe('ImportacionPacientesChatComponent', () => {
     expect(component.state.archivo).toBeUndefined();
     expect(fixture.nativeElement.textContent).toContain('Archivo retirado');
     expect(fixture.nativeElement.textContent).not.toContain('Analizar archivo');
+    expect(transiciones.at(-1)?.vistasSiguientes).toEqual(['file-selection']);
+    expect(transiciones.at(-1)?.reemplazarVistaActiva).toBeTrue();
   });
 
-  it('con cero válidos no ofrece confirmación y permite volver a cargar un Excel', () => {
+  it('con cero válidos no ofrece confirmación y permite volver a cargar un Excel', fakeAsync(() => {
     const sinValidos = preview();
     sinValidos.filas = sinValidos.filas.filter(fila => fila.estado !== 'VALIDO');
     sinValidos.resumen.validos = 0;
@@ -129,6 +137,7 @@ describe('ImportacionPacientesChatComponent', () => {
     const transiciones: any[] = [];
     component.mensajeConversacional.subscribe(mensaje => transiciones.push(mensaje));
     component.analizarArchivo();
+    tick(6001);
     component.view = 'analysis';
     fixture.detectChanges();
 
@@ -156,13 +165,14 @@ describe('ImportacionPacientesChatComponent', () => {
     component.view = 'file-selection';
     seleccionar(new File(['segundo intento'], 'corregido.xlsx'));
     component.analizarArchivo();
+    tick(6001);
 
     expect(component.state.archivo?.name).toBe('corregido.xlsx');
     expect(component.state.previsualizacion).toBe(segundoResultado);
     expect(component.cantidadValidos).toBe(1);
     expect(component.state.previsualizacion?.filas.some(fila => fila.errores.some(error => error.mensaje === 'Error del primer archivo'))).toBeFalse();
     expect(transiciones.at(-1)?.vistasSiguientes).toEqual(['analysis', 'confirmation']);
-  });
+  }));
 
   it('mantiene la importación de válidos y permite reiniciar un resultado mixto', () => {
     component.state.archivo = new File(['excel'], 'mixto.xlsx');
@@ -250,22 +260,24 @@ describe('ImportacionPacientesChatComponent', () => {
     component.view = 'file-ready';
     component.analizarArchivo();
     component.view = 'confirmation';
-    tick(20);
+    tick(6001);
     fixture.detectChanges();
     expect(component.state.estado).toBe('EXPIRADA');
     expect(component.puedeConfirmar).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('previsualización expiró');
   }));
 
-  it('muestra errores HTTP seguros', () => {
+  it('mantiene también los errores ocultos hasta completar la espera visual', fakeAsync(() => {
     service.validarArchivo.and.returnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
     component.state.archivo = new File(['excel'], 'pacientes.xlsx');
     component.view = 'file-ready';
     component.analizarArchivo();
+    expect(component.state.mensaje).toBe('');
+    tick(6001);
     fixture.detectChanges();
     expect(component.state.mensaje).toBe('El archivo supera los 2 MB.');
     expect(component.state.mensajes.map(mensaje => mensaje.texto).join(' ')).toContain('No pude analizar completamente el archivo');
-  });
+  }));
 
   function seleccionar(archivo: File): void {
     component.seleccionarArchivo({ target: { files: [archivo], value: 'archivo' } } as unknown as Event);

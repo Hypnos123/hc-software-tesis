@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { saveAs } from 'file-saver';
-import { finalize, Subscription } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of, Subscription, timer } from 'rxjs';
 import {
   EstadoFlujoImportacion,
   IPacienteImportacionConfirmacion,
@@ -72,7 +72,7 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.limpiarTemporizador();
+    this.limpiarFlujo();
   }
 
   limpiarFlujo(): void {
@@ -159,6 +159,8 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.mensaje = '';
     if (this.archivoInput) this.archivoInput.nativeElement.value = '';
     this.limpiarTemporizador();
+    this.agregarMensaje(`archivo-retirado-${Date.now()}`, 'ARCHIVO', 'bot', 'Archivo retirado. Selecciona otro archivo Excel para continuar.',
+      { vistasSiguientes: ['file-selection'], reemplazarVistaActiva: true, inicioGrupo: true });
   }
 
   analizarArchivo(): void {
@@ -172,10 +174,20 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
     this.state.operacion = 'ANALIZANDO';
     this.state.mensaje = '';
     this.agregarMensaje(`analizar-${this.state.archivo!.name}`, 'ANALISIS', 'user', 'Analizar archivo', { inicioGrupo: true });
-    this.solicitud = this.importacionService.validarArchivo(this.state.archivo!).pipe(
+    const resultado$ = this.importacionService.validarArchivo(this.state.archivo!).pipe(
+      map(previsualizacion => ({ previsualizacion })),
+      catchError((error: HttpErrorResponse) => of({ error }))
+    );
+    this.solicitud = forkJoin([resultado$, timer(this.duracionAnalisis())]).pipe(
       finalize(() => { this.solicitud = undefined; this.state.operacion = undefined; })
     ).subscribe({
-      next: previsualizacion => {
+      next: ([resultado]) => {
+        if ('error' in resultado) {
+          this.agregarMensaje(`analisis-error-${Date.now()}`, 'ANALISIS', 'bot', 'No pude analizar completamente el archivo. Revisa los errores indicados y vuelve a intentarlo.');
+          this.manejarError(resultado.error);
+          return;
+        }
+        const previsualizacion = resultado.previsualizacion;
         this.state.previsualizacion = previsualizacion;
         this.state.estado = previsualizacion.estado === 'EXPIRADA' ? 'EXPIRADA' : 'PREVISUALIZADA';
         const tieneValidos = previsualizacion.filas.some(fila => fila.estado === 'VALIDO');
@@ -185,10 +197,6 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
         this.agregarMensaje(`analisis-completado-${previsualizacion.importacionId}`, 'ANALISIS', 'bot', texto,
           { vistasSiguientes: tieneValidos ? ['analysis', 'confirmation'] : ['analysis'] });
         this.programarExpiracion(previsualizacion.expiraEn);
-      },
-      error: errorHttp => {
-        this.agregarMensaje(`analisis-error-${Date.now()}`, 'ANALISIS', 'bot', 'No pude analizar completamente el archivo. Revisa los errores indicados y vuelve a intentarlo.');
-        this.manejarError(errorHttp);
       }
     });
     this.registrarCancelacion();
@@ -271,6 +279,10 @@ export class ImportacionPacientesChatComponent implements OnInit, OnDestroy {
   private registrarCancelacion(): void {
     const solicitud = this.solicitud;
     this.state.cancelarSolicitud = () => solicitud?.unsubscribe();
+  }
+
+  private duracionAnalisis(): number {
+    return 3000 + Math.floor(Math.random() * 3001);
   }
 
   private agregarMensaje(
