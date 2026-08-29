@@ -363,8 +363,8 @@ export class InterfazChatComponent implements OnDestroy {
     const bloque = [...this.messages].reverse().find(message => message.type === 'patient-consultation-report');
     if (!bloque) return;
     if (texto) {
-      bloque.reportActive = false;
-      this.reporteCargaTemporal = this.addBotMessage(texto);
+      bloque.reportActive = true;
+      this.moverBloqueReporte(bloque);
       return;
     }
     this.moverBloqueReporte(bloque);

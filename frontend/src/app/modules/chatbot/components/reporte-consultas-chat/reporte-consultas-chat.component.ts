@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { ReporteConsultaAlcance, ReporteConsultaFiltro, ReporteConsultaSeleccion, ReportePdfArchivo } from '@app/shared/models/reporte-medico';
 import { ReporteMedicoService } from '@app/shared/services/reporte-medico.service';
-import { catchError, finalize, forkJoin, map, of, Subscription, timer } from 'rxjs';
+import { catchError, finalize, forkJoin, map, Observable, of, Subscription, switchMap, timer } from 'rxjs';
 
-interface PacienteReporteChat { idPaciente: number; nombreCompleto: string; dni: string; fechaRegistro?: string | Date; cantidadConsultas: number; }
-type VistaReporteChat = 'metodo' | 'busqueda' | 'pacientes' | 'alcance' | 'fecha' | 'rango' | 'resultado' | 'error';
+interface PacienteReporteChat { idPaciente: number; nombreCompleto: string; dni: string; fechaRegistro?: string | Date; cantidadHistoriasClinicas: number; cantidadConsultasAtendidas: number; }
+type VistaReporteChat = 'metodo' | 'busqueda' | 'pacientes' | 'sin-consultas' | 'alcance' | 'fecha' | 'rango' | 'resultado' | 'error';
 
 @Component({
   selector: 'app-reporte-consultas-chat', standalone: true, imports: [CommonModule, FormsModule],
@@ -36,15 +36,16 @@ export class ReporteConsultasChatComponent implements OnDestroy {
   filtroConfirmado?: ReporteConsultaFiltro;
   error?: string;
   cargando = false;
+  mensajeCarga = '';
   private solicitud?: Subscription;
   private cargaTemporalActiva = false;
 
   constructor(private historiasService: HistoriaClinicaService, private reportesService: ReporteMedicoService) {}
-  ngOnDestroy(): void { this.solicitud?.unsubscribe(); }
+  ngOnDestroy(): void { this.cancelarSolicitud(); }
 
   elegirMetodo(metodo: 'DNI' | 'NOMBRE'): void {
     this.metodo = metodo; this.criterio = ''; this.error = undefined; this.vista = 'busqueda';
-    this.avanzarFlujo.emit([metodo === 'DNI' ? 'Ingresa el DNI del paciente.' : 'Ingresa el nombre del paciente.']);
+    this.reposicionar.emit();
   }
 
   buscar(): void {
@@ -56,27 +57,36 @@ export class ReporteConsultasChatComponent implements OnDestroy {
     const consulta = this.metodo === 'DNI'
       ? this.historiasService.buscarPacientesPorDni(criterio)
       : this.historiasService.buscarPacientesPorNombre(criterio);
-    this.solicitud = forkJoin({ respuesta: consulta.pipe(map(resultados => ({ resultados })), catchError(() => of({ error: true }))), espera: timer(this.demoraAleatoria()) }).pipe(
-      map(({ respuesta }) => respuesta), finalize(() => this.cargando = false)
-    ).subscribe({
-      next: respuesta => {
-        if ('error' in respuesta) { this.finalizarCargaTemporal(); this.mostrarError('No se pudo consultar al paciente en este momento.'); this.reposicionar.emit(); return; }
-        const resultados = respuesta.resultados;
+    this.solicitud = forkJoin({ respuesta: consulta.pipe(
+      switchMap(resultados => {
         const filtrados = this.metodo === 'DNI'
           ? resultados.filter(item => (item.numDocumento ?? item.dni ?? '').trim() === criterio) : resultados;
         const basicos = filtrados.filter(item => !!item.idPaciente).map(item => ({
           idPaciente: item.idPaciente!, nombreCompleto: [item.nombres, item.apellidos].filter(Boolean).join(' ').trim(),
-          dni: (item.numDocumento ?? item.dni ?? '').trim(), fechaRegistro: item.fechaIngreso, cantidadConsultas: 0
+          dni: (item.numDocumento ?? item.dni ?? '').trim(), fechaRegistro: item.fechaIngreso,
+          cantidadHistoriasClinicas: 0, cantidadConsultasAtendidas: 0
         }));
-        if (!basicos.length) { this.finalizarCargaTemporal(); this.mostrarError('No se encontró un paciente con los datos ingresados.'); this.reposicionar.emit(); return; }
-        if (basicos.length === 1) { this.finalizarCargaTemporal(); this.pacientes = basicos; this.seleccionarPaciente(basicos[0]); return; }
-        this.enriquecerPacientes(basicos);
+        return basicos.length ? this.enriquecerPacientes(basicos) : of([]);
+      }), map(pacientes => ({ pacientes })), catchError(() => of({ error: true }))), espera: timer(this.demoraAleatoria()) }).pipe(
+      map(({ respuesta }) => respuesta), finalize(() => { this.cargando = false; this.finalizarCargaTemporal(); })
+    ).subscribe({
+      next: respuesta => {
+        this.finalizarCargaTemporal();
+        if ('error' in respuesta) { this.mostrarError('No se pudo consultar al paciente en este momento.'); this.reposicionar.emit(); return; }
+        if (!respuesta.pacientes.length) { this.mostrarError('No se encontró un paciente con los datos ingresados.'); this.reposicionar.emit(); return; }
+        this.pacientes = respuesta.pacientes;
+        if (this.pacientes.length === 1) { this.seleccionarPaciente(this.pacientes[0]); return; }
+        this.vista = 'pacientes'; this.reposicionar.emit();
       }
     });
   }
 
   seleccionarPaciente(paciente: PacienteReporteChat): void {
-    this.paciente = paciente; this.seleccion = undefined; this.filtroConfirmado = undefined; this.vista = 'alcance';
+    this.paciente = paciente; this.seleccion = undefined; this.filtroConfirmado = undefined;
+    if (paciente.cantidadConsultasAtendidas === 0) {
+      this.vista = 'sin-consultas'; this.reposicionar.emit(); return;
+    }
+    this.vista = 'alcance';
     this.avanzarFlujo.emit([
       `Paciente seleccionado: ${paciente.nombreCompleto}${paciente.dni ? ` · DNI: ${paciente.dni}` : ''}`,
       '¿Qué consultas deseas incluir en el reporte?'
@@ -143,19 +153,17 @@ export class ReporteConsultasChatComponent implements OnDestroy {
     const texto = String(fecha).slice(0, 10); const partes = texto.split('-');
     return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : texto;
   }
-  private enriquecerPacientes(pacientes: PacienteReporteChat[]): void {
-    this.cargando = true;
-    this.solicitud = forkJoin(pacientes.map(paciente => this.historiasService.getByPaciente(paciente.idPaciente).pipe(
-      map(historias => ({ ...paciente, cantidadConsultas: historias.reduce((total, historia) => total + (historia.cantidadConsultas ?? 0), 0) }))
-    ))).pipe(finalize(() => this.cargando = false)).subscribe({
-      next: enriquecidos => { this.finalizarCargaTemporal(); this.pacientes = enriquecidos; this.vista = 'pacientes'; this.reposicionar.emit(); },
-      error: () => { this.finalizarCargaTemporal(); this.pacientes = pacientes; this.vista = 'pacientes'; this.reposicionar.emit(); }
-    });
+  private enriquecerPacientes(pacientes: PacienteReporteChat[]): Observable<PacienteReporteChat[]> {
+    return forkJoin(pacientes.map(paciente => forkJoin({
+      historias: this.historiasService.getByPaciente(paciente.idPaciente),
+      seleccion: this.reportesService.obtenerSeleccion(paciente.idPaciente, { alcance: 'TODAS' })
+    }).pipe(map(({ historias, seleccion }) => ({ ...paciente, cantidadHistoriasClinicas: historias.length,
+      cantidadConsultasAtendidas: seleccion.consultasAtendidasIncluidas })))));
   }
   private demoraAleatoria(): number { return 3000 + Math.floor(Math.random() * 3001); }
   private limpiarSeleccion(): void { this.seleccion = undefined; this.filtroConfirmado = undefined; this.error = undefined; }
   private reiniciar(): void { this.vista = 'metodo'; this.metodo = undefined; this.criterio = ''; this.pacientes = []; this.paciente = undefined; this.alcance = undefined; this.fecha = ''; this.fechaDesde = ''; this.fechaHasta = ''; this.limpiarSeleccion(); }
-  private iniciarCargaTemporal(mensaje: string): void { this.cargaTemporalActiva = true; this.cargaTemporal.emit(mensaje); }
-  private finalizarCargaTemporal(): void { if (!this.cargaTemporalActiva) return; this.cargaTemporalActiva = false; this.cargaTemporal.emit(null); }
+  private iniciarCargaTemporal(mensaje: string): void { this.mensajeCarga = mensaje; this.cargaTemporalActiva = true; this.cargaTemporal.emit(mensaje); }
+  private finalizarCargaTemporal(): void { if (!this.cargaTemporalActiva) return; this.mensajeCarga = ''; this.cargaTemporalActiva = false; this.cargaTemporal.emit(null); }
   private cancelarSolicitud(): void { this.solicitud?.unsubscribe(); this.solicitud = undefined; this.cargando = false; this.finalizarCargaTemporal(); }
 }
