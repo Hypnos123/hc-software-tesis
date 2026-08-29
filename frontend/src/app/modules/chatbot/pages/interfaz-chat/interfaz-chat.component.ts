@@ -363,8 +363,8 @@ export class InterfazChatComponent implements OnDestroy {
     const bloque = [...this.messages].reverse().find(message => message.type === 'patient-consultation-report');
     if (!bloque) return;
     if (texto) {
-      bloque.reportActive = false;
-      this.reporteCargaTemporal = this.addBotMessage(texto);
+      bloque.reportActive = true;
+      this.moverBloqueReporte(bloque);
       return;
     }
     this.moverBloqueReporte(bloque);
@@ -1085,7 +1085,7 @@ export class InterfazChatComponent implements OnDestroy {
     if (option.action === 'clinical-history-flow') {
       this.clinicalHistoryFlow = { step: 'awaitingDni' };
       this.clinicalHistoryConfirmationActionsVisible = false;
-      this.addBotMessage('Ingresa el DNI de ocho dígitos del paciente que deseas utilizar para crear la historia clínica. Puedes cancelar la asistencia en cualquier momento pulsando “Cancelar”.');
+      this.addBotMessage('Ingresa el DNI del paciente para crear su historia clínica o pulsa el botón cancelar para finalizar.');
       this.scrollToNewBlock(selectionId);
       return;
     }
@@ -1280,10 +1280,18 @@ export class InterfazChatComponent implements OnDestroy {
         this.removeSummaryTemporary('searching');
         const coincidencias = dni ? pacientes.filter(p => (p.numDocumento ?? p.dni)?.trim() === criterio.trim()) : pacientes;
         const candidatos = coincidencias.filter(p => !!p.idPaciente).map(p => this.mapearCandidatoResumen(p));
-        state.candidatos = candidatos;
         if (!candidatos.length) { this.isLoading = false; this.mostrarErrorResumen('No se encontró un paciente con los datos ingresados. Verifica la información e inténtalo nuevamente.'); return; }
-        if (candidatos.length > 1) { this.isLoading = false; state.vista = 'multiple'; state.accionesHabilitadas = true; this.addSummaryBlock(state, 'multiple', true); return; }
-        this.completarPacienteResumen(candidatos[0]);
+        forkJoin(candidatos.map(candidato => this.historiaClinicaService.getByPaciente(candidato.idPaciente).pipe(
+          map(historias => ({ ...candidato, cantidadHistoriasClinicas: historias.length,
+            cantidadConsultas: historias.reduce((total, historia) => total + (historia.cantidadConsultas ?? 0), 0) }))
+        ))).subscribe({
+          next: candidatosDetallados => {
+            state.candidatos = candidatosDetallados;
+            if (candidatosDetallados.length > 1) { this.isLoading = false; state.vista = 'multiple'; state.accionesHabilitadas = true; this.addSummaryBlock(state, 'multiple', true); return; }
+            this.completarPacienteResumen(candidatosDetallados[0]);
+          },
+          error: () => { this.isLoading = false; this.mostrarErrorResumen('No se pudieron verificar las historias clínicas del paciente. Inténtalo nuevamente.'); }
+        });
       },
       error: () => { this.isLoading = false; this.resumenPacienteRequest = undefined; this.removeSummaryTemporary('searching'); this.mostrarErrorResumen('No se pudo consultar al paciente en este momento. Verifica la información e inténtalo nuevamente.'); }
     });
@@ -1292,20 +1300,15 @@ export class InterfazChatComponent implements OnDestroy {
   private completarPacienteResumen(paciente: ResumenPacienteCandidato): void {
     const state = this.resumenConsultasState;
     if (!state) return;
-    this.isLoading = true;
-    this.resumenPacienteRequest = this.historiaClinicaService.getByPaciente(paciente.idPaciente)
-      .pipe(finalize(() => { this.isLoading = false; this.resumenPacienteRequest = undefined; }))
-      .subscribe({ next: historias => {
-        state.paciente = { ...paciente, cantidadHistoriasClinicas: historias.length };
-        state.vista = 'confirmation'; state.accionesHabilitadas = false;
-        this.addSummaryBlock(state, 'confirmation', false);
-        const encontrado = this.addBotMessage('Encontré este paciente. Revisa los datos y pulsa “Generar resumen” si deseas continuar.');
-        this.runAfterPresentation(encontrado, () => {
-          state.accionesHabilitadas = true;
-          const tarjeta = [...this.messages].reverse().find(message => message.type === 'patient-consultation-summary' && message.summaryView === 'confirmation');
-          if (tarjeta) tarjeta.summaryActive = true;
-        });
-      }, error: () => this.mostrarErrorResumen('No se pudieron verificar las historias clínicas del paciente. Inténtalo nuevamente.') });
+    this.isLoading = false;
+    state.paciente = paciente;
+    state.vista = 'confirmation'; state.accionesHabilitadas = false;
+    const encontrado = this.addBotMessage('Encontré este paciente. Revisa los datos y pulsa “Generar resumen” si deseas continuar.');
+    this.runAfterPresentation(encontrado, () => {
+      if (this.resumenConsultasState !== state || state.vista !== 'confirmation') return;
+      state.accionesHabilitadas = true;
+      this.addSummaryBlock(state, 'confirmation', true);
+    });
   }
 
   private mapearCandidatoResumen(paciente: IPacienteBusqueda): ResumenPacienteCandidato {
@@ -1408,7 +1411,7 @@ export class InterfazChatComponent implements OnDestroy {
       this.addBotMessage('Este paciente ya cuenta con una historia clínica registrada. Ingresa el DNI de otro paciente que aún no tenga una historia clínica para continuar.');
       return;
     }
-    const orientation = this.addBotMessage('Revisa los datos del paciente encontrado. Si corresponde al paciente que deseas utilizar, pulsa “Continuar”. Si deseas salir de este proceso, pulsa “Cancelar”.');
+    const orientation = this.addBotMessage('Pulsa “Continuar” para crear la historia clínica o “Cancelar” para finalizar.');
     this.runAfterPresentation(orientation, () => {
       if (this.clinicalHistoryFlow.step === 'awaitingConfirmation' && this.clinicalHistoryFlow.dni === dni) {
         this.clinicalHistoryConfirmationActionsVisible = true;

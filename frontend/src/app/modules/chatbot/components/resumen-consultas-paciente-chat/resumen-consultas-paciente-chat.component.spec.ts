@@ -21,4 +21,32 @@ describe('ResumenConsultasPacienteChatComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Sin datos válidos suficientes');
     expect(fixture.nativeElement.textContent).not.toContain('presión alta');
   });
+
+  it('muestra historias y consultas para distinguir candidatos coincidentes', () => {
+    fixture.componentInstance.state = { vista: 'multiple', accionesHabilitadas: true, candidatos: [{
+      idPaciente: 19, nombreCompleto: 'Daniela Alejandra Ramírez Soto', dni: '74296831', edad: 26,
+      estado: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2
+    }] };
+    fixture.componentInstance.active = true;
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent;
+    expect(texto).toContain('Daniela Alejandra Ramírez Soto');
+    expect(texto).toContain('ID paciente: 19');
+    expect(texto).toContain('DNI: 74296831');
+    expect(texto).toContain('Historias clínicas: 1');
+    expect(texto).toContain('Consultas: 2');
+  });
+
+  it('muestra la cantidad total de consultas en la tarjeta del paciente', () => {
+    fixture.componentInstance.state = { vista: 'confirmation', candidatos: [], accionesHabilitadas: true, paciente: {
+      idPaciente: 19, nombreCompleto: 'Daniela Alejandra Ramírez Soto', dni: '74296831', edad: 26,
+      estado: 'ACTIVO', cantidadHistoriasClinicas: 1, cantidadConsultas: 2
+    } };
+    fixture.componentInstance.active = true;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Consultas');
+    expect(fixture.nativeElement.querySelector('.patient-card dl').textContent).toContain('2');
+  });
 });
