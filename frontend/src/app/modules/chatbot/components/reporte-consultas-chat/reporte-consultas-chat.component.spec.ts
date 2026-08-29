@@ -51,24 +51,24 @@ describe('ReporteConsultasChatComponent', () => {
   it('emite el mensaje temporal de búsqueda por DNI hasta completar la espera', fakeAsync(() => {
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar();
-    expect(cargas).toEqual(['Buscando paciente...']);
-    tick(2999); expect(cargas).toEqual(['Buscando paciente...']);
-    tick(1); expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(cargas).toEqual(['Buscando paciente…']);
+    tick(2999); expect(cargas).toEqual(['Buscando paciente…']);
+    tick(1); expect(cargas).toEqual(['Buscando paciente…', null]);
   }));
 
   it('emite el mensaje temporal de búsqueda por nombre hasta completar la espera', fakeAsync(() => {
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar();
-    expect(cargas).toEqual(['Buscando paciente...']); tick(3000);
-    expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(cargas).toEqual(['Buscando paciente…']); tick(3000);
+    expect(cargas).toEqual(['Buscando paciente…', null]);
     expect(component.paciente?.idPaciente).toBe(8);
   }));
 
   it('renderiza un spinner durante la búsqueda y lo retira al finalizar', fakeAsync(() => {
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.spinner')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.loading')?.textContent).toContain('Buscando paciente...');
-    tick(3000); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.loading')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.report-loading .pi.pi-spin.pi-spinner')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.report-loading')?.textContent).toContain('Buscando paciente…');
+    tick(3000); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.report-loading')).toBeNull();
   }));
 
   it('enriquece y permite elegir una coincidencia cuando el nombre devuelve varios pacientes', fakeAsync(() => {
@@ -103,9 +103,12 @@ describe('ReporteConsultasChatComponent', () => {
     seleccionarPacientePorDni();
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     const verificarCarga = (): void => {
-      expect(cargas).toEqual(['Preparando información del reporte...']);
-      tick(2999); expect(cargas).toEqual(['Preparando información del reporte...']);
-      tick(1); expect(cargas).toEqual(['Preparando información del reporte...', null]);
+      expect(cargas).toEqual(['Preparando información del reporte…']);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.report-loading .pi.pi-spin.pi-spinner')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.report-loading')?.textContent).toContain('Preparando información del reporte…');
+      tick(2999); expect(cargas).toEqual(['Preparando información del reporte…']);
+      tick(1); expect(cargas).toEqual(['Preparando información del reporte…', null]);
       cargas.length = 0;
       component.cambiarCriterio();
     };
@@ -136,7 +139,7 @@ describe('ReporteConsultasChatComponent', () => {
   it('limpia la carga y cancela la solicitud al salir del flujo', fakeAsync(() => {
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); component.cancelar(); tick(6000);
-    expect(component.cargando).toBeFalse(); expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(component.cargando).toBeFalse(); expect(cargas).toEqual(['Buscando paciente…', null]);
     expect(component.paciente).toBeUndefined();
   }));
 

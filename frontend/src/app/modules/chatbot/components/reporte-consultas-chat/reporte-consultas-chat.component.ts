@@ -53,7 +53,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
     if (!criterio || (this.metodo === 'DNI' && !/^\d{8}$/.test(criterio))) {
       this.error = this.metodo === 'DNI' ? 'El DNI debe contener exactamente ocho dígitos.' : 'Ingresa el nombre del paciente.'; return;
     }
-    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.iniciarCargaTemporal('Buscando paciente...');
+    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.iniciarCargaTemporal('Buscando paciente…');
     const consulta = this.metodo === 'DNI'
       ? this.historiasService.buscarPacientesPorDni(criterio)
       : this.historiasService.buscarPacientesPorNombre(criterio);
@@ -128,7 +128,7 @@ export class ReporteConsultasChatComponent implements OnDestroy {
 
   private consultarSeleccion(filtro: ReporteConsultaFiltro): void {
     if (!this.paciente || this.cargando) return;
-    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.seleccion = undefined; this.iniciarCargaTemporal('Preparando información del reporte...');
+    this.cancelarSolicitud(); this.cargando = true; this.error = undefined; this.seleccion = undefined; this.iniciarCargaTemporal('Preparando información del reporte…');
     const filtroExacto = { ...filtro };
     this.solicitud = forkJoin({ respuesta: this.reportesService.obtenerSeleccion(this.paciente.idPaciente, filtroExacto)
       .pipe(map(seleccion => ({ seleccion })), catchError(error => of({ error }))), espera: timer(this.demoraAleatoria()) })

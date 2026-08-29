@@ -1,5 +1,8 @@
 <section class="report-chat" aria-label="Generar reporte de consultas">
-  <div *ngIf="cargando" class="loading" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong>{{ mensajeCarga }}</strong></div>
+  <div *ngIf="cargando" class="report-loading" role="status" aria-live="polite">
+    <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+    <strong>{{ mensajeCarga }}</strong>
+  </div>
   <ng-container *ngIf="!cargando">
     <div *ngIf="vista === 'metodo'">
       <div class="actions"><button type="button" (click)="elegirMetodo('DNI')">Buscar por DNI</button><button type="button" (click)="elegirMetodo('NOMBRE')">Buscar por nombre</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
