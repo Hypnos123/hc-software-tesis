@@ -22,6 +22,7 @@ import { GestionHistoriasDuplicadasChatComponent } from '../../components/gestio
 import { ResumenConsultasPacienteService } from '../../services/resumen-consultas-paciente.service';
 import { ChatbotNavigationService } from '../../services/chatbot-navigation.service';
 import { ReporteMedicoService } from '@app/shared/services/reporte-medico.service';
+import { ReporteConsultasChatComponent } from '../../components/reporte-consultas-chat/reporte-consultas-chat.component';
 
 describe('InterfazChatComponent', () => {
   const DNI_PRUEBA = '0'.repeat(8);
@@ -228,6 +229,32 @@ describe('InterfazChatComponent', () => {
 
     expect(component.messages.some((mensaje: any) => mensaje.text === 'Buscando paciente...')).toBeFalse();
     expect(bloque.reportActive).toBeTrue();
+  });
+
+  it('conserva exactamente el resultado del reporte al minimizar y volver a abrir', () => {
+    component.openChat();
+    (component as any).reporteConsultasActivo = true;
+    (component as any).addReportBlock(true);
+    fixture.detectChanges();
+    const reporte = fixture.debugElement.query(By.directive(ReporteConsultasChatComponent)).componentInstance as ReporteConsultasChatComponent;
+    reporte.vista = 'resultado';
+    reporte.criterio = '12345678';
+    reporte.paciente = { idPaciente: 8, nombreCompleto: 'Paciente prueba', dni: '12345678', cantidadHistoriasClinicas: 1, cantidadConsultasAtendidas: 2 } as any;
+    reporte.seleccion = { totalConsultasEncontradas: 2, consultasAtendidasIncluidas: 2, consultasNoAtendidasExcluidas: 0,
+      idsHistoriasClinicasIncluidas: [10], puedeGenerar: true } as any;
+    (component as any).mostrarReportePdf = true;
+
+    component.minimizeChat(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.chatbot-window').hidden).toBeTrue();
+    component.openChat(); fixture.detectChanges();
+
+    const reporteRestaurado = fixture.debugElement.query(By.directive(ReporteConsultasChatComponent)).componentInstance as ReporteConsultasChatComponent;
+    expect(reporteRestaurado).toBe(reporte);
+    expect(reporteRestaurado.vista).toBe('resultado');
+    expect(reporteRestaurado.criterio).toBe('12345678');
+    expect(reporteRestaurado.paciente?.idPaciente).toBe(8);
+    expect(reporteRestaurado.seleccion?.puedeGenerar).toBeTrue();
+    expect((component as any).mostrarReportePdf).toBeTrue();
   });
 
   it('debe revelar inmediatamente los mensajes iniciales mediante el estado de presentación', () => {
@@ -925,7 +952,7 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.type === 'clinical-history-duplicate-management')).toBeFalse();
   });
 
-  it('limpia el análisis de historias duplicadas al minimizar', () => {
+  it('conserva el análisis de historias duplicadas al minimizar', () => {
     const pendiente = new Subject<any>();
     historiasDuplicadasService.detectar.and.returnValue(pendiente.asObservable());
     const menuHistorias = abrirMenuAsistenciaHistorias();
@@ -936,10 +963,9 @@ describe('InterfazChatComponent', () => {
 
     component.minimizeChat();
 
-    expect(tarjeta.state.estado).toBe('CANCELADO');
-    expect(tarjeta.state.idsSeleccionados).toEqual([]);
-    expect(pendiente.observed).toBeFalse();
-    expect(component.gestionHistoriasDuplicadasActiva).toBeFalse();
+    expect(tarjeta.state.estado).not.toBe('CANCELADO');
+    expect(pendiente.observed).toBeTrue();
+    expect(component.gestionHistoriasDuplicadasActiva).toBeTrue();
   });
 
   it('ancla el inicio informativo del flujo y no desplaza el scroll al bloque de grupos', fakeAsync(() => {
@@ -2098,14 +2124,14 @@ describe('InterfazChatComponent', () => {
     expect(cancelarCreacion.textContent).toContain('Cancelar');
   });
 
-  it('debe limpiar la contraseña al minimizar y todo el flujo al cerrar', () => {
+  it('debe conservar la contraseña al minimizar y limpiar todo el flujo al cerrar', () => {
     component.userMessage = 'Gestionar duplicados';
     component.sendMessage();
     fixture.detectChanges();
     const tarjeta = component.gestionDuplicadosComponents.last;
     tarjeta.password = 'sensible';
     component.minimizeChat();
-    expect(tarjeta.password).toBe('');
+    expect(tarjeta.password).toBe('sensible');
 
     component.openChat();
     component.closeChat();
@@ -2449,7 +2475,7 @@ describe('InterfazChatComponent', () => {
     tick(20_000);
   }));
 
-  it('cancela el contexto pendiente al cerrar y no lo reutiliza al abrir normalmente', fakeAsync(() => {
+  it('conserva el contexto pendiente al minimizar y continúa al abrir normalmente', fakeAsync(() => {
     const respuesta = new Subject<any>();
     resumenConsultasService.obtener.and.returnValue(respuesta);
     const navigation = TestBed.inject(ChatbotNavigationService);
@@ -2457,7 +2483,7 @@ describe('InterfazChatComponent', () => {
     tick(10_000);
     expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(23);
     component.minimizeChat();
-    expect(component.resumenConsultasState).toBeUndefined();
+    expect(component.resumenConsultasState).toBeDefined();
     component.openChat();
     tick(5_000);
     expect(resumenConsultasService.obtener).toHaveBeenCalledTimes(1);

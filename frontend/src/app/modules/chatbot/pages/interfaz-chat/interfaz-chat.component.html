@@ -4,7 +4,7 @@
   <button type="button" title="Cerrar mensaje" aria-label="Cerrar mensaje del asistente" (click)="cerrarMensajeFlotante()">×</button>
 </aside>
 
-<div class="chatbot-window" *ngIf="isOpen">
+<div class="chatbot-window" [hidden]="!autenticado || !isOpen">
   <div class="chatbot-header">
     <div><h4>Asistente IA</h4><span>Control de historias clínicas</span></div>
     <div class="chatbot-header-actions">
