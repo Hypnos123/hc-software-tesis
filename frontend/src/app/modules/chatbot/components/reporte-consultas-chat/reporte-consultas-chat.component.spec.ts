@@ -51,38 +51,38 @@ describe('ReporteConsultasChatComponent', () => {
   it('emite el mensaje temporal de búsqueda por DNI hasta completar la espera', fakeAsync(() => {
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar();
-    expect(cargas).toEqual(['Buscando paciente...']);
-    tick(2999); expect(cargas).toEqual(['Buscando paciente...']);
-    tick(1); expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(cargas).toEqual(['Buscando paciente…']);
+    tick(2999); expect(cargas).toEqual(['Buscando paciente…']);
+    tick(1); expect(cargas).toEqual(['Buscando paciente…', null]);
   }));
 
   it('emite el mensaje temporal de búsqueda por nombre hasta completar la espera', fakeAsync(() => {
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar();
-    expect(cargas).toEqual(['Buscando paciente...']); tick(3000);
-    expect(cargas).toEqual(['Buscando paciente...', null]);
+    expect(cargas).toEqual(['Buscando paciente…']); tick(3000);
+    expect(cargas).toEqual(['Buscando paciente…', null]);
     expect(component.paciente?.idPaciente).toBe(8);
   }));
 
-  it('no renderiza spinner ni contenedor de carga dentro del bloque de reporte', fakeAsync(() => {
+  it('renderiza un spinner durante la búsqueda y lo retira al finalizar', fakeAsync(() => {
     component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.pi-spinner')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.loading')).toBeNull();
-    tick(3000);
+    expect(fixture.nativeElement.querySelector('.report-loading .pi.pi-spin.pi-spinner')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.report-loading')?.textContent).toContain('Buscando paciente…');
+    tick(3000); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.report-loading')).toBeNull();
   }));
 
   it('enriquece y permite elegir una coincidencia cuando el nombre devuelve varios pacientes', fakeAsync(() => {
     historias.buscarPacientesPorNombre.and.returnValue(of([paciente, { ...paciente, idPaciente: 9, dni: '87654321', numDocumento: '87654321' }]));
     component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar(); tick(3000);
     expect(component.vista).toBe('pacientes'); component.seleccionarPaciente(component.pacientes[1]);
-    expect(component.pacientes[0].cantidadConsultas).toBe(4); expect(component.paciente?.idPaciente).toBe(9);
+    expect(component.pacientes[0].cantidadConsultasAtendidas).toBe(4); expect(component.paciente?.idPaciente).toBe(9);
   }));
 
-  it('presenta ID, fecha de registro y cantidad de consultas en pacientes repetidos', fakeAsync(() => {
+  it('presenta DNI, historias y consultas atendidas en pacientes repetidos', fakeAsync(() => {
     historias.buscarPacientesPorNombre.and.returnValue(of([paciente, { ...paciente, idPaciente: 9 }]));
     component.elegirMetodo('NOMBRE'); component.criterio = 'José'; component.buscar(); tick(3000); fixture.detectChanges();
     const texto = fixture.nativeElement.textContent;
-    expect(texto).toContain('Paciente ID 8'); expect(texto).toContain('Registrado: 14/08/2026'); expect(texto).toContain('Consultas: 4');
+    expect(texto).toContain('DNI: 12345678'); expect(texto).toContain('Historias clínicas: 1'); expect(texto).toContain('Consultas atendidas: 4');
   }));
 
   it('muestra un error recuperable cuando el DNI no existe', fakeAsync(() => {
@@ -103,9 +103,12 @@ describe('ReporteConsultasChatComponent', () => {
     seleccionarPacientePorDni();
     const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
     const verificarCarga = (): void => {
-      expect(cargas).toEqual(['Preparando información del reporte...']);
-      tick(2999); expect(cargas).toEqual(['Preparando información del reporte...']);
-      tick(1); expect(cargas).toEqual(['Preparando información del reporte...', null]);
+      expect(cargas).toEqual(['Preparando información del reporte…']);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.report-loading .pi.pi-spin.pi-spinner')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.report-loading')?.textContent).toContain('Preparando información del reporte…');
+      tick(2999); expect(cargas).toEqual(['Preparando información del reporte…']);
+      tick(1); expect(cargas).toEqual(['Preparando información del reporte…', null]);
       cargas.length = 0;
       component.cambiarCriterio();
     };
@@ -113,6 +116,31 @@ describe('ReporteConsultasChatComponent', () => {
     component.elegirAlcance('TODAS'); verificarCarga();
     component.elegirAlcance('FECHA'); component.fecha = '2026-08-15'; component.consultarFecha(); verificarCarga();
     component.elegirAlcance('RANGO_FECHAS'); component.fechaDesde = '2026-08-01'; component.fechaHasta = '2026-08-31'; component.consultarRango(); verificarCarga();
+  }));
+
+  it('muestra directamente el formulario sin emitir mensajes redundantes', () => {
+    const mensajes = jasmine.createSpy('mensajes'); component.avanzarFlujo.subscribe(mensajes);
+    component.elegirMetodo('DNI'); fixture.detectChanges();
+    expect(mensajes).not.toHaveBeenCalled(); expect(fixture.nativeElement.textContent).toContain('DNI del paciente');
+    component.buscarOtroPaciente(); component.elegirMetodo('NOMBRE'); fixture.detectChanges();
+    expect(mensajes).not.toHaveBeenCalled(); expect(fixture.nativeElement.textContent).toContain('Nombre del paciente');
+    expect(fixture.nativeElement.textContent).not.toContain('DNI del paciente');
+  });
+
+  it('bloquea los alcances cuando el paciente no tiene consultas atendidas', fakeAsync(() => {
+    reportes.obtenerSeleccion.and.returnValue(of({ ...seleccion, consultasAtendidasIncluidas: 0, puedeGenerar: false }));
+    seleccionarPacientePorDni(); fixture.detectChanges();
+    expect(component.vista).toBe('sin-consultas');
+    expect(fixture.nativeElement.textContent).toContain('no cuenta con consultas atendidas disponibles');
+    expect(fixture.nativeElement.textContent).not.toContain('Última consulta atendida');
+    expect(fixture.nativeElement.textContent).toContain('Historias clínicas: 1');
+  }));
+
+  it('limpia la carga y cancela la solicitud al salir del flujo', fakeAsync(() => {
+    const cargas: Array<string | null> = []; component.cargaTemporal.subscribe(carga => cargas.push(carga));
+    component.elegirMetodo('DNI'); component.criterio = '12345678'; component.buscar(); component.cancelar(); tick(6000);
+    expect(component.cargando).toBeFalse(); expect(cargas).toEqual(['Buscando paciente…', null]);
+    expect(component.paciente).toBeUndefined();
   }));
 
   it('calcula una demora aleatoria inclusiva entre tres y seis segundos', () => {
@@ -148,7 +176,7 @@ describe('ReporteConsultasChatComponent', () => {
   }));
 
   it('maneja errores de selección y generación sin bloquear el flujo', fakeAsync(() => {
-    reportes.obtenerSeleccion.and.returnValue(throwError(() => new Error('fallo'))); seleccionarPacientePorDni(); component.elegirAlcance('TODAS'); tick(3000); tick();
+    seleccionarPacientePorDni(); reportes.obtenerSeleccion.and.returnValue(throwError(() => new Error('fallo'))); component.elegirAlcance('TODAS'); tick(3000); tick();
     expect(component.vista).toBe('error');
     reportes.obtenerSeleccion.and.returnValue(of(seleccion)); component.vista = 'alcance'; component.elegirAlcance('TODAS'); tick(3000);
     reportes.obtenerReporteConsolidado.and.returnValue(throwError(() => new Error('fallo'))); component.generarPdf(); tick();

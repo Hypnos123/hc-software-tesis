@@ -1,4 +1,8 @@
 <section class="report-chat" aria-label="Generar reporte de consultas">
+  <div *ngIf="cargando" class="report-loading" role="status" aria-live="polite">
+    <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+    <strong>{{ mensajeCarga }}</strong>
+  </div>
   <ng-container *ngIf="!cargando">
     <div *ngIf="vista === 'metodo'">
       <div class="actions"><button type="button" (click)="elegirMetodo('DNI')">Buscar por DNI</button><button type="button" (click)="elegirMetodo('NOMBRE')">Buscar por nombre</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
@@ -11,11 +15,12 @@
     </div>
     <div *ngIf="vista === 'pacientes'">
       <strong>Selecciona el paciente correcto:</strong>
-      <button *ngFor="let item of pacientes" type="button" class="patient" (click)="seleccionarPaciente(item)"><b>Paciente ID {{ item.idPaciente }}</b><span>{{ item.nombreCompleto }}</span><small>DNI: {{ item.dni || 'No registrado' }}</small><small>Registrado: {{ formatearFecha(item.fechaRegistro) }}</small><small>Consultas: {{ item.cantidadConsultas }}</small></button>
+      <button *ngFor="let item of pacientes" type="button" class="patient" (click)="seleccionarPaciente(item)"><span>{{ item.nombreCompleto }}</span><small>DNI: {{ item.dni || 'No registrado' }}</small><small>Historias clínicas: {{ item.cantidadHistoriasClinicas }}</small><small>Consultas atendidas: {{ item.cantidadConsultasAtendidas }}</small></button>
       <div class="actions"><button type="button" class="secondary" (click)="buscarOtroPaciente()">Buscar nuevamente</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
     </div>
+    <div *ngIf="vista === 'sin-consultas'" class="empty-panel"><p><b>{{ paciente?.nombreCompleto }}</b><br><small>DNI: {{ paciente?.dni || 'No registrado' }}</small><br><small>Historias clínicas: {{ paciente?.cantidadHistoriasClinicas }}</small><br><small>Consultas atendidas: 0</small></p><p>Este paciente no cuenta con consultas atendidas disponibles para generar un reporte.</p><div class="actions"><button type="button" (click)="buscarOtroPaciente()">Elegir otro paciente</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div></div>
     <div *ngIf="vista === 'alcance'">
-      <p><b>Paciente:</b> {{ paciente?.nombreCompleto }}<br><small *ngIf="paciente?.dni">DNI: {{ paciente?.dni }}</small></p>
+      <p><b>{{ paciente?.nombreCompleto }}</b><br><small>DNI: {{ paciente?.dni || 'No registrado' }}</small><br><small>Historias clínicas: {{ paciente?.cantidadHistoriasClinicas }}</small><br><small>Consultas atendidas: {{ paciente?.cantidadConsultasAtendidas }}</small></p>
       <div class="actions vertical"><button type="button" (click)="elegirAlcance('ULTIMA')">Última consulta atendida</button><button type="button" (click)="elegirAlcance('TODAS')">Todas las consultas</button><button type="button" (click)="elegirAlcance('FECHA')">Consultas de una fecha</button><button type="button" (click)="elegirAlcance('RANGO_FECHAS')">Consultas por rango de fechas</button><button type="button" class="secondary" (click)="buscarOtroPaciente()">Elegir otro paciente</button><button type="button" class="secondary" (click)="cancelar()">Cancelar</button></div>
     </div>
     <div *ngIf="vista === 'fecha'">
