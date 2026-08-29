@@ -43,6 +43,7 @@ export interface ResumenPacienteCandidato {
   edad?: number;
   estado: string;
   cantidadHistoriasClinicas?: number;
+  cantidadConsultas?: number;
 }
 
 export type ResumenConsultasVista = 'prompt' | 'searching' | 'multiple' | 'confirmation' | 'loading' | 'summary' | 'error';
