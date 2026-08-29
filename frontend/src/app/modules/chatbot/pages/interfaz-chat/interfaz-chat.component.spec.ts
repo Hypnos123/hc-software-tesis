@@ -1340,7 +1340,7 @@ describe('InterfazChatComponent', () => {
     iniciarFlujoHistoriaClinica();
 
     expect(component.clinicalHistoryFlow).toEqual({ step: 'awaitingDni' });
-    expect(component.messages.at(-1)?.text).toBe('Ingresa el DNI de ocho dígitos del paciente que deseas utilizar para crear la historia clínica. Puedes cancelar la asistencia en cualquier momento pulsando “Cancelar”.');
+    expect(component.messages.at(-1)?.text).toBe('Ingresa el DNI del paciente para crear su historia clínica o pulsa el botón cancelar para finalizar.');
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.clinical-history-flow-actions button')?.textContent).toContain('Cancelar');
@@ -1479,7 +1479,7 @@ describe('InterfazChatComponent', () => {
     enviarDni(DNI_PRUEBA);
     fixture.detectChanges();
     const resumen = component.messages.find(message => message.text?.startsWith('Paciente encontrado:'))?.text ?? '';
-    const orientacion = component.messages.find(message => message.text?.startsWith('Revisa los datos del paciente encontrado.'))!;
+    const orientacion = component.messages.find(message => message.text === 'Pulsa “Continuar” para crear la historia clínica o “Cancelar” para finalizar.')!;
 
     expect(resumen).toContain('Nombre: NOMBRE PRUEBA APELLIDO UNO APELLIDO DOS');
     expect(resumen).toContain('Fecha de nacimiento: 01/01/1992');

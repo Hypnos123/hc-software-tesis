@@ -9,7 +9,8 @@
   <div *ngSwitchCase="'multiple'" class="candidate-list">
     <strong>Selecciona el registro correcto</strong>
     <button *ngFor="let candidato of state.candidatos" type="button" (click)="seleccionar.emit(candidato.idPaciente)" [disabled]="!active">
-      <span>{{ candidato.nombreCompleto }}</span><small>ID {{ candidato.idPaciente }} · DNI {{ candidato.dni || 'No registrado' }}</small>
+      <span>{{ candidato.nombreCompleto }}</span><small>ID paciente: {{ candidato.idPaciente }}</small><small>DNI: {{ candidato.dni || 'No registrado' }}</small>
+      <small>Historias clínicas: {{ candidato.cantidadHistoriasClinicas ?? 0 }}</small><small>Consultas: {{ candidato.cantidadConsultas ?? 0 }}</small>
     </button>
     <button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button>
   </div>
@@ -18,7 +19,8 @@
     <div class="section-title"><i class="pi pi-user"></i><strong>Paciente encontrado</strong></div>
     <dl><dt>ID paciente</dt><dd>{{ state.paciente?.idPaciente }}</dd><dt>Nombre</dt><dd>{{ state.paciente?.nombreCompleto }}</dd>
       <dt>DNI</dt><dd>{{ state.paciente?.dni || 'No registrado' }}</dd><dt>Edad</dt><dd>{{ state.paciente?.edad ?? 'No registrada' }}</dd>
-      <dt>Estado</dt><dd>{{ state.paciente?.estado }}</dd><dt>Historias clínicas</dt><dd>{{ state.paciente?.cantidadHistoriasClinicas ?? 'Por confirmar' }}</dd></dl>
+      <dt>Estado</dt><dd>{{ state.paciente?.estado }}</dd><dt>Historias clínicas</dt><dd>{{ state.paciente?.cantidadHistoriasClinicas ?? 'Por confirmar' }}</dd>
+      <dt>Consultas</dt><dd>{{ state.paciente?.cantidadConsultas ?? 0 }}</dd></dl>
     <div class="actions"><button type="button" class="primary" (click)="generar.emit()" [disabled]="!active"><i class="pi pi-chart-line"></i> Generar resumen</button>
       <button type="button" class="secondary" (click)="cancelar.emit()" [disabled]="!active">Cancelar</button></div>
   </div>
