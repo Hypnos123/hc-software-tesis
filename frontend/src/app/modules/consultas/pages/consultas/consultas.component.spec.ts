@@ -36,6 +36,13 @@ describe('ConsultasComponent historial previo', () => {
   const row = { id: 12, idPaciente: 6, paciente: { nombres: 'Ana', apellidos: 'Paz' }, consultasAtendidas: 0, estado: 'Por atender' } as any;
   const atendida = { ...row, id: 21, estado: 'Atendido' } as any;
 
+  it('mantiene Actualizar como única acción de la cabecera', () => {
+    const cabecera = fixture.nativeElement.querySelector('.t-flex-start') as HTMLElement;
+    expect(cabecera.textContent).toContain('Actualizar');
+    expect(cabecera.textContent).not.toContain('Generar reporte de consultas');
+    expect(cabecera.querySelectorAll('app-button').length).toBe(1);
+  });
+
   it('reutiliza el conteo precargado por idPaciente al abrir el único modal', () => {
     component.abrirConfirmacionAtencion({ ...row, consultasAtendidas: 2 });
     expect(component.mostrarConfirmacionAtencion).toBeTrue();
