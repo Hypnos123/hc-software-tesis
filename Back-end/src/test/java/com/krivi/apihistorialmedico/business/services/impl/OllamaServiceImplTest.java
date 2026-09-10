@@ -26,7 +26,7 @@ class OllamaServiceImplTest {
     RestClient.Builder builder = RestClient.builder();
     server = MockRestServiceServer.bindTo(builder).build();
     service = new OllamaServiceImpl(
-        builder.baseUrl("http://localhost:11434").build(),
+        builder,
         new ObjectMapper(),
         "http://localhost:11434",
         "qwen3:1.7b"

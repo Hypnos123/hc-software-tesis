@@ -31,22 +31,13 @@ public class OllamaServiceImpl implements OllamaService {
   private final String model;
   private final String baseUrl;
 
-  @Autowired
   public OllamaServiceImpl(
+      RestClient.Builder restClientBuilder,
       ObjectMapper objectMapper,
       @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
       @Value("${ollama.model:qwen3:1.7b}") String model
   ) {
-    this(RestClient.builder().baseUrl(baseUrl).build(), objectMapper, baseUrl, model);
-  }
-
-  OllamaServiceImpl(
-      RestClient restClient,
-      ObjectMapper objectMapper,
-      String baseUrl,
-      String model
-  ) {
-    this.restClient = restClient;
+    this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     this.objectMapper = objectMapper;
     this.model = model;
     this.baseUrl = baseUrl;
