@@ -180,11 +180,14 @@ CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.
     );
 
     try {
-      JsonNode response = restClient.post()
+      String responseBody = restClient.post()
           .uri("/api/chat")
           .body(request)
           .retrieve()
-          .body(JsonNode.class);
+          .body(String.class);
+      JsonNode response = responseBody == null || responseBody.isBlank()
+          ? null
+          : objectMapper.readTree(responseBody);
       String content = response == null ? null : response.path("message").path("content").textValue();
       if (content == null || content.isBlank()) {
         throw new OllamaException("Ollama devolvió una respuesta sin interpretación.");
