@@ -141,11 +141,10 @@ CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES
 
   @Autowired
   public OllamaServiceImpl(
-      ObjectMapper objectMapper,
       @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
       @Value("${ollama.model:qwen3:1.7b}") String model
   ) {
-    this(RestClient.builder().baseUrl(baseUrl).build(), objectMapper, baseUrl, model);
+    this(RestClient.builder().baseUrl(baseUrl).build(), new ObjectMapper(), baseUrl, model);
   }
 
   OllamaServiceImpl(
