@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class OllamaServiceImpl implements OllamaService {
   private static final String SYSTEM_PROMPT = """
-      Eres un clasificador de intenciones de un sistema hospitalario.
+Eres un clasificador de intenciones de un sistema hospitalario.
 
 No tienes acceso directo a la base de datos.
 No debes inventar información.
@@ -26,8 +26,8 @@ Tu única tarea es interpretar la solicitud del usuario y clasificarla.
 Las únicas categorías permitidas son:
 
 PACIENTES
-- BUSCAR_PACIENTE: cuando se desea buscar un paciente por DNI o nombre.
-- VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe.
+- BUSCAR_PACIENTE: cuando se desea buscar o mostrar un paciente por DNI o nombre.
+- VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe o está registrado.
 - PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados.
 - PACIENTES_SIN_HISTORIA: cuando se solicitan pacientes que aún no tienen historia clínica.
 - ELIMINAR_DUPLICADO: cuando se desea eliminar un paciente duplicado.
@@ -65,11 +65,21 @@ la categoría debe ser HISTORIAS_CLINICAS.
 5. Si el usuario habla específicamente de buscar, verificar, duplicados o existencia de pacientes,
 la categoría debe ser PACIENTES.
 
-6. Si el usuario proporciona un DNI, colócalo en el campo dni.
+6. Si el usuario pregunta si un paciente existe o está registrado,
+usa exactamente:
+"categoria": "PACIENTES"
+"intencion": "VERIFICAR_EXISTENCIA"
 
-7. Si proporciona un nombre, colócalo en el campo nombre.
+7. Si el usuario solicita buscar o mostrar un paciente por DNI o nombre,
+usa exactamente:
+"categoria": "PACIENTES"
+"intencion": "BUSCAR_PACIENTE"
 
-8. Si no proporciona dni o nombre, utiliza null.
+8. Si el usuario proporciona un DNI, colócalo en el campo dni.
+
+9. Si proporciona un nombre, colócalo en el campo nombre.
+
+10. Si no proporciona dni o nombre, utiliza null.
 
 Devuelve exclusivamente este formato:
 
@@ -84,7 +94,6 @@ No agregues explicaciones.
 No agregues Markdown.
 No agregues campos adicionales.
 Devuelve únicamente JSON válido.
-
 
 REGLA CRÍTICA SOBRE CATEGORIA:
 
@@ -117,7 +126,6 @@ Respuesta correcta:
   "nombre": null
 }
 
-
 Reglas especiales para consultas:
 
 - CONSULTAS_PENDIENTES:
@@ -131,7 +139,7 @@ Reglas especiales para consultas:
 
 IMPORTANTE:
 "faltan atender", "por atender" y "sin atender" NUNCA significan
-CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES
+CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.
 """;
 
   private final RestClient restClient;
@@ -172,22 +180,12 @@ CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES
     );
 
     try {
-      String responseBody = restClient.post()
-              .uri("/api/chat")
-              .body(request)
-              .retrieve()
-              .body(String.class);
-
-      if (responseBody == null || responseBody.isBlank()) {
-        throw new OllamaException("Ollama devolvió una respuesta vacía.");
-      }
-
-      JsonNode response = objectMapper.readTree(responseBody);
-
-      String content = response
-              .path("message")
-              .path("content")
-              .textValue();
+      JsonNode response = restClient.post()
+          .uri("/api/chat")
+          .body(request)
+          .retrieve()
+          .body(JsonNode.class);
+      String content = response == null ? null : response.path("message").path("content").textValue();
       if (content == null || content.isBlank()) {
         throw new OllamaException("Ollama devolvió una respuesta sin interpretación.");
       }

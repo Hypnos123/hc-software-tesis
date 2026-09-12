@@ -82,7 +82,7 @@ class OllamaEjecucionServiceImplTest {
   @Test
   void noEjecutaOtrasIntenciones() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
-        new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", "72845292", null)
+        new OllamaInterpretacionResponse("PACIENTES", "PACIENTES_DUPLICADOS", "72845292", null)
     );
 
     OllamaEjecucionResponse response = service.ejecutar("mensaje");
@@ -91,6 +91,57 @@ class OllamaEjecucionServiceImplTest {
     assertThat(response.mensaje()).isEqualTo(
         "Esta intención todavía no está habilitada para ejecución."
     );
+    verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void buscaPorDniYDevuelveTodosLosRegistrosEncontrados() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", "72845292", null)
+    );
+    List<PacienteResponse> pacientes = List.of(
+        PacienteResponse.builder().idPaciente(1).numDocumento("72845292").build(),
+        PacienteResponse.builder().idPaciente(2).numDocumento("72845292").build()
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(pacientes);
+    when(pacienteService.search(null, "72845292", 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isTrue();
+    assertThat(response.pacientes()).containsExactlyElementsOf(pacientes);
+    verify(pacienteService).search(null, "72845292", 25);
+  }
+
+  @Test
+  void buscaPorNombreEInformaCuandoNoHayResultados() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", null, "Ana Torres")
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of());
+    when(pacienteService.search("Ana Torres", null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isFalse();
+    assertThat(response.pacientes()).isEmpty();
+    assertThat(response.mensaje()).isEqualTo(
+        "No se encontraron pacientes con el criterio indicado."
+    );
+  }
+
+  @Test
+  void noConsultaPacientesCuandoFaltaElCriterioDeBusqueda() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", null, " ")
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isNull();
+    assertThat(response.mensaje()).isEqualTo("Falta indicar el DNI o el nombre del paciente.");
     verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
   }
 }
