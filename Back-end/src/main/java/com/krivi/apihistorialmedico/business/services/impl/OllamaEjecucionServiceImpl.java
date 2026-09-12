@@ -3,10 +3,13 @@ package com.krivi.apihistorialmedico.business.services.impl;
 import com.krivi.apihistorialmedico.business.exception.OllamaEjecucionException;
 import com.krivi.apihistorialmedico.business.services.OllamaEjecucionService;
 import com.krivi.apihistorialmedico.business.services.OllamaService;
+import com.krivi.apihistorialmedico.business.services.PacienteDuplicadoService;
 import com.krivi.apihistorialmedico.business.services.PacienteService;
+import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.OllamaEjecucionResponse;
 import com.krivi.apihistorialmedico.model.api.OllamaInterpretacionResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteResponse;
+import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
 import java.util.regex.Pattern;
 import org.springframework.dao.DataAccessException;
@@ -17,14 +20,21 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private static final String CATEGORIA_PACIENTES = "PACIENTES";
   private static final String INTENCION_VERIFICAR_EXISTENCIA = "VERIFICAR_EXISTENCIA";
   private static final String INTENCION_BUSCAR_PACIENTE = "BUSCAR_PACIENTE";
+  private static final String INTENCION_PACIENTES_DUPLICADOS = "PACIENTES_DUPLICADOS";
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
 
   private final OllamaService ollamaService;
   private final PacienteService pacienteService;
+  private final PacienteDuplicadoService pacienteDuplicadoService;
 
-  public OllamaEjecucionServiceImpl(OllamaService ollamaService, PacienteService pacienteService) {
+  public OllamaEjecucionServiceImpl(
+      OllamaService ollamaService,
+      PacienteService pacienteService,
+      PacienteDuplicadoService pacienteDuplicadoService
+  ) {
     this.ollamaService = ollamaService;
     this.pacienteService = pacienteService;
+    this.pacienteDuplicadoService = pacienteDuplicadoService;
   }
 
   @Override
@@ -35,6 +45,9 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
     if (esBusquedaDePaciente(interpretacion)) {
       return buscarPaciente(interpretacion);
+    }
+    if (esConsultaPacientesDuplicados(interpretacion)) {
+      return consultarPacientesDuplicados(interpretacion);
     }
     return new OllamaEjecucionResponse(
         interpretacion.categoria(),
@@ -127,6 +140,63 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
   }
 
+  private OllamaEjecucionResponse consultarPacientesDuplicados(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    String dni = normalizar(interpretacion.dni());
+    String nombre = normalizar(interpretacion.nombre());
+    if (dni == null && nombre != null) {
+      return respuestaDuplicados(
+          null,
+          null,
+          "Para consultar pacientes duplicados específicos se requiere el DNI."
+      );
+    }
+    if (dni != null && !DNI_PATTERN.matcher(dni).matches()) {
+      return respuestaDuplicados(
+          null,
+          null,
+          "El DNI debe contener exactamente 8 dígitos."
+      );
+    }
+
+    try {
+      if (dni != null) {
+        PacienteDuplicadoComparacionResponse comparacion =
+            pacienteDuplicadoService.compararPorDni(dni);
+        return respuestaDuplicados(null, comparacion, comparacion.getMensaje());
+      }
+      DuplicadosPacientesResponse grupos = pacienteService.obtenerDuplicadosParaIntegracion();
+      String mensaje = grupos.isHayDuplicados()
+          ? "Se encontraron grupos de pacientes duplicados activos."
+          : "No se encontraron pacientes duplicados activos por DNI.";
+      return respuestaDuplicados(grupos, null, mensaje);
+    } catch (DataAccessException exception) {
+      throw new OllamaEjecucionException(
+          "No se pudo consultar la información de pacientes duplicados en este momento.",
+          exception
+      );
+    }
+  }
+
+  private OllamaEjecucionResponse respuestaDuplicados(
+      DuplicadosPacientesResponse grupos,
+      PacienteDuplicadoComparacionResponse comparacion,
+      String mensaje
+  ) {
+    return new OllamaEjecucionResponse(
+        CATEGORIA_PACIENTES,
+        INTENCION_PACIENTES_DUPLICADOS,
+        null,
+        comparacion == null ? null : comparacion.getDni(),
+        null,
+        null,
+        grupos,
+        comparacion,
+        mensaje
+    );
+  }
+
   private boolean esVerificacionDePaciente(OllamaInterpretacionResponse interpretacion) {
     return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
         && INTENCION_VERIFICAR_EXISTENCIA.equals(interpretacion.intencion());
@@ -135,6 +205,11 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private boolean esBusquedaDePaciente(OllamaInterpretacionResponse interpretacion) {
     return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
         && INTENCION_BUSCAR_PACIENTE.equals(interpretacion.intencion());
+  }
+
+  private boolean esConsultaPacientesDuplicados(OllamaInterpretacionResponse interpretacion) {
+    return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
+        && INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.intencion());
   }
 
   private String normalizarDni(String dni) {
