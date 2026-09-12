@@ -139,31 +139,25 @@ CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES
   private final String model;
   private final String baseUrl;
 
-
   @Autowired
   public OllamaServiceImpl(
-          @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
-          @Value("${ollama.model:qwen3:1.7b}") String model
+      ObjectMapper objectMapper,
+      @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
+      @Value("${ollama.model:qwen3:1.7b}") String model
   ) {
-    this.restClient = RestClient.builder()
-            .baseUrl(baseUrl)
-            .build();
-
-    this.objectMapper = new ObjectMapper();
-    this.model = model;
-    this.baseUrl = baseUrl;
+    this(RestClient.builder().baseUrl(baseUrl).build(), objectMapper, baseUrl, model);
   }
 
   OllamaServiceImpl(
-          RestClient restClient,
-          ObjectMapper objectMapper,
-          String baseUrl,
-          String model
+      RestClient restClient,
+      ObjectMapper objectMapper,
+      String baseUrl,
+      String model
   ) {
     this.restClient = restClient;
     this.objectMapper = objectMapper;
-    this.baseUrl = baseUrl;
     this.model = model;
+    this.baseUrl = baseUrl;
   }
 
   @Override
