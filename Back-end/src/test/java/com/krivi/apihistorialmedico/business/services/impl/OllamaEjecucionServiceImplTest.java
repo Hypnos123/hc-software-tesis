@@ -197,6 +197,26 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
+  void solicitaCriterioParaConsultaDeDuplicadoEspecificoSinIdentificacion() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "PACIENTES_DUPLICADOS_ESPECIFICO", null, null
+        )
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.categoria()).isEqualTo("PACIENTES");
+    assertThat(response.intencion()).isEqualTo("PACIENTES_DUPLICADOS_ESPECIFICO");
+    assertThat(response.mensaje()).isEqualTo(
+        "Indica el DNI o el nombre completo del paciente que deseas verificar."
+    );
+    verify(pacienteService, never()).obtenerDuplicadosParaIntegracion();
+    verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+    verify(pacienteDuplicadoService, never()).compararPorDni(Mockito.any());
+  }
+
+  @Test
   void consultaPacientesDuplicadosPorDni() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(

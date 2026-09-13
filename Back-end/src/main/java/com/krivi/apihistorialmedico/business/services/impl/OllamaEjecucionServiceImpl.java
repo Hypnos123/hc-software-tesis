@@ -24,6 +24,8 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private static final String INTENCION_VERIFICAR_EXISTENCIA = "VERIFICAR_EXISTENCIA";
   private static final String INTENCION_BUSCAR_PACIENTE = "BUSCAR_PACIENTE";
   private static final String INTENCION_PACIENTES_DUPLICADOS = "PACIENTES_DUPLICADOS";
+  private static final String INTENCION_PACIENTES_DUPLICADOS_ESPECIFICO =
+      "PACIENTES_DUPLICADOS_ESPECIFICO";
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
 
   private final OllamaService ollamaService;
@@ -50,6 +52,15 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
     if (esBusquedaDePaciente(interpretacion)) {
       return buscarPaciente(interpretacion);
+    }
+    if (esConsultaDuplicadosEspecificaSinCriterio(interpretacion)) {
+      return new OllamaEjecucionResponse(
+          CATEGORIA_PACIENTES,
+          INTENCION_PACIENTES_DUPLICADOS_ESPECIFICO,
+          null,
+          null,
+          "Indica el DNI o el nombre completo del paciente que deseas verificar."
+      );
     }
     if (esConsultaPacientesDuplicados(interpretacion)) {
       return consultarPacientesDuplicados(interpretacion);
@@ -273,6 +284,15 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private boolean esConsultaPacientesDuplicados(OllamaInterpretacionResponse interpretacion) {
     return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
         && INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.intencion());
+  }
+
+  private boolean esConsultaDuplicadosEspecificaSinCriterio(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
+        && INTENCION_PACIENTES_DUPLICADOS_ESPECIFICO.equals(interpretacion.intencion())
+        && normalizar(interpretacion.dni()) == null
+        && normalizar(interpretacion.nombre()) == null;
   }
 
   private String normalizarDni(String dni) {

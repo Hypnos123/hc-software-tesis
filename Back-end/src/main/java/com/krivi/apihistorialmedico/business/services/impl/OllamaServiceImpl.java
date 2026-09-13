@@ -28,7 +28,8 @@ Las únicas categorías permitidas son:
 PACIENTES
 - BUSCAR_PACIENTE: cuando se desea buscar o mostrar un paciente por DNI o nombre.
 - VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe o está registrado.
-- PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados.
+- PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados, ya sea de forma general o indicando un DNI o nombre completo.
+- PACIENTES_DUPLICADOS_ESPECIFICO: cuando se pregunta si un paciente específico está duplicado, repetido o aparece más de una vez, pero todavía no se proporciona su DNI ni su nombre completo.
 - PACIENTES_SIN_HISTORIA: cuando se solicitan pacientes que aún no tienen historia clínica.
 - ELIMINAR_DUPLICADO: cuando se desea eliminar un paciente duplicado.
 
@@ -81,6 +82,22 @@ usa exactamente:
 
 10. Si no proporciona dni o nombre, utiliza null.
 
+11. Si el usuario pregunta por la duplicidad de un paciente específico,
+pero no indica su DNI ni su nombre completo, usa exactamente:
+"categoria": "PACIENTES"
+"intencion": "PACIENTES_DUPLICADOS_ESPECIFICO"
+"dni": null
+"nombre": null
+
+Esta regla solo aplica cuando el usuario se refiere a UN paciente concreto sin identificarlo.
+Ejemplos:
+- "¿Este paciente está duplicado?"
+- "¿Este paciente aparece más de una vez?"
+- "¿Tiene otro registro?"
+- "¿Está registrado dos veces?"
+
+No clasifiques estos casos como VERIFICAR_EXISTENCIA.
+
 Devuelve exclusivamente este formato:
 
 {
@@ -107,6 +124,7 @@ Los únicos valores válidos para "categoria" son exactamente:
 Ejemplos incorrectos de categoria:
 - PACIENTES_SIN_HISTORIA
 - PACIENTES_DUPLICADOS
+- PACIENTES_DUPLICADOS_ESPECIFICO
 - CONSULTAR_HISTORIAS
 - CONSULTAS_PENDIENTES
 - ULTIMA_CONSULTA
@@ -140,7 +158,7 @@ Reglas especiales para consultas:
 IMPORTANTE:
 "faltan atender", "por atender" y "sin atender" NUNCA significan
 CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.
-  
+
 Reglas especiales para pacientes duplicados:
 
 - Si el usuario consulta pacientes duplicados de manera general, usa:
@@ -155,6 +173,26 @@ Reglas especiales para pacientes duplicados:
 - Si el usuario pregunta por duplicados de una persona usando su nombre:
   usa PACIENTES_DUPLICADOS y extrae únicamente el nombre completo.
   Para esta búsqueda por nombre debe proporcionarse nombre y sus dos apellidos.
+
+- Si el usuario pregunta por un paciente específico, pero no proporciona
+  ni DNI ni nombre completo, usa:
+  categoria = PACIENTES
+  intencion = PACIENTES_DUPLICADOS_ESPECIFICO
+  dni = null
+  nombre = null
+
+- PACIENTES_DUPLICADOS_ESPECIFICO solo debe utilizarse cuando la pregunta
+  se refiere a un paciente concreto sin identificarlo.
+
+- No confundas PACIENTES_DUPLICADOS_ESPECIFICO con una consulta general.
+  Ejemplo:
+  "¿Hay pacientes duplicados?" = PACIENTES_DUPLICADOS
+  "¿Este paciente está duplicado?" = PACIENTES_DUPLICADOS_ESPECIFICO
+
+- No confundas PACIENTES_DUPLICADOS_ESPECIFICO con VERIFICAR_EXISTENCIA.
+  Preguntar si un paciente "está duplicado", "aparece más de una vez",
+  "tiene otro registro" o "está registrado dos veces" se refiere a duplicidad,
+  no a existencia.
 
 - No confundas una consulta general de pacientes duplicados con una búsqueda por nombre.
   Si no se menciona una persona específica, nombre debe ser null.
