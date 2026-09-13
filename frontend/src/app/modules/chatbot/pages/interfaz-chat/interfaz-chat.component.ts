@@ -2,9 +2,10 @@ import { Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, Observable, of, Subscription, switchMap, throwError, timer } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { catchError, finalize } from 'rxjs/operators';
 import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
+import { OllamaEjecucionService } from '../../services/ollama-ejecucion.service';
 import { IAsistenteResponse } from '../../models/asistente';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { IPacienteBusqueda } from '@app/modules/historiaClinica/models/historiaClinica';
@@ -266,6 +267,7 @@ export class InterfazChatComponent implements OnDestroy {
 
   constructor(
     private asistenteService: AsistenteService,
+    private ollamaEjecucionService: OllamaEjecucionService,
     private authService: AuthService,
     private historiaClinicaService: HistoriaClinicaService,
     private antecedentesService: AntecedentesService,
@@ -314,7 +316,7 @@ export class InterfazChatComponent implements OnDestroy {
       this.iniciarGestionDuplicadosDesdeTexto();
       return;
     }
-    this.askBackend(pregunta, true);
+    this.askOllamaWithFallback(pregunta, true);
   }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey && !this.asistenteEscribiendo) return; keyboardEvent.preventDefault(); if (!this.asistenteEscribiendo) this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
@@ -999,8 +1001,25 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
+    this.requestBackend(this.asistenteService.preguntar(pregunta), scrollAfterResponse);
+  }
+  private askOllamaWithFallback(pregunta: string, scrollAfterResponse: boolean): void {
+    const request = this.ollamaEjecucionService.ejecutar(pregunta).pipe(
+      catchError(() => of(null)),
+      switchMap(response => response?.categoria === 'PACIENTES'
+          && ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS'].includes(response.intencion)
+        ? of({
+            intencion: response.intencion,
+            respuesta: response.mensaje,
+            datos: response as unknown as Record<string, unknown>
+          } as IAsistenteResponse)
+        : this.asistenteService.preguntar(pregunta))
+    );
+    this.requestBackend(request, scrollAfterResponse);
+  }
+  private requestBackend(request: Observable<IAsistenteResponse>, scrollAfterResponse: boolean): void {
     this.isLoading = true; this.addBotMessage('Escribiendo...');
-    this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
+    this.activeRequest = request.pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
       next: (response) => {
         this.removeTypingMessage();
         const resultado = this.addBotMessage(this.formatResponse(response));
