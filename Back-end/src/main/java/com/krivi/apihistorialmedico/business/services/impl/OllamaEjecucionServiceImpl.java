@@ -42,7 +42,9 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
 
   @Override
   public OllamaEjecucionResponse ejecutar(String mensaje) {
-    OllamaInterpretacionResponse interpretacion = ollamaService.interpretar(mensaje);
+    OllamaInterpretacionResponse interpretacion = normalizarInterpretacion(
+        ollamaService.interpretar(mensaje)
+    );
     if (esVerificacionDePaciente(interpretacion)) {
       return verificarExistencia(interpretacion);
     }
@@ -59,6 +61,21 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
         interpretacion.dni(),
         "Esta intención todavía no está habilitada para ejecución."
     );
+  }
+
+  OllamaInterpretacionResponse normalizarInterpretacion(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    if (INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.categoria())
+        && INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.intencion())) {
+      return new OllamaInterpretacionResponse(
+          CATEGORIA_PACIENTES,
+          interpretacion.intencion(),
+          interpretacion.dni(),
+          interpretacion.nombre()
+      );
+    }
+    return interpretacion;
   }
 
   private OllamaEjecucionResponse verificarExistencia(

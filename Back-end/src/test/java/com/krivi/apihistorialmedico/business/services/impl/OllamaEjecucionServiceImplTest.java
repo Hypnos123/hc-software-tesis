@@ -38,6 +38,80 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
+  void conservaInterpretacionValidaDePacientesDuplicados() {
+    OllamaInterpretacionResponse interpretacion = new OllamaInterpretacionResponse(
+        "PACIENTES", "PACIENTES_DUPLICADOS", "72845292", "Ana Pérez Gómez"
+    );
+
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(interpretacion);
+
+    assertThat(normalizada).isSameAs(interpretacion);
+  }
+
+  @Test
+  void normalizaUnicamenteCategoriaInconsistenteDePacientesDuplicados() {
+    OllamaInterpretacionResponse interpretacion = new OllamaInterpretacionResponse(
+        "PACIENTES_DUPLICADOS",
+        "PACIENTES_DUPLICADOS",
+        "72845292",
+        "Ana Pérez Gómez"
+    );
+
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(interpretacion);
+
+    assertThat(normalizada.categoria()).isEqualTo("PACIENTES");
+    assertThat(normalizada.intencion()).isEqualTo(interpretacion.intencion());
+    assertThat(normalizada.dni()).isEqualTo(interpretacion.dni());
+    assertThat(normalizada.nombre()).isEqualTo(interpretacion.nombre());
+  }
+
+  @Test
+  void conservaInterpretacionValidaDeBuscarPaciente() {
+    OllamaInterpretacionResponse interpretacion = new OllamaInterpretacionResponse(
+        "PACIENTES", "BUSCAR_PACIENTE", "72845292", "Ana Pérez Gómez"
+    );
+
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(interpretacion);
+
+    assertThat(normalizada).isSameAs(interpretacion);
+  }
+
+  @Test
+  void conservaInterpretacionValidaDeVerificarExistencia() {
+    OllamaInterpretacionResponse interpretacion = new OllamaInterpretacionResponse(
+        "PACIENTES", "VERIFICAR_EXISTENCIA", "72845292", null
+    );
+
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(interpretacion);
+
+    assertThat(normalizada).isSameAs(interpretacion);
+  }
+
+  @Test
+  void ejecutaConsultaPorDniDespuesDeNormalizarCategoriaDeDuplicados() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES_DUPLICADOS", "PACIENTES_DUPLICADOS", "72845292", null
+        )
+    );
+    PacienteDuplicadoComparacionResponse comparacion =
+        PacienteDuplicadoComparacionResponse.builder()
+            .dni("72845292")
+            .esDuplicado(true)
+            .mensaje("Se encontraron 2 pacientes activos con el mismo DNI.")
+            .build();
+    when(pacienteDuplicadoService.compararPorDni("72845292")).thenReturn(comparacion);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.categoria()).isEqualTo("PACIENTES");
+    assertThat(response.intencion()).isEqualTo("PACIENTES_DUPLICADOS");
+    assertThat(response.dni()).isEqualTo("72845292");
+    assertThat(response.comparacionDuplicados()).isSameAs(comparacion);
+    verify(pacienteDuplicadoService).compararPorDni("72845292");
+  }
+
+  @Test
   void verificaExistenciaReutilizandoBusquedaQueAdmiteDuplicados() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(
