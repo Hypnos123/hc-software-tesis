@@ -11,6 +11,9 @@ import com.krivi.apihistorialmedico.model.api.OllamaInterpretacionResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
+import java.text.Normalizer;
+import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
@@ -145,13 +148,6 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   ) {
     String dni = normalizar(interpretacion.dni());
     String nombre = normalizar(interpretacion.nombre());
-    if (dni == null && nombre != null) {
-      return respuestaDuplicados(
-          null,
-          null,
-          "Para consultar pacientes duplicados específicos se requiere el DNI."
-      );
-    }
     if (dni != null && !DNI_PATTERN.matcher(dni).matches()) {
       return respuestaDuplicados(
           null,
@@ -166,6 +162,9 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
             pacienteDuplicadoService.compararPorDni(dni);
         return respuestaDuplicados(null, comparacion, comparacion.getMensaje());
       }
+      if (nombre != null) {
+        return consultarDuplicadosPorNombre(nombre);
+      }
       DuplicadosPacientesResponse grupos = pacienteService.obtenerDuplicadosParaIntegracion();
       String mensaje = grupos.isHayDuplicados()
           ? "Se encontraron grupos de pacientes duplicados activos."
@@ -177,6 +176,53 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
           exception
       );
     }
+  }
+
+  private OllamaEjecucionResponse consultarDuplicadosPorNombre(String nombre) {
+    if (normalizarNombre(nombre).split(" ").length < 3) {
+      return respuestaDuplicadosPorNombre(
+          nombre,
+          null,
+          "Para verificar duplicados por nombre se necesita el nombre y los dos apellidos."
+      );
+    }
+
+    ResponseModelGet<PacienteResponse> resultado = pacienteService.search(nombre, null, 25);
+    String nombreNormalizado = normalizarNombre(nombre);
+    List<PacienteResponse> coincidenciasExactas = resultado.getData() == null
+        ? List.of()
+        : resultado.getData().stream()
+            .filter(paciente -> nombreNormalizado.equals(normalizarNombreCompleto(paciente)))
+            .toList();
+
+    String mensaje;
+    if (coincidenciasExactas.isEmpty()) {
+      mensaje = "No se encontraron pacientes activos con ese nombre completo.";
+    } else if (coincidenciasExactas.size() == 1) {
+      mensaje = "El nombre completo corresponde a un único paciente activo y no presenta duplicados.";
+    } else {
+      mensaje = "Se encontraron " + coincidenciasExactas.size()
+          + " pacientes activos con el mismo nombre completo.";
+    }
+    return respuestaDuplicadosPorNombre(nombre, coincidenciasExactas, mensaje);
+  }
+
+  private OllamaEjecucionResponse respuestaDuplicadosPorNombre(
+      String nombre,
+      List<PacienteResponse> pacientes,
+      String mensaje
+  ) {
+    return new OllamaEjecucionResponse(
+        CATEGORIA_PACIENTES,
+        INTENCION_PACIENTES_DUPLICADOS,
+        pacientes == null ? null : !pacientes.isEmpty(),
+        null,
+        nombre,
+        pacientes,
+        null,
+        null,
+        mensaje
+    );
   }
 
   private OllamaEjecucionResponse respuestaDuplicados(
@@ -218,5 +264,22 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
 
   private String normalizar(String valor) {
     return valor == null || valor.isBlank() ? null : valor.trim();
+  }
+
+  private String normalizarNombreCompleto(PacienteResponse paciente) {
+    return normalizarNombre(String.join(
+        " ",
+        paciente.getNombres() == null ? "" : paciente.getNombres(),
+        paciente.getApellidos() == null ? "" : paciente.getApellidos()
+    ));
+  }
+
+  private String normalizarNombre(String nombre) {
+    return Normalizer.normalize(nombre, Normalizer.Form.NFD)
+        .replaceAll("\\p{M}", "")
+        .toLowerCase(Locale.ROOT)
+        .replaceAll("[^a-z ]", " ")
+        .replaceAll("\\s+", " ")
+        .trim();
   }
 }

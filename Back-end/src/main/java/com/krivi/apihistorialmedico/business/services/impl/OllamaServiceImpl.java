@@ -140,6 +140,24 @@ Reglas especiales para consultas:
 IMPORTANTE:
 "faltan atender", "por atender" y "sin atender" NUNCA significan
 CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.
+  
+Reglas especiales para pacientes duplicados:
+
+- Si el usuario consulta pacientes duplicados de manera general, usa:
+  categoria = PACIENTES
+  intencion = PACIENTES_DUPLICADOS
+  dni = null
+  nombre = null
+
+- Si el usuario pregunta si un DNI específico tiene duplicados:
+  usa PACIENTES_DUPLICADOS y extrae únicamente el DNI indicado.
+
+- Si el usuario pregunta por duplicados de una persona usando su nombre:
+  usa PACIENTES_DUPLICADOS y extrae únicamente el nombre completo.
+  Para esta búsqueda por nombre debe proporcionarse nombre y sus dos apellidos.
+
+- No confundas una consulta general de pacientes duplicados con una búsqueda por nombre.
+  Si no se menciona una persona específica, nombre debe ser null.
 """;
 
   private final RestClient restClient;

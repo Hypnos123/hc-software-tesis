@@ -159,7 +159,7 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
-  void requiereDniCuandoSoloSeInformaNombreParaDuplicados() {
+  void rechazaNombreIncompletoParaDuplicados() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(
             "PACIENTES", "PACIENTES_DUPLICADOS", null, "Ana Torres"
@@ -169,10 +169,74 @@ class OllamaEjecucionServiceImplTest {
     OllamaEjecucionResponse response = service.ejecutar("mensaje");
 
     assertThat(response.mensaje()).isEqualTo(
-        "Para consultar pacientes duplicados específicos se requiere el DNI."
+        "Para verificar duplicados por nombre se necesita el nombre y los dos apellidos."
     );
     verify(pacienteDuplicadoService, never()).compararPorDni(Mockito.any());
-    verify(pacienteService, never()).obtenerDuplicadosParaIntegracion();
+    verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void devuelveTodosLosDuplicadosConNombreCompletoExacto() {
+    String nombre = "Ana Pérez Gómez";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "PACIENTES_DUPLICADOS", null, nombre)
+    );
+    PacienteResponse primero = PacienteResponse.builder()
+        .idPaciente(1).nombres("Ana").apellidos("Pérez Gómez").build();
+    PacienteResponse segundo = PacienteResponse.builder()
+        .idPaciente(2).nombres("ANA").apellidos("PEREZ GOMEZ").build();
+    PacienteResponse parcial = PacienteResponse.builder()
+        .idPaciente(3).nombres("Ana María").apellidos("Pérez Gómez").build();
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(primero, segundo, parcial));
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).containsExactly(primero, segundo);
+    assertThat(response.mensaje()).isEqualTo(
+        "Se encontraron 2 pacientes activos con el mismo nombre completo."
+    );
+    verify(pacienteService).search(nombre, null, 25);
+    verify(pacienteDuplicadoService, never()).compararPorDni(Mockito.any());
+  }
+
+  @Test
+  void informaCuandoElNombreCompletoCorrespondeAUnSoloPaciente() {
+    String nombre = "Ana Pérez Gómez";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "PACIENTES_DUPLICADOS", null, nombre)
+    );
+    PacienteResponse paciente = PacienteResponse.builder()
+        .idPaciente(1).nombres("Ana").apellidos("Pérez Gómez").build();
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(paciente));
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).containsExactly(paciente);
+    assertThat(response.mensaje()).isEqualTo(
+        "El nombre completo corresponde a un único paciente activo y no presenta duplicados."
+    );
+  }
+
+  @Test
+  void informaCuandoNoExisteElNombreCompleto() {
+    String nombre = "Ana Pérez Gómez";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "PACIENTES_DUPLICADOS", null, nombre)
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of());
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).isEmpty();
+    assertThat(response.mensaje()).isEqualTo(
+        "No se encontraron pacientes activos con ese nombre completo."
+    );
   }
 
   @Test
