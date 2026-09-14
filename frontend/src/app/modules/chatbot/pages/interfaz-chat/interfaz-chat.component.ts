@@ -1008,7 +1008,7 @@ export class InterfazChatComponent implements OnDestroy {
     const request = this.ollamaEjecucionService.ejecutar(pregunta).pipe(
       catchError(() => of(null)),
       switchMap(response => response?.categoria === 'PACIENTES'
-          && ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS'].includes(response.intencion)
+          && ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS', 'ULTIMOS_PACIENTES'].includes(response.intencion)
         ? of({
             intencion: response.intencion,
             respuesta: response.mensaje,
@@ -1081,6 +1081,9 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private getOllamaResultSummary(response?: IOllamaEjecucionResponse): string | undefined {
     if (!response) return undefined;
+    if (response.intencion === 'ULTIMOS_PACIENTES' && response.pacientes?.length) {
+      return `Últimos ${response.pacientes.length} pacientes registrados`;
+    }
     if (['BUSCAR_PACIENTE', 'VERIFICAR_EXISTENCIA'].includes(response.intencion)
         && response.pacientes?.length) {
       return response.pacientes.length === 1
@@ -1105,7 +1108,8 @@ export class InterfazChatComponent implements OnDestroy {
     return undefined;
   }
   nombreCompletoOllama(paciente: IOllamaPaciente): string {
-    return [paciente.nombres, paciente.apellidos].filter(value => !!value?.trim()).join(' ');
+    return paciente.nombreCompleto?.trim()
+      || [paciente.nombres, paciente.apellidos].filter(value => !!value?.trim()).join(' ');
   }
   tieneValorOllama(value: unknown): boolean {
     return value !== null && value !== undefined && (typeof value !== 'string' || value.trim() !== '');

@@ -23,6 +23,8 @@ export interface IOllamaPaciente {
   edad?: number;
   numDocumento?: string;
   sexo?: string;
+  nombreCompleto?: string;
+  fechaCreacion?: string;
 }
 
 export interface IOllamaPacienteDuplicadoItem {

@@ -1924,6 +1924,49 @@ describe('InterfazChatComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
   });
 
+  it('debe mostrar una card compacta por cada paciente reciente', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', mensaje: 'Resultados.',
+      pacientes: [
+        { idPaciente: 24, nombreCompleto: 'Daniela Alejandra Ramirez Soto',
+          numDocumento: '74296831', fechaCreacion: '2026-08-14T10:30:00' },
+        { idPaciente: 23, nombreCompleto: 'Rafael Velasquez Morales',
+          numDocumento: DNI_PRUEBA, fechaCreacion: '2026-08-13T09:00:00' }
+      ]
+    }));
+
+    component.userMessage = 'Muéstrame los últimos pacientes'; component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje =>
+      mensaje.text === 'Últimos 2 pacientes registrados')).toBeTrue();
+    const cards = fixture.nativeElement.querySelectorAll('.ollama-recent-patient-card');
+    expect(cards.length).toBe(2);
+    expect(cards[0].textContent).toContain('Paciente #24');
+    expect(cards[0].textContent).toContain('Daniela Alejandra Ramirez Soto');
+    expect(cards[0].textContent).toContain('DNI: 74296831');
+    expect(cards[0].textContent).toContain('Fecha de registro: 14/08/2026');
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(0);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe omitir los campos ausentes en pacientes recientes', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', mensaje: 'Resultados.',
+      pacientes: [{ idPaciente: 24, nombreCompleto: undefined,
+        numDocumento: undefined, fechaCreacion: undefined }]
+    }));
+
+    component.userMessage = 'Muéstrame el último paciente'; component.sendMessage();
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-recent-patient-card');
+    expect(card.textContent).toContain('Paciente #24');
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('Fecha de registro');
+    expect(card.textContent).not.toContain('undefined');
+  });
+
   it('debe mostrar todos los grupos de pacientes duplicados', () => {
     ollamaEjecucionService.ejecutar.and.returnValue(of({
       categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Hay duplicados.',

@@ -29,6 +29,7 @@ PACIENTES
 - BUSCAR_PACIENTE: cuando se desea buscar o mostrar un paciente por DNI o nombre.
 - VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe o está registrado.
 - PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados.
+- ULTIMOS_PACIENTES: cuando se desean consultar los pacientes registrados más recientemente.
 - PACIENTES_SIN_HISTORIA: cuando se solicitan pacientes que aún no tienen historia clínica.
 - ELIMINAR_DUPLICADO: cuando se desea eliminar un paciente duplicado.
 
@@ -81,13 +82,17 @@ usa exactamente:
 
 10. Si no proporciona dni o nombre, utiliza null.
 
+11. El campo limite solo se utiliza para ULTIMOS_PACIENTES. Para las demás intenciones,
+utiliza null.
+
 Devuelve exclusivamente este formato:
 
 {
   "categoria": "",
   "intencion": "",
   "dni": null,
-  "nombre": null
+  "nombre": null,
+  "limite": null
 }
 
 No agregues explicaciones.
@@ -123,7 +128,8 @@ Respuesta correcta:
   "categoria": "PACIENTES",
   "intencion": "PACIENTES_SIN_HISTORIA",
   "dni": null,
-  "nombre": null
+  "nombre": null,
+  "limite": null
 }
 
 Reglas especiales para consultas:
@@ -158,6 +164,39 @@ Reglas especiales para pacientes duplicados:
 
 - No confundas una consulta general de pacientes duplicados con una búsqueda por nombre.
   Si no se menciona una persona específica, nombre debe ser null.
+
+PACIENTES - ULTIMOS_PACIENTES
+
+Utiliza ULTIMOS_PACIENTES cuando el usuario quiera consultar
+los pacientes registrados más recientemente.
+
+Ejemplos:
+- "Muéstrame los últimos pacientes registrados"
+- "¿Cuáles son los pacientes más recientes?"
+- "Quiero ver los últimos 5 pacientes"
+- "Dame los pacientes registrados recientemente"
+- "Muéstrame los 6 últimos pacientes"
+
+Devuelve:
+categoria = PACIENTES
+intencion = ULTIMOS_PACIENTES
+dni = null
+nombre = null
+limite = cantidad solicitada
+
+Si no se indica cantidad, limite = 3.
+El mínimo es 3 y el máximo es 6.
+Si se solicita 1 o 2, limite = 3.
+Si se solicita 7 o más, limite = 6.
+
+No confundas esta intención con BUSCAR_PACIENTE,
+VERIFICAR_EXISTENCIA ni PACIENTES_DUPLICADOS.
+
+Ejemplos diferenciadores:
+- "Busca a Rafael Velasquez Morales" -> BUSCAR_PACIENTE
+- "¿Existe Rafael Velasquez Morales?" -> VERIFICAR_EXISTENCIA
+- "¿Existen pacientes duplicados?" -> PACIENTES_DUPLICADOS
+- "Muéstrame los últimos pacientes registrados" -> ULTIMOS_PACIENTES
 """;
 
   private final RestClient restClient;
