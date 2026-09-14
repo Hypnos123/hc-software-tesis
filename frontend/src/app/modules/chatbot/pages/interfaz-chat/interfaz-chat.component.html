@@ -23,6 +23,53 @@
         </button>
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
+      <div #conversationBlock *ngIf="message.type === 'ollama-result' && message.ollamaResult as result" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message ollama-result-block">
+        <div *ngIf="result.pacientes?.length" class="ollama-card-list">
+          <article *ngFor="let paciente of result.pacientes" class="ollama-patient-card">
+            <strong *ngIf="nombreCompletoOllama(paciente)">{{ nombreCompletoOllama(paciente) }}</strong>
+            <dl>
+              <div *ngIf="tieneValorOllama(paciente.numDocumento)"><dt>DNI</dt><dd>{{ paciente.numDocumento }}</dd></div>
+              <div *ngIf="tieneValorOllama(paciente.idPaciente)"><dt>N.º de paciente</dt><dd>{{ paciente.idPaciente }}</dd></div>
+              <div *ngIf="tieneValorOllama(paciente.edad)"><dt>Edad</dt><dd>{{ paciente.edad }} años</dd></div>
+              <div *ngIf="tieneValorOllama(paciente.sexo)"><dt>Sexo</dt><dd>{{ paciente.sexo }}</dd></div>
+              <div *ngIf="tieneValorOllama(paciente.fechaNacimiento)"><dt>Fecha de nacimiento</dt><dd>{{ fechaOllama(paciente.fechaNacimiento) }}</dd></div>
+              <div *ngIf="tieneValorOllama(paciente.fechaIngreso)"><dt>Fecha de registro</dt><dd>{{ fechaOllama(paciente.fechaIngreso) }}</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <section *ngFor="let grupo of result.gruposDuplicados?.duplicados; let indice = index" class="ollama-duplicate-group">
+          <strong>Grupo {{ indice + 1 }}</strong>
+          <dl class="ollama-group-summary">
+            <div *ngIf="tieneValorOllama(grupo.tipo)"><dt>Coincidencia</dt><dd>{{ grupo.tipo }}</dd></div>
+            <div *ngIf="tieneValorOllama(grupo.valorCoincidente)"><dt>Valor coincidente</dt><dd>{{ grupo.valorCoincidente }}</dd></div>
+          </dl>
+          <p>{{ grupo.cantidad ?? grupo.pacientes?.length ?? 0 }} registros encontrados:</p>
+          <div class="ollama-card-list">
+            <article *ngFor="let paciente of grupo.pacientes" class="ollama-patient-card">
+              <strong *ngIf="tieneValorOllama(paciente.idPaciente)">Paciente #{{ paciente.idPaciente }}</strong>
+              <span *ngIf="tieneValorOllama(paciente.nombreCompleto)">{{ paciente.nombreCompleto }}</span>
+              <small *ngIf="tieneValorOllama(paciente.dni)">DNI: {{ paciente.dni }}</small>
+            </article>
+          </div>
+        </section>
+
+        <ng-container *ngIf="result.comparacionDuplicados as comparacion">
+          <div class="ollama-card-list">
+            <article *ngFor="let paciente of comparacion.pacientes" class="ollama-patient-card">
+              <strong *ngIf="tieneValorOllama(paciente.idPaciente)">Paciente #{{ paciente.idPaciente }}</strong>
+              <span *ngIf="tieneValorOllama(paciente.nombreCompleto)">{{ paciente.nombreCompleto }}</span>
+              <small *ngIf="tieneValorOllama(paciente.dni)">DNI: {{ paciente.dni }}</small>
+              <dl>
+                <div *ngIf="tieneValorOllama(paciente.fechaCreacion)"><dt>Fecha de registro</dt><dd>{{ fechaOllama(paciente.fechaCreacion) }}</dd></div>
+                <div *ngIf="tieneValorOllama(paciente.estadoRegistro)"><dt>Estado</dt><dd>{{ paciente.estadoRegistro }}</dd></div>
+              </dl>
+            </article>
+          </div>
+          <p class="ollama-result-note">{{ comparacion.esDuplicado ? 'Se detectaron registros duplicados para este paciente.' : 'Este paciente posee un único registro activo.' }}</p>
+          <p *ngIf="comparacion.esDuplicado" class="ollama-result-guidance">Puedes revisar estos registros antes de decidir cuál conservar.</p>
+        </ng-container>
+      </div>
       <div #conversationBlock *ngIf="message.type === 'patient-import' && message.importacion" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message import-message-block">
         <app-importacion-pacientes-chat [state]="message.importacion" [view]="message.importView!" [active]="!!message.importActive" (mensajeConversacional)="manejarMensajeImportacion(message.importacion, $event)" (registrarOtro)="registrarOtroArchivo()" (volverPacientes)="mostrarOpcionesPacientes()"></app-importacion-pacientes-chat>
       </div>

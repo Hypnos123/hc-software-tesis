@@ -1863,6 +1863,7 @@ describe('InterfazChatComponent', () => {
       intencion: 'VERIFICAR_EXISTENCIA',
       encontrado: true,
       dni: DNI_PRUEBA,
+      pacientes: [{ idPaciente: 1, nombres: 'NOMBRE PRUEBA', numDocumento: DNI_PRUEBA }],
       mensaje: 'El paciente se encuentra registrado.'
     }));
 
@@ -1871,7 +1872,129 @@ describe('InterfazChatComponent', () => {
 
     expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith(`¿Existe el paciente ${DNI_PRUEBA}?`);
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
-    expect(component.messages.some(mensaje => mensaje.text === 'El paciente se encuentra registrado.')).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
+  });
+
+  it('debe mostrar los datos de un paciente encontrado por BUSCAR_PACIENTE', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',
+      pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales',
+        numDocumento: DNI_PRUEBA, edad: 26, sexo: 'Masculino',
+        fechaNacimiento: '1999-12-02', fechaIngreso: '2026-06-11' }]
+    }));
+
+    component.userMessage = 'Busca a Rafael Velasquez Morales'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-patient-card') as HTMLElement;
+    expect(card.textContent).toContain('Rafael Velasquez Morales');
+    expect(card.textContent).toContain(DNI_PRUEBA);
+    expect(card.textContent).toContain('N.º de paciente');
+    expect(card.textContent).toContain('26 años');
+    expect(card.textContent).toContain('02/12/1999');
+    expect(card.textContent).toContain('11/06/2026');
+  });
+
+  it('debe usar la misma presentación para VERIFICAR_EXISTENCIA', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'VERIFICAR_EXISTENCIA', mensaje: 'Existe.',
+      pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales', numDocumento: DNI_PRUEBA }]
+    }));
+
+    component.userMessage = 'Verifica si existe Rafael Velasquez Morales'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(1);
+  });
+
+  it('debe generar una card por cada paciente encontrado', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultados.',
+      pacientes: [
+        { idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales' },
+        { idPaciente: 2, nombres: 'Rafael', apellidos: 'Velasquez Morales' }
+      ]
+    }));
+
+    component.userMessage = 'Busca a Rafael'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Se encontraron 2 pacientes que coinciden con la búsqueda.')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
+  });
+
+  it('debe mostrar todos los grupos de pacientes duplicados', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Hay duplicados.',
+      gruposDuplicados: { hayDuplicados: true, totalGrupos: 2, duplicados: [
+        { tipo: 'DNI', valorCoincidente: '74296831', cantidad: 2,
+          pacientes: [{ idPaciente: 19, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto' }] },
+        { tipo: 'DNI', valorCoincidente: '12345678', cantidad: 2,
+          pacientes: [{ idPaciente: 24, dni: '12345678', nombreCompleto: 'Otra Paciente' }] }
+      ] }
+    }));
+
+    component.userMessage = '¿Existen pacientes duplicados?'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Se encontraron 2 grupos de pacientes duplicados activos.')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-duplicate-group').length).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('74296831');
+    expect(fixture.nativeElement.textContent).toContain('12345678');
+  });
+
+  it('debe mostrar todos los registros de una comparación sin recomendaciones', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Duplicados.',
+      comparacionDuplicados: { dni: '74296831', cantidadPacientesActivos: 2, esDuplicado: true,
+        pacientes: [
+          { idPaciente: 19, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto', estadoRegistro: 'ACTIVO' },
+          { idPaciente: 24, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto', estadoRegistro: 'ACTIVO' }
+        ], idPacienteRecomendado: 19, razonesRecomendacion: ['Más información'] } as any
+    }));
+
+    component.userMessage = '¿El DNI 74296831 tiene duplicados?'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const contenido = fixture.nativeElement.querySelector('.ollama-result-block').textContent;
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
+    expect(contenido).toContain('Se detectaron registros duplicados');
+    expect(contenido).not.toContain('Recomendado');
+    expect(contenido).not.toContain('Más información');
+  });
+
+  it('debe presentar un registro único sin identificarlo como duplicado', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Sin duplicados.',
+      comparacionDuplicados: { dni: DNI_PRUEBA, cantidadPacientesActivos: 1, esDuplicado: false,
+        pacientes: [{ idPaciente: 1, dni: DNI_PRUEBA, nombreCompleto: 'Rafael Velasquez Morales', estadoRegistro: 'ACTIVO' }] }
+    }));
+
+    component.userMessage = `¿El DNI ${DNI_PRUEBA} tiene duplicados?`; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'No se encontraron duplicados.')).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Este paciente posee un único registro activo.');
+  });
+
+  it('debe conservar el mensaje sin resultados y omitir campos vacíos', () => {
+    ollamaEjecucionService.ejecutar.and.returnValues(
+      of({ categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', encontrado: false,
+        mensaje: 'No se encontraron pacientes con el criterio indicado.', pacientes: [] }),
+      of({ categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',
+        pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: '', numDocumento: undefined }] })
+    );
+
+    component.userMessage = 'Busca a Nadie'; component.sendMessage();
+    expect(component.messages.some(mensaje => mensaje.text === 'No se encontraron pacientes con el criterio indicado.')).toBeTrue();
+    component.stopPresentation();
+    component.userMessage = 'Busca a Rafael'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-patient-card') as HTMLElement;
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('undefined');
   });
 
   it('debe recurrir al asistente actual cuando falla Ollama', () => {
