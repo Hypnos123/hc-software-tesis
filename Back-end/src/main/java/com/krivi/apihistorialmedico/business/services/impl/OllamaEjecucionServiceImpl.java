@@ -75,64 +75,59 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
           interpretacion.nombre()
       );
     }
+    if (esBusquedaDePaciente(interpretacion) || esVerificacionDePaciente(interpretacion)) {
+      String dni = normalizar(interpretacion.dni());
+      String nombre = normalizar(interpretacion.nombre());
+      if (dni != null && !dni.chars().allMatch(Character::isDigit) && nombre == null) {
+        return new OllamaInterpretacionResponse(
+            interpretacion.categoria(), interpretacion.intencion(), null, dni
+        );
+      }
+      if (nombre != null && nombre.chars().allMatch(Character::isDigit) && dni == null) {
+        return new OllamaInterpretacionResponse(
+            interpretacion.categoria(), interpretacion.intencion(), nombre, null
+        );
+      }
+    }
     return interpretacion;
   }
 
   private OllamaEjecucionResponse verificarExistencia(
       OllamaInterpretacionResponse interpretacion
   ) {
-    String dni = normalizarDni(interpretacion.dni());
-    if (dni == null) {
-      return new OllamaEjecucionResponse(
-          CATEGORIA_PACIENTES,
-          INTENCION_VERIFICAR_EXISTENCIA,
-          null,
-          null,
-          "Falta indicar el DNI del paciente."
-      );
-    }
-    if (!DNI_PATTERN.matcher(dni).matches()) {
-      return new OllamaEjecucionResponse(
-          CATEGORIA_PACIENTES,
-          INTENCION_VERIFICAR_EXISTENCIA,
-          null,
-          dni,
-          "El DNI debe contener exactamente 8 dígitos."
-      );
-    }
-
-    try {
-      ResponseModelGet<?> resultado = pacienteService.search(null, dni, 25);
-      boolean encontrado = resultado.getData() != null && !resultado.getData().isEmpty();
-      return new OllamaEjecucionResponse(
-          CATEGORIA_PACIENTES,
-          INTENCION_VERIFICAR_EXISTENCIA,
-          encontrado,
-          dni,
-          encontrado
-              ? "El paciente se encuentra registrado."
-              : "No se encontró un paciente con ese DNI."
-      );
-    } catch (DataAccessException exception) {
-      throw new OllamaEjecucionException(
-          "No se pudo consultar la información de pacientes en este momento.",
-          exception
-      );
-    }
+    return consultarPaciente(interpretacion, INTENCION_VERIFICAR_EXISTENCIA);
   }
 
   private OllamaEjecucionResponse buscarPaciente(OllamaInterpretacionResponse interpretacion) {
+    return consultarPaciente(interpretacion, INTENCION_BUSCAR_PACIENTE);
+  }
+
+  private OllamaEjecucionResponse consultarPaciente(
+      OllamaInterpretacionResponse interpretacion,
+      String intencion
+  ) {
     String dni = normalizar(interpretacion.dni());
     String nombre = normalizar(interpretacion.nombre());
     if (dni == null && nombre == null) {
       return new OllamaEjecucionResponse(
           CATEGORIA_PACIENTES,
-          INTENCION_BUSCAR_PACIENTE,
+          intencion,
           null,
           null,
           null,
           null,
-          "Falta indicar el DNI o el nombre del paciente."
+          "Indica el DNI o el nombre del paciente que deseas consultar."
+      );
+    }
+    if (dni != null && !DNI_PATTERN.matcher(dni).matches()) {
+      return new OllamaEjecucionResponse(
+          CATEGORIA_PACIENTES,
+          intencion,
+          null,
+          dni,
+          nombre,
+          null,
+          "El DNI debe contener exactamente 8 dígitos."
       );
     }
 
@@ -143,14 +138,12 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
       boolean encontrado = !pacientes.isEmpty();
       return new OllamaEjecucionResponse(
           CATEGORIA_PACIENTES,
-          INTENCION_BUSCAR_PACIENTE,
+          intencion,
           encontrado,
           dni,
           nombre,
           pacientes,
-          encontrado
-              ? "Se encontraron pacientes que coinciden con la búsqueda."
-              : "No se encontraron pacientes con el criterio indicado."
+          mensajeResultadoPaciente(intencion, encontrado, dni)
       );
     } catch (DataAccessException exception) {
       throw new OllamaEjecucionException(
@@ -158,6 +151,20 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
           exception
       );
     }
+  }
+
+  private String mensajeResultadoPaciente(String intencion, boolean encontrado, String dni) {
+    if (INTENCION_VERIFICAR_EXISTENCIA.equals(intencion)) {
+      if (encontrado) {
+        return "El paciente se encuentra registrado.";
+      }
+      return dni == null
+          ? "No se encontró ningún paciente con ese nombre."
+          : "No se encontró un paciente con ese DNI.";
+    }
+    return encontrado
+        ? "Se encontraron pacientes que coinciden con la búsqueda."
+        : "No se encontraron pacientes con el criterio indicado.";
   }
 
   private OllamaEjecucionResponse consultarPacientesDuplicados(
@@ -273,10 +280,6 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private boolean esConsultaPacientesDuplicados(OllamaInterpretacionResponse interpretacion) {
     return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
         && INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.intencion());
-  }
-
-  private String normalizarDni(String dni) {
-    return normalizar(dni);
   }
 
   private String normalizar(String valor) {
