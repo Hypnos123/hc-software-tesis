@@ -218,6 +218,22 @@
   overflow-x: hidden;
 }
 .consultation-summary-message-block { box-sizing: border-box; width: 100%; max-width: 100%; padding: 8px; overflow-x: hidden; }
+.ollama-result-block { box-sizing: border-box; width: 100%; max-width: 100%; padding: 10px; overflow-x: hidden; }
+.ollama-card-list { display: grid; gap: 8px; }
+.ollama-patient-card { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; overflow-wrap: anywhere; }
+.ollama-patient-card > strong { color: #1e3a5f; }
+.ollama-patient-card > span, .ollama-patient-card > small { line-height: 1.35; }
+.ollama-patient-card > small { color: #475569; }
+.ollama-patient-card dl, .ollama-group-summary { display: grid; gap: 4px; margin: 4px 0 0; }
+.ollama-patient-card dl div, .ollama-group-summary div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.ollama-patient-card dt, .ollama-group-summary dt { color: #64748b; }
+.ollama-patient-card dd, .ollama-group-summary dd { margin: 0; color: #1e293b; text-align: right; overflow-wrap: anywhere; }
+.ollama-duplicate-group { display: grid; gap: 8px; }
+.ollama-duplicate-group + .ollama-duplicate-group { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+.ollama-duplicate-group > strong { color: #1d4ed8; }
+.ollama-duplicate-group > p, .ollama-result-note, .ollama-result-guidance { margin: 0; line-height: 1.4; }
+.ollama-result-note { margin-top: 10px; font-weight: 600; color: #1e3a5f; }
+.ollama-result-guidance { margin-top: 6px; color: #475569; }
 
 .chatbot-footer {
   padding: 12px;
