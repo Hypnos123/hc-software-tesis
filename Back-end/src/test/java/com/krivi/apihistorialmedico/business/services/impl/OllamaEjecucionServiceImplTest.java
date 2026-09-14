@@ -14,6 +14,9 @@ import com.krivi.apihistorialmedico.model.api.OllamaInterpretacionResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
+import com.krivi.apihistorialmedico.model.api.PacienteRegistroResponse;
+import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,73 @@ class OllamaEjecucionServiceImplTest {
         pacienteService,
         pacienteDuplicadoService
     );
+  }
+
+  @Test
+  void normalizaLimitesDeUltimosPacientes() {
+    assertThat(service.normalizarLimiteUltimos(null)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(-1)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(0)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(1)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(2)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(3)).isEqualTo(3);
+    assertThat(service.normalizarLimiteUltimos(4)).isEqualTo(4);
+    assertThat(service.normalizarLimiteUltimos(5)).isEqualTo(5);
+    assertThat(service.normalizarLimiteUltimos(6)).isEqualTo(6);
+    assertThat(service.normalizarLimiteUltimos(10)).isEqualTo(6);
+  }
+
+  @Test
+  void obtieneUltimosPacientesConLimiteNormalizadoYContratoCompacto() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "ULTIMOS_PACIENTES", null, null, 5
+        )
+    );
+    LocalDateTime fecha = LocalDateTime.of(2026, 8, 14, 10, 30);
+    UltimosPacientesResponse resultado = UltimosPacientesResponse.builder()
+        .cantidad(1)
+        .pacientes(List.of(PacienteRegistroResponse.builder()
+            .idPaciente(24)
+            .nombreCompleto("Daniela Alejandra Ramirez Soto")
+            .dni("74296831")
+            .fechaCreacion(fecha)
+            .build()))
+        .build();
+    when(pacienteService.obtenerUltimosParaIntegracion(5)).thenReturn(resultado);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.intencion()).isEqualTo("ULTIMOS_PACIENTES");
+    assertThat(response.pacientes()).singleElement().satisfies(paciente -> {
+      assertThat(paciente.getIdPaciente()).isEqualTo(24);
+      assertThat(paciente.getNombreCompleto()).isEqualTo("Daniela Alejandra Ramirez Soto");
+      assertThat(paciente.getNumDocumento()).isEqualTo("74296831");
+      assertThat(paciente.getFechaCreacion()).isEqualTo(fecha);
+    });
+    assertThat(response.mensaje()).isEqualTo(
+        "Se encontraron los 1 pacientes registrados más recientemente."
+    );
+    verify(pacienteService).obtenerUltimosParaIntegracion(5);
+  }
+
+  @Test
+  void usaTresPorDefectoEInformaCuandoNoHayPacientesActivos() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "ULTIMOS_PACIENTES", null, null, null
+        )
+    );
+    when(pacienteService.obtenerUltimosParaIntegracion(3)).thenReturn(
+        UltimosPacientesResponse.builder().cantidad(0).pacientes(List.of()).build()
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).isEmpty();
+    assertThat(response.encontrado()).isFalse();
+    assertThat(response.mensaje()).isEqualTo("No se encontraron pacientes activos registrados.");
+    verify(pacienteService).obtenerUltimosParaIntegracion(3);
   }
 
   @Test

@@ -24,7 +24,17 @@
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
       <div #conversationBlock *ngIf="message.type === 'ollama-result' && message.ollamaResult as result" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message ollama-result-block">
-        <div *ngIf="result.pacientes?.length" class="ollama-card-list">
+        <div *ngIf="result.intencion === 'ULTIMOS_PACIENTES' && result.pacientes?.length"
+          class="ollama-card-list ollama-recent-list">
+          <article *ngFor="let paciente of result.pacientes" class="ollama-recent-patient-card">
+            <strong *ngIf="tieneValorOllama(paciente.idPaciente)">Paciente #{{ paciente.idPaciente }}</strong>
+            <span *ngIf="nombreCompletoOllama(paciente)">{{ nombreCompletoOllama(paciente) }}</span>
+            <small *ngIf="tieneValorOllama(paciente.numDocumento)">DNI: {{ paciente.numDocumento }}</small>
+            <small *ngIf="tieneValorOllama(paciente.fechaCreacion)">Fecha de registro: {{ fechaOllama(paciente.fechaCreacion) }}</small>
+          </article>
+        </div>
+
+        <div *ngIf="result.intencion !== 'ULTIMOS_PACIENTES' && result.pacientes?.length" class="ollama-card-list">
           <article *ngFor="let paciente of result.pacientes" class="ollama-patient-card">
             <strong *ngIf="nombreCompletoOllama(paciente)">{{ nombreCompletoOllama(paciente) }}</strong>
             <dl>

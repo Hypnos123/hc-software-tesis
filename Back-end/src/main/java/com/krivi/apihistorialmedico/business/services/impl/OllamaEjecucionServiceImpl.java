@@ -11,6 +11,7 @@ import com.krivi.apihistorialmedico.model.api.OllamaInterpretacionResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
+import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,9 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private static final String INTENCION_VERIFICAR_EXISTENCIA = "VERIFICAR_EXISTENCIA";
   private static final String INTENCION_BUSCAR_PACIENTE = "BUSCAR_PACIENTE";
   private static final String INTENCION_PACIENTES_DUPLICADOS = "PACIENTES_DUPLICADOS";
+  private static final String INTENCION_ULTIMOS_PACIENTES = "ULTIMOS_PACIENTES";
+  private static final int LIMITE_ULTIMOS_POR_DEFECTO = 3;
+  private static final int LIMITE_ULTIMOS_MAXIMO = 6;
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
 
   private final OllamaService ollamaService;
@@ -54,6 +58,9 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     if (esConsultaPacientesDuplicados(interpretacion)) {
       return consultarPacientesDuplicados(interpretacion);
     }
+    if (esConsultaUltimosPacientes(interpretacion)) {
+      return consultarUltimosPacientes(interpretacion);
+    }
     return new OllamaEjecucionResponse(
         interpretacion.categoria(),
         interpretacion.intencion(),
@@ -72,7 +79,8 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
           CATEGORIA_PACIENTES,
           interpretacion.intencion(),
           interpretacion.dni(),
-          interpretacion.nombre()
+          interpretacion.nombre(),
+          interpretacion.limite()
       );
     }
     if (esBusquedaDePaciente(interpretacion) || esVerificacionDePaciente(interpretacion)) {
@@ -80,12 +88,14 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
       String nombre = normalizar(interpretacion.nombre());
       if (dni != null && !dni.chars().allMatch(Character::isDigit) && nombre == null) {
         return new OllamaInterpretacionResponse(
-            interpretacion.categoria(), interpretacion.intencion(), null, dni
+            interpretacion.categoria(), interpretacion.intencion(), null, dni,
+            interpretacion.limite()
         );
       }
       if (nombre != null && nombre.chars().allMatch(Character::isDigit) && dni == null) {
         return new OllamaInterpretacionResponse(
-            interpretacion.categoria(), interpretacion.intencion(), nombre, null
+            interpretacion.categoria(), interpretacion.intencion(), nombre, null,
+            interpretacion.limite()
         );
       }
     }
@@ -202,6 +212,56 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
   }
 
+  private OllamaEjecucionResponse consultarUltimosPacientes(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    int limite = normalizarLimiteUltimos(interpretacion.limite());
+    try {
+      UltimosPacientesResponse resultado = pacienteService.obtenerUltimosParaIntegracion(limite);
+      List<PacienteResponse> pacientes = resultado.getPacientes() == null
+          ? List.of()
+          : resultado.getPacientes().stream()
+              .map(paciente -> PacienteResponse.builder()
+                  .idPaciente(paciente.getIdPaciente())
+                  .numDocumento(paciente.getDni())
+                  .nombreCompleto(paciente.getNombreCompleto())
+                  .fechaCreacion(paciente.getFechaCreacion())
+                  .build())
+              .toList();
+      String mensaje;
+      if (pacientes.isEmpty()) {
+        mensaje = "No se encontraron pacientes activos registrados.";
+      } else if (interpretacion.limite() == null) {
+        mensaje = "Estos son los " + pacientes.size()
+            + " pacientes registrados más recientemente.";
+      } else {
+        mensaje = "Se encontraron los " + pacientes.size()
+            + " pacientes registrados más recientemente.";
+      }
+      return new OllamaEjecucionResponse(
+          CATEGORIA_PACIENTES,
+          INTENCION_ULTIMOS_PACIENTES,
+          !pacientes.isEmpty(),
+          null,
+          null,
+          pacientes,
+          mensaje
+      );
+    } catch (DataAccessException exception) {
+      throw new OllamaEjecucionException(
+          "No se pudo consultar la información de pacientes en este momento.",
+          exception
+      );
+    }
+  }
+
+  int normalizarLimiteUltimos(Integer limite) {
+    if (limite == null || limite <= 0) {
+      return LIMITE_ULTIMOS_POR_DEFECTO;
+    }
+    return Math.max(LIMITE_ULTIMOS_POR_DEFECTO, Math.min(limite, LIMITE_ULTIMOS_MAXIMO));
+  }
+
   private OllamaEjecucionResponse consultarDuplicadosPorNombre(String nombre) {
     if (normalizarNombre(nombre).split(" ").length < 3) {
       return respuestaDuplicadosPorNombre(
@@ -280,6 +340,11 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private boolean esConsultaPacientesDuplicados(OllamaInterpretacionResponse interpretacion) {
     return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
         && INTENCION_PACIENTES_DUPLICADOS.equals(interpretacion.intencion());
+  }
+
+  private boolean esConsultaUltimosPacientes(OllamaInterpretacionResponse interpretacion) {
+    return CATEGORIA_PACIENTES.equals(interpretacion.categoria())
+        && INTENCION_ULTIMOS_PACIENTES.equals(interpretacion.intencion());
   }
 
   private String normalizar(String valor) {
