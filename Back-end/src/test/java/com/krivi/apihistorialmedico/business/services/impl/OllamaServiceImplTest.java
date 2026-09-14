@@ -77,4 +77,19 @@ class OllamaServiceImplTest {
         .isInstanceOf(OllamaException.class)
         .hasMessage("Ollama devolvió una interpretación con formato inválido.");
   }
+
+  @Test
+  void interpretaLimiteDeUltimosPacientes() {
+    server.expect(requestTo("http://localhost:11434/api/chat"))
+        .andRespond(withSuccess("""
+            {"message":{"content":"{\"categoria\":\"PACIENTES\",\"intencion\":\"ULTIMOS_PACIENTES\",\"dni\":null,\"nombre\":null,\"limite\":5}"}}
+            """, MediaType.APPLICATION_JSON));
+
+    OllamaInterpretacionResponse response = service.interpretar(
+        "Quiero ver los últimos 5 pacientes"
+    );
+
+    assertThat(response.intencion()).isEqualTo("ULTIMOS_PACIENTES");
+    assertThat(response.limite()).isEqualTo(5);
+  }
 }

@@ -29,6 +29,7 @@ PACIENTES
 - BUSCAR_PACIENTE: cuando se desea buscar o mostrar un paciente por DNI o nombre.
 - VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe o está registrado.
 - PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados.
+- ULTIMOS_PACIENTES: cuando se solicitan los pacientes registrados más recientemente.
 - PACIENTES_SIN_HISTORIA: cuando se solicitan pacientes que aún no tienen historia clínica.
 - ELIMINAR_DUPLICADO: cuando se desea eliminar un paciente duplicado.
 
@@ -81,13 +82,16 @@ usa exactamente:
 
 10. Si no proporciona dni o nombre, utiliza null.
 
+11. limite se utiliza únicamente para ULTIMOS_PACIENTES. Para las demás intenciones utiliza null.
+
 Devuelve exclusivamente este formato:
 
 {
   "categoria": "",
   "intencion": "",
   "dni": null,
-  "nombre": null
+  "nombre": null,
+  "limite": null
 }
 
 No agregues explicaciones.
@@ -158,6 +162,30 @@ Reglas especiales para pacientes duplicados:
 
 - No confundas una consulta general de pacientes duplicados con una búsqueda por nombre.
   Si no se menciona una persona específica, nombre debe ser null.
+
+Reglas especiales para últimos pacientes:
+
+- Utiliza ULTIMOS_PACIENTES cuando el usuario quiera consultar los pacientes
+  registrados más recientemente.
+- Devuelve categoria = PACIENTES, intencion = ULTIMOS_PACIENTES,
+  dni = null y nombre = null.
+- En limite devuelve la cantidad solicitada. Si no se indica cantidad, limite = 3.
+- El mínimo es 3 y el máximo es 6. Si se solicitan menos de 3, devuelve 3;
+  si se solicitan más de 6, devuelve 6.
+- No confundas ULTIMOS_PACIENTES con BUSCAR_PACIENTE, VERIFICAR_EXISTENCIA
+  ni PACIENTES_DUPLICADOS.
+
+Ejemplos para diferenciar intenciones de pacientes:
+
+- "Busca a Rafael Velasquez Morales" corresponde a BUSCAR_PACIENTE.
+- "¿Existe Rafael Velasquez Morales?" corresponde a VERIFICAR_EXISTENCIA.
+- "¿Existen pacientes duplicados?" corresponde a PACIENTES_DUPLICADOS.
+- "Muéstrame los últimos pacientes registrados" corresponde a ULTIMOS_PACIENTES
+  con limite = 3.
+- "Quiero ver los últimos 5 pacientes" corresponde a ULTIMOS_PACIENTES
+  con limite = 5.
+- "Dame los 6 últimos pacientes registrados" corresponde a ULTIMOS_PACIENTES
+  con limite = 6.
 """;
 
   private final RestClient restClient;

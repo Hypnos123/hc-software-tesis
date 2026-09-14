@@ -5,6 +5,7 @@ import com.krivi.apihistorialmedico.model.api.BusquedaPacienteResponse;
 import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.EstadisticasPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.PacientesRegistradosHoyResponse;
+import com.krivi.apihistorialmedico.model.api.PacienteRegistroResponse;
 import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import com.krivi.apihistorialmedico.model.entity.Paciente;
 import com.krivi.apihistorialmedico.model.entity.EstadoRegistroPaciente;
@@ -149,17 +150,25 @@ class PacienteServiceImplTest {
 
   @Test
   void retornaUltimosPacientesOrdenadosYConLimiteSolicitado() {
-    Paciente reciente = paciente(2, "22222222", "Ana", "Lima");
+    Paciente reciente = paciente(3, "33333333", "Ana", "Lima");
     reciente.setFechaCreacion(LocalDateTime.of(2026, 7, 22, 10, 0));
+    Paciente mismaFechaMenorId = paciente(2, "22222222", "Carla", "Sol");
+    mismaFechaMenorId.setFechaCreacion(reciente.getFechaCreacion());
     Paciente anterior = paciente(1, "11111111", "Bruno", "Paz");
     anterior.setFechaCreacion(LocalDateTime.of(2026, 7, 21, 10, 0));
-    when(pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(reciente, anterior));
+    when(pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDescIdPacienteDesc(EstadoRegistroPaciente.ACTIVO))
+        .thenReturn(List.of(reciente, mismaFechaMenorId, anterior));
 
-    UltimosPacientesResponse response = pacienteService.obtenerUltimosParaIntegracion(1);
+    UltimosPacientesResponse response = pacienteService.obtenerUltimosParaIntegracion(3);
 
-    assertEquals(1, response.getCantidad());
-    assertEquals(2, response.getPacientes().getFirst().getIdPaciente());
+    assertEquals(3, response.getCantidad());
+    assertEquals(List.of(3, 2, 1), response.getPacientes().stream()
+        .map(PacienteRegistroResponse::getIdPaciente).toList());
     assertEquals(LocalDateTime.of(2026, 7, 22, 10, 0), response.getPacientes().getFirst().getFechaCreacion());
+    verify(pacienteRepository)
+        .findTop10ByEstadoRegistroOrderByFechaCreacionDescIdPacienteDesc(
+            EstadoRegistroPaciente.ACTIVO
+        );
   }
 
   @Test

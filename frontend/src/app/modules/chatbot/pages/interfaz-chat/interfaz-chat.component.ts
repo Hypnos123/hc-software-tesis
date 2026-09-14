@@ -2,10 +2,12 @@ import { Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, Observable, of, Subscription, switchMap, throwError, timer } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { catchError, finalize } from 'rxjs/operators';
 import { AuthService } from '@app/auth/services/auth.service';
 import { AsistenteService } from '../../services/asistente.service';
+import { OllamaEjecucionService } from '../../services/ollama-ejecucion.service';
 import { IAsistenteResponse } from '../../models/asistente';
+import { IOllamaEjecucionResponse, IOllamaPaciente } from '../../models/ollama-ejecucion';
 import { HistoriaClinicaService } from '@app/modules/historiaClinica/services/consultas.service';
 import { IPacienteBusqueda } from '@app/modules/historiaClinica/models/historiaClinica';
 import { AntecedentesService } from '@app/modules/paciente/services/antecedentes.service';
@@ -52,7 +54,7 @@ import {
 } from '../../models/historia-clinica-duplicada-chat';
 
 type ChatPresentationState = 'pending' | 'presenting' | 'visible';
-interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary' | 'patient-consultation-report'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; reportActive?: boolean; }
+interface ChatMessage { id: string; sender: 'user' | 'bot'; type: 'text' | 'menu' | 'ollama-result' | 'patient-import' | 'duplicate-management' | 'missing-clinical-histories' | 'clinical-history-duplicate-management' | 'patient-consultation-summary' | 'patient-consultation-report'; presentationState: ChatPresentationState; visibleText?: string; animateText: boolean; preserveInteractionAnchor?: boolean; text?: string; menuId?: string; options?: MenuOption[]; ollamaResult?: IOllamaEjecucionResponse; importacion?: PacienteImportacionChatState; importView?: PacienteImportView; importActive?: boolean; duplicados?: GestionDuplicadosChatState; duplicateView?: GestionDuplicadosVista; duplicateActive?: boolean; historiasFaltantes?: HistoriasClinicasFaltantesChatState; missingHistoriesView?: HistoriasClinicasFaltantesVista; missingHistoriesActive?: boolean; historiasDuplicadas?: GestionHistoriasDuplicadasState; duplicateHistoriesView?: GestionHistoriasDuplicadasVista; duplicateHistoriesActive?: boolean; resumenConsultas?: ResumenConsultasChatState; summaryView?: ResumenConsultasVista; summaryActive?: boolean; reportActive?: boolean; }
 type MenuAction = 'menu' | 'prompt' | 'request' | 'clinical-history-flow' | 'patient-import-flow' | 'patient-duplicate-flow' | 'missing-clinical-histories-flow' | 'clinical-history-duplicate-flow' | 'patient-consultation-summary-flow' | 'patient-consultation-report-flow';
 interface MenuOption { id?: string; label: string; description?: string; icon?: string; action: MenuAction; target?: string; text?: string; }
 interface ChatMenu { question?: string; options: MenuOption[]; }
@@ -266,6 +268,7 @@ export class InterfazChatComponent implements OnDestroy {
 
   constructor(
     private asistenteService: AsistenteService,
+    private ollamaEjecucionService: OllamaEjecucionService,
     private authService: AuthService,
     private historiaClinicaService: HistoriaClinicaService,
     private antecedentesService: AntecedentesService,
@@ -314,7 +317,7 @@ export class InterfazChatComponent implements OnDestroy {
       this.iniciarGestionDuplicadosDesdeTexto();
       return;
     }
-    this.askBackend(pregunta, true);
+    this.askOllamaWithFallback(pregunta, true);
   }
   onEnter(event: Event): void { const keyboardEvent = event as KeyboardEvent; if (keyboardEvent.shiftKey && !this.asistenteEscribiendo) return; keyboardEvent.preventDefault(); if (!this.asistenteEscribiendo) this.sendMessage(); }
   selectHistoricalMenuOption(menuMessage: ChatMessage, option: MenuOption): void {
@@ -999,11 +1002,34 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private nextMessageId(): string { this.messageSequence += 1; return `message-${this.messageSequence}`; }
   private askBackend(pregunta: string, scrollAfterResponse: boolean): void {
+    this.requestBackend(this.asistenteService.preguntar(pregunta), scrollAfterResponse);
+  }
+  private askOllamaWithFallback(pregunta: string, scrollAfterResponse: boolean): void {
+    const request = this.ollamaEjecucionService.ejecutar(pregunta).pipe(
+      catchError(() => of(null)),
+      switchMap(response => response?.categoria === 'PACIENTES'
+          && ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS', 'ULTIMOS_PACIENTES'].includes(response.intencion)
+        ? of({
+            intencion: response.intencion,
+            respuesta: response.mensaje,
+            datos: response as unknown as Record<string, unknown>
+          } as IAsistenteResponse)
+        : this.asistenteService.preguntar(pregunta))
+    );
+    this.requestBackend(request, scrollAfterResponse);
+  }
+  private requestBackend(request: Observable<IAsistenteResponse>, scrollAfterResponse: boolean): void {
     this.isLoading = true; this.addBotMessage('Escribiendo...');
-    this.activeRequest = this.asistenteService.preguntar(pregunta).pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
+    this.activeRequest = request.pipe(finalize(() => { this.isLoading = false; this.activeRequest = undefined; })).subscribe({
       next: (response) => {
         this.removeTypingMessage();
-        const resultado = this.addBotMessage(this.formatResponse(response));
+        const ollamaResult = this.getOllamaResult(response);
+        const resultado = this.addBotMessage(
+          this.getOllamaResultSummary(ollamaResult) ?? this.formatResponse(response)
+        );
+        if (ollamaResult && this.hasOllamaResultCards(ollamaResult)) {
+          this.addMessage(this.createBlockMessage('ollama-result', { ollamaResult }));
+        }
         const recommendation = this.getContextualAction(response);
         if (recommendation) this.addContextualAction(recommendation);
         if (this.esResultadoDuplicadoExtenso(response) || recommendation) {
@@ -1043,6 +1069,52 @@ export class InterfazChatComponent implements OnDestroy {
       };
     }
     return undefined;
+  }
+  private getOllamaResult(response: IAsistenteResponse): IOllamaEjecucionResponse | undefined {
+    const data = response.datos as unknown as IOllamaEjecucionResponse | undefined;
+    return data?.categoria === 'PACIENTES' && data.intencion === response.intencion ? data : undefined;
+  }
+  private hasOllamaResultCards(response: IOllamaEjecucionResponse): boolean {
+    return !!response.pacientes?.length
+      || !!response.gruposDuplicados?.duplicados?.length
+      || !!response.comparacionDuplicados?.pacientes?.length;
+  }
+  private getOllamaResultSummary(response?: IOllamaEjecucionResponse): string | undefined {
+    if (!response) return undefined;
+    if (response.intencion === 'ULTIMOS_PACIENTES' && response.pacientes?.length) {
+      return `Últimos ${response.pacientes.length} pacientes registrados`;
+    }
+    if (['BUSCAR_PACIENTE', 'VERIFICAR_EXISTENCIA'].includes(response.intencion)
+        && response.pacientes?.length) {
+      return response.pacientes.length === 1
+        ? 'Paciente encontrado'
+        : `Se encontraron ${response.pacientes.length} pacientes que coinciden con la búsqueda.`;
+    }
+    if (response.intencion !== 'PACIENTES_DUPLICADOS') return undefined;
+    const grupos = response.gruposDuplicados?.duplicados;
+    if (grupos?.length) {
+      const total = response.gruposDuplicados?.totalGrupos ?? grupos.length;
+      return `Se encontraron ${total} grupos de pacientes duplicados activos.`;
+    }
+    const comparacion = response.comparacionDuplicados;
+    if (comparacion?.pacientes?.length) {
+      if (!comparacion.esDuplicado) return 'No se encontraron duplicados.';
+      const referencia = comparacion.dni ? ` al DNI ${comparacion.dni}` : ' al paciente consultado';
+      return `Se encontraron ${comparacion.pacientes.length} registros activos asociados${referencia}.`;
+    }
+    if (response.pacientes?.length) {
+      return `Se encontraron ${response.pacientes.length} registros activos asociados al paciente consultado.`;
+    }
+    return undefined;
+  }
+  nombreCompletoOllama(paciente: IOllamaPaciente): string {
+    return [paciente.nombres, paciente.apellidos].filter(value => !!value?.trim()).join(' ');
+  }
+  tieneValorOllama(value: unknown): boolean {
+    return value !== null && value !== undefined && (typeof value !== 'string' || value.trim() !== '');
+  }
+  fechaOllama(value?: string): string {
+    return value ? this.formatDate(value) : '';
   }
   private esResultadoDuplicadoExtenso(response: IAsistenteResponse): boolean {
     if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES' || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') return true;

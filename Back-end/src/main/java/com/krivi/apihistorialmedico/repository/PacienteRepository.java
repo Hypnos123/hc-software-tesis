@@ -69,7 +69,9 @@ public interface PacienteRepository extends CrudRepository<Paciente, Integer> {
 
   List<Paciente> findByEstadoRegistroAndFechaCreacionGreaterThanEqualAndFechaCreacionLessThanOrderByFechaCreacionDesc(EstadoRegistroPaciente estadoRegistro, LocalDateTime inicio, LocalDateTime fin);
 
-  List<Paciente> findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente estadoRegistro);
+  List<Paciente> findTop10ByEstadoRegistroOrderByFechaCreacionDescIdPacienteDesc(
+      EstadoRegistroPaciente estadoRegistro
+  );
 
   long countByEstadoRegistro(EstadoRegistroPaciente estadoRegistro);
 

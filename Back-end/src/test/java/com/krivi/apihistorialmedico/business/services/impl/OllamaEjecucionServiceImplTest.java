@@ -14,9 +14,14 @@ import com.krivi.apihistorialmedico.model.api.OllamaInterpretacionResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteResponse;
 import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionResponse;
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
+import com.krivi.apihistorialmedico.model.api.PacienteRegistroResponse;
+import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
 class OllamaEjecucionServiceImplTest {
@@ -88,6 +93,30 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
+  void normalizaComoNombreUnTextoRecibidoEnDni() {
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "VERIFICAR_EXISTENCIA", "Rafael Velasquez Morales", null
+        )
+    );
+
+    assertThat(normalizada.dni()).isNull();
+    assertThat(normalizada.nombre()).isEqualTo("Rafael Velasquez Morales");
+  }
+
+  @Test
+  void normalizaComoDniUnNumeroRecibidoEnNombre() {
+    OllamaInterpretacionResponse normalizada = service.normalizarInterpretacion(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "BUSCAR_PACIENTE", null, "72845292"
+        )
+    );
+
+    assertThat(normalizada.dni()).isEqualTo("72845292");
+    assertThat(normalizada.nombre()).isNull();
+  }
+
+  @Test
   void ejecutaConsultaPorDniDespuesDeNormalizarCategoriaDeDuplicados() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(
@@ -126,8 +155,88 @@ class OllamaEjecucionServiceImplTest {
 
     assertThat(response.encontrado()).isTrue();
     assertThat(response.dni()).isEqualTo("72845292");
+    assertThat(response.pacientes()).containsExactlyElementsOf(busqueda.getData());
     assertThat(response.mensaje()).isEqualTo("El paciente se encuentra registrado.");
     verify(pacienteService).search(null, "72845292", 25);
+  }
+
+  @Test
+  void verificaExistenciaPorNombreYDevuelveTodasLasCoincidencias() {
+    String nombre = "Rafael Velasquez Morales";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "VERIFICAR_EXISTENCIA", null, nombre
+        )
+    );
+    List<PacienteResponse> pacientes = List.of(
+        PacienteResponse.builder().idPaciente(1).nombres("Rafael").build(),
+        PacienteResponse.builder().idPaciente(2).nombres("Rafael").build()
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(pacientes);
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isTrue();
+    assertThat(response.nombre()).isEqualTo(nombre);
+    assertThat(response.pacientes()).containsExactlyElementsOf(pacientes);
+    verify(pacienteService).search(nombre, null, 25);
+  }
+
+  @Test
+  void verificaExistenciaPorNombreAunqueOllamaLoEntregueComoDni() {
+    String nombre = "Rafael Velasquez Morales";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "VERIFICAR_EXISTENCIA", nombre, null
+        )
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(PacienteResponse.builder().idPaciente(1).build()));
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.dni()).isNull();
+    assertThat(response.nombre()).isEqualTo(nombre);
+    assertThat(response.pacientes()).hasSize(1);
+    verify(pacienteService).search(nombre, null, 25);
+  }
+
+  @Test
+  void buscaPorDniAunqueOllamaLoEntregueComoNombre() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "BUSCAR_PACIENTE", null, "72845292"
+        )
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(PacienteResponse.builder().numDocumento("72845292").build()));
+    when(pacienteService.search(null, "72845292", 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.dni()).isEqualTo("72845292");
+    assertThat(response.nombre()).isNull();
+    assertThat(response.pacientes()).hasSize(1);
+    verify(pacienteService).search(null, "72845292", 25);
+  }
+
+  @Test
+  void conservaNumeroCortoComoDniInvalido() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "VERIFICAR_EXISTENCIA", "72845", null
+        )
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.dni()).isEqualTo("72845");
+    assertThat(response.nombre()).isNull();
+    assertThat(response.mensaje()).isEqualTo("El DNI debe contener exactamente 8 dígitos.");
+    verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
   }
 
   @Test
@@ -148,7 +257,7 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
-  void noConsultaPacientesCuandoFaltaElDni() {
+  void noConsultaPacientesCuandoFaltaDniYNombre() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(
             "PACIENTES", "VERIFICAR_EXISTENCIA", null, null
@@ -158,7 +267,9 @@ class OllamaEjecucionServiceImplTest {
     OllamaEjecucionResponse response = service.ejecutar("mensaje");
 
     assertThat(response.encontrado()).isNull();
-    assertThat(response.mensaje()).isEqualTo("Falta indicar el DNI del paciente.");
+    assertThat(response.mensaje()).isEqualTo(
+        "Indica el DNI o el nombre del paciente que deseas consultar."
+    );
     verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
   }
 
@@ -175,6 +286,69 @@ class OllamaEjecucionServiceImplTest {
         "Esta intención todavía no está habilitada para ejecución."
     );
     verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void consultaTresUltimosPacientesCuandoNoSeIndicaLimite() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "ULTIMOS_PACIENTES", null, null, null
+        )
+    );
+    List<PacienteRegistroResponse> pacientes = pacientesRecientes(3);
+    when(pacienteService.obtenerUltimosParaIntegracion(3)).thenReturn(
+        UltimosPacientesResponse.builder().cantidad(3).pacientes(pacientes).build()
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).containsExactlyElementsOf(pacientes);
+    assertThat(response.mensaje()).isEqualTo(
+        "Estos son los 3 pacientes registrados más recientemente."
+    );
+    verify(pacienteService).obtenerUltimosParaIntegracion(3);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"3,3", "4,4", "5,5", "6,6", "1,3", "10,6", "0,3", "-2,3"})
+  void limitaLaCantidadDeUltimosPacientesEntreTresYSeis(
+      int limiteInterpretado,
+      int limiteEsperado
+  ) {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "ULTIMOS_PACIENTES", null, null, limiteInterpretado
+        )
+    );
+    List<PacienteRegistroResponse> pacientes = pacientesRecientes(limiteEsperado);
+    when(pacienteService.obtenerUltimosParaIntegracion(limiteEsperado)).thenReturn(
+        UltimosPacientesResponse.builder()
+            .cantidad(limiteEsperado)
+            .pacientes(pacientes)
+            .build()
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).hasSize(limiteEsperado);
+    verify(pacienteService).obtenerUltimosParaIntegracion(limiteEsperado);
+  }
+
+  @Test
+  void informaCuandoNoExistenPacientesActivosRecientes() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse(
+            "PACIENTES", "ULTIMOS_PACIENTES", null, null, 3
+        )
+    );
+    when(pacienteService.obtenerUltimosParaIntegracion(3)).thenReturn(
+        UltimosPacientesResponse.builder().cantidad(0).pacientes(List.of()).build()
+    );
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isFalse();
+    assertThat(response.mensaje()).isEqualTo("No se encontraron pacientes activos registrados.");
   }
 
   @Test
@@ -334,6 +508,28 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
+  void buscaPorNombreYDevuelveTodosLosRegistrosEncontrados() {
+    String nombre = "Rafael Velasquez Morales";
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", null, nombre)
+    );
+    List<PacienteResponse> pacientes = List.of(
+        PacienteResponse.builder().idPaciente(1).nombres("Rafael").build(),
+        PacienteResponse.builder().idPaciente(2).nombres("Rafael").build()
+    );
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(pacientes);
+    when(pacienteService.search(nombre, null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isTrue();
+    assertThat(response.nombre()).isEqualTo(nombre);
+    assertThat(response.pacientes()).containsExactlyElementsOf(pacientes);
+    verify(pacienteService).search(nombre, null, 25);
+  }
+
+  @Test
   void buscaPorNombreEInformaCuandoNoHayResultados() {
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse("PACIENTES", "BUSCAR_PACIENTE", null, "Ana Torres")
@@ -360,7 +556,15 @@ class OllamaEjecucionServiceImplTest {
     OllamaEjecucionResponse response = service.ejecutar("mensaje");
 
     assertThat(response.encontrado()).isNull();
-    assertThat(response.mensaje()).isEqualTo("Falta indicar el DNI o el nombre del paciente.");
+    assertThat(response.mensaje()).isEqualTo(
+        "Indica el DNI o el nombre del paciente que deseas consultar."
+    );
     verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  private List<PacienteRegistroResponse> pacientesRecientes(int cantidad) {
+    return IntStream.rangeClosed(1, cantidad)
+        .mapToObj(id -> PacienteRegistroResponse.builder().idPaciente(id).build())
+        .toList();
   }
 }

@@ -10,6 +10,7 @@ import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-hi
 import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
 import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 import { AsistenteService } from '../../services/asistente.service';
+import { OllamaEjecucionService } from '../../services/ollama-ejecucion.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
 import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
@@ -31,6 +32,7 @@ describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
   let fixture: ComponentFixture<InterfazChatComponent>;
   let asistenteService: jasmine.SpyObj<AsistenteService>;
+  let ollamaEjecucionService: jasmine.SpyObj<OllamaEjecucionService>;
   let historiaClinicaService: jasmine.SpyObj<HistoriaClinicaService>;
   let antecedentesService: jasmine.SpyObj<AntecedentesService>;
   let router: jasmine.SpyObj<Router>;
@@ -54,6 +56,8 @@ describe('InterfazChatComponent', () => {
     sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
+    ollamaEjecucionService = jasmine.createSpyObj<OllamaEjecucionService>('OllamaEjecucionService', ['ejecutar']);
+    ollamaEjecucionService.ejecutar.and.returnValue(throwError(() => new Error('Ollama no disponible')));
     historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'buscarPacientesPorNombre', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes', 'crearHistoriasClinicasFaltantes']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
     historiaClinicaService.buscarPacientesPorNombre.and.returnValue(of([paciente]));
@@ -96,6 +100,7 @@ describe('InterfazChatComponent', () => {
       imports: [InterfazChatComponent],
       providers: [
         { provide: AsistenteService, useValue: asistenteService },
+        { provide: OllamaEjecucionService, useValue: ollamaEjecucionService },
         { provide: HistoriaClinicaService, useValue: historiaClinicaService },
         { provide: AntecedentesService, useValue: antecedentesService },
         { provide: Router, useValue: router },
@@ -1850,6 +1855,211 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.text).toBe('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
     expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe enviar las preguntas libres a Ollama y mostrar su mensaje', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES',
+      intencion: 'VERIFICAR_EXISTENCIA',
+      encontrado: true,
+      dni: DNI_PRUEBA,
+      pacientes: [{ idPaciente: 1, nombres: 'NOMBRE PRUEBA', numDocumento: DNI_PRUEBA }],
+      mensaje: 'El paciente se encuentra registrado.'
+    }));
+
+    component.userMessage = `¿Existe el paciente ${DNI_PRUEBA}?`;
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith(`¿Existe el paciente ${DNI_PRUEBA}?`);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
+  });
+
+  it('debe mostrar los datos de un paciente encontrado por BUSCAR_PACIENTE', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',
+      pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales',
+        numDocumento: DNI_PRUEBA, edad: 26, sexo: 'Masculino',
+        fechaNacimiento: '1999-12-02', fechaIngreso: '2026-06-11' }]
+    }));
+
+    component.userMessage = 'Busca a Rafael Velasquez Morales'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-patient-card') as HTMLElement;
+    expect(card.textContent).toContain('Rafael Velasquez Morales');
+    expect(card.textContent).toContain(DNI_PRUEBA);
+    expect(card.textContent).toContain('N.º de paciente');
+    expect(card.textContent).toContain('26 años');
+    expect(card.textContent).toContain('02/12/1999');
+    expect(card.textContent).toContain('11/06/2026');
+  });
+
+  it('debe usar la misma presentación para VERIFICAR_EXISTENCIA', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'VERIFICAR_EXISTENCIA', mensaje: 'Existe.',
+      pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales', numDocumento: DNI_PRUEBA }]
+    }));
+
+    component.userMessage = 'Verifica si existe Rafael Velasquez Morales'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(1);
+  });
+
+  it('debe generar una card por cada paciente encontrado', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultados.',
+      pacientes: [
+        { idPaciente: 1, nombres: 'Rafael', apellidos: 'Velasquez Morales' },
+        { idPaciente: 2, nombres: 'Rafael', apellidos: 'Velasquez Morales' }
+      ]
+    }));
+
+    component.userMessage = 'Busca a Rafael'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Se encontraron 2 pacientes que coinciden con la búsqueda.')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
+  });
+
+  it('debe mostrar todos los grupos de pacientes duplicados', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Hay duplicados.',
+      gruposDuplicados: { hayDuplicados: true, totalGrupos: 2, duplicados: [
+        { tipo: 'DNI', valorCoincidente: '74296831', cantidad: 2,
+          pacientes: [{ idPaciente: 19, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto' }] },
+        { tipo: 'DNI', valorCoincidente: '12345678', cantidad: 2,
+          pacientes: [{ idPaciente: 24, dni: '12345678', nombreCompleto: 'Otra Paciente' }] }
+      ] }
+    }));
+
+    component.userMessage = '¿Existen pacientes duplicados?'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'Se encontraron 2 grupos de pacientes duplicados activos.')).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('.ollama-duplicate-group').length).toBe(2);
+    expect(fixture.nativeElement.textContent).toContain('74296831');
+    expect(fixture.nativeElement.textContent).toContain('12345678');
+  });
+
+  it('debe mostrar todos los registros de una comparación sin recomendaciones', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Duplicados.',
+      comparacionDuplicados: { dni: '74296831', cantidadPacientesActivos: 2, esDuplicado: true,
+        pacientes: [
+          { idPaciente: 19, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto', estadoRegistro: 'ACTIVO' },
+          { idPaciente: 24, dni: '74296831', nombreCompleto: 'Daniela Ramirez Soto', estadoRegistro: 'ACTIVO' }
+        ], idPacienteRecomendado: 19, razonesRecomendacion: ['Más información'] } as any
+    }));
+
+    component.userMessage = '¿El DNI 74296831 tiene duplicados?'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const contenido = fixture.nativeElement.querySelector('.ollama-result-block').textContent;
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
+    expect(contenido).toContain('Se detectaron registros duplicados');
+    expect(contenido).not.toContain('Recomendado');
+    expect(contenido).not.toContain('Más información');
+  });
+
+  it('debe presentar un registro único sin identificarlo como duplicado', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_DUPLICADOS', mensaje: 'Sin duplicados.',
+      comparacionDuplicados: { dni: DNI_PRUEBA, cantidadPacientesActivos: 1, esDuplicado: false,
+        pacientes: [{ idPaciente: 1, dni: DNI_PRUEBA, nombreCompleto: 'Rafael Velasquez Morales', estadoRegistro: 'ACTIVO' }] }
+    }));
+
+    component.userMessage = `¿El DNI ${DNI_PRUEBA} tiene duplicados?`; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(component.messages.some(mensaje => mensaje.text === 'No se encontraron duplicados.')).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Este paciente posee un único registro activo.');
+  });
+
+  it('debe conservar el mensaje sin resultados y omitir campos vacíos', () => {
+    ollamaEjecucionService.ejecutar.and.returnValues(
+      of({ categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', encontrado: false,
+        mensaje: 'No se encontraron pacientes con el criterio indicado.', pacientes: [] }),
+      of({ categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',
+        pacientes: [{ idPaciente: 1, nombres: 'Rafael', apellidos: '', numDocumento: undefined }] })
+    );
+
+    component.userMessage = 'Busca a Nadie'; component.sendMessage();
+    expect(component.messages.some(mensaje => mensaje.text === 'No se encontraron pacientes con el criterio indicado.')).toBeTrue();
+    component.stopPresentation();
+    component.userMessage = 'Busca a Rafael'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-patient-card') as HTMLElement;
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('undefined');
+  });
+
+  it('debe mostrar una card compacta por cada paciente reciente', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', limite: 3,
+      mensaje: 'Estos son los 3 pacientes registrados más recientemente.',
+      pacientes: [
+        { idPaciente: 24, nombreCompleto: 'Daniela Ramirez Soto', dni: '74296831', fechaCreacion: '2026-08-14T10:30:00' },
+        { idPaciente: 23, nombreCompleto: 'Rafael Velasquez Morales', dni: DNI_PRUEBA, fechaCreacion: '2026-08-13T09:00:00' },
+        { idPaciente: 22, nombreCompleto: 'Ana Torres Paz', dni: '12345678', fechaCreacion: '2026-08-12T08:00:00' }
+      ]
+    }));
+
+    component.userMessage = 'Muéstrame los últimos pacientes registrados'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.text === 'Últimos 3 pacientes registrados')).toBeTrue();
+    const cards = fixture.nativeElement.querySelectorAll('.ollama-recent-list .ollama-patient-card');
+    expect(cards.length).toBe(3);
+    expect(cards[0].textContent).toContain('Paciente #24');
+    expect(cards[0].textContent).toContain('Daniela Ramirez Soto');
+    expect(cards[0].textContent).toContain('14/08/2026');
+  });
+
+  it('debe omitir datos vacíos en las cards de pacientes recientes', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', limite: 3,
+      mensaje: 'Estos son los pacientes registrados más recientemente.',
+      pacientes: [{ idPaciente: 24, nombreCompleto: '', dni: undefined, fechaCreacion: undefined }]
+    }));
+
+    component.userMessage = 'Muéstrame los pacientes recientes'; component.sendMessage();
+    component.stopPresentation(); fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-recent-list .ollama-patient-card') as HTMLElement;
+    expect(card.textContent).toContain('Paciente #24');
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('Fecha de registro');
+    expect(card.textContent).not.toContain('undefined');
+  });
+
+  it('debe recurrir al asistente actual cuando falla Ollama', () => {
+    component.userMessage = '¿Cómo registro un paciente?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith('¿Cómo registro un paciente?');
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('¿Cómo registro un paciente?');
+    expect(component.messages.some(mensaje => mensaje.text === 'Respuesta del asistente')).toBeTrue();
+  });
+
+  it('debe recurrir al asistente actual cuando Ollama devuelve una intención no soportada', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'CONSULTAS',
+      intencion: 'ULTIMA_CONSULTA',
+      mensaje: 'Esta intención todavía no está habilitada para ejecución.'
+    }));
+
+    component.userMessage = '¿Cuál fue la última consulta del paciente?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith('¿Cuál fue la última consulta del paciente?');
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('¿Cuál fue la última consulta del paciente?');
+    expect(component.messages.some(mensaje => mensaje.text === 'Respuesta del asistente')).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text === 'Esta intención todavía no está habilitada para ejecución.')).toBeFalse();
   });
 
   [
