@@ -10,6 +10,7 @@ import { ClinicalHistoryTransferService } from '@app/shared/services/clinical-hi
 import { ClinicalHistoryFlowFeedbackService } from '@app/shared/services/clinical-history-flow-feedback.service';
 import { ClinicalHistoryFlowFeedback } from '@app/shared/models/clinical-history-flow-feedback';
 import { AsistenteService } from '../../services/asistente.service';
+import { OllamaEjecucionService } from '../../services/ollama-ejecucion.service';
 import { InterfazChatComponent } from './interfaz-chat.component';
 import { PacienteImportacionService } from '@app/modules/paciente/services/paciente-importacion.service';
 import { PacienteListRefreshService } from '@app/modules/paciente/services/paciente-list-refresh.service';
@@ -31,6 +32,7 @@ describe('InterfazChatComponent', () => {
   let component: InterfazChatComponent;
   let fixture: ComponentFixture<InterfazChatComponent>;
   let asistenteService: jasmine.SpyObj<AsistenteService>;
+  let ollamaEjecucionService: jasmine.SpyObj<OllamaEjecucionService>;
   let historiaClinicaService: jasmine.SpyObj<HistoriaClinicaService>;
   let antecedentesService: jasmine.SpyObj<AntecedentesService>;
   let router: jasmine.SpyObj<Router>;
@@ -54,6 +56,8 @@ describe('InterfazChatComponent', () => {
     sessionChangedSubject = new Subject<boolean>();
     asistenteService = jasmine.createSpyObj<AsistenteService>('AsistenteService', ['preguntar']);
     asistenteService.preguntar.and.returnValue(of({ intencion: 'ayuda', respuesta: 'Respuesta del asistente' }));
+    ollamaEjecucionService = jasmine.createSpyObj<OllamaEjecucionService>('OllamaEjecucionService', ['ejecutar']);
+    ollamaEjecucionService.ejecutar.and.returnValue(throwError(() => new Error('Ollama no disponible')));
     historiaClinicaService = jasmine.createSpyObj<HistoriaClinicaService>('HistoriaClinicaService', ['buscarPacientesPorDni', 'buscarPacientesPorNombre', 'getByPaciente', 'insert', 'update', 'getHistoriasClinicasFaltantes', 'crearHistoriasClinicasFaltantes']);
     historiaClinicaService.buscarPacientesPorDni.and.returnValue(of([paciente]));
     historiaClinicaService.buscarPacientesPorNombre.and.returnValue(of([paciente]));
@@ -96,6 +100,7 @@ describe('InterfazChatComponent', () => {
       imports: [InterfazChatComponent],
       providers: [
         { provide: AsistenteService, useValue: asistenteService },
+        { provide: OllamaEjecucionService, useValue: ollamaEjecucionService },
         { provide: HistoriaClinicaService, useValue: historiaClinicaService },
         { provide: AntecedentesService, useValue: antecedentesService },
         { provide: Router, useValue: router },
@@ -1850,6 +1855,48 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.at(-1)?.text).toBe('La gestión de registros duplicados está disponible únicamente para personal autorizado.');
     expect(component.messages.some(mensaje => mensaje.type === 'duplicate-management')).toBeFalse();
     expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe enviar las preguntas libres a Ollama y mostrar su mensaje', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES',
+      intencion: 'VERIFICAR_EXISTENCIA',
+      encontrado: true,
+      dni: DNI_PRUEBA,
+      mensaje: 'El paciente se encuentra registrado.'
+    }));
+
+    component.userMessage = `¿Existe el paciente ${DNI_PRUEBA}?`;
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith(`¿Existe el paciente ${DNI_PRUEBA}?`);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+    expect(component.messages.some(mensaje => mensaje.text === 'El paciente se encuentra registrado.')).toBeTrue();
+  });
+
+  it('debe recurrir al asistente actual cuando falla Ollama', () => {
+    component.userMessage = '¿Cómo registro un paciente?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith('¿Cómo registro un paciente?');
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('¿Cómo registro un paciente?');
+    expect(component.messages.some(mensaje => mensaje.text === 'Respuesta del asistente')).toBeTrue();
+  });
+
+  it('debe recurrir al asistente actual cuando Ollama devuelve una intención no soportada', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'CONSULTAS',
+      intencion: 'ULTIMA_CONSULTA',
+      mensaje: 'Esta intención todavía no está habilitada para ejecución.'
+    }));
+
+    component.userMessage = '¿Cuál fue la última consulta del paciente?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith('¿Cuál fue la última consulta del paciente?');
+    expect(asistenteService.preguntar).toHaveBeenCalledOnceWith('¿Cuál fue la última consulta del paciente?');
+    expect(component.messages.some(mensaje => mensaje.text === 'Respuesta del asistente')).toBeTrue();
+    expect(component.messages.some(mensaje => mensaje.text === 'Esta intención todavía no está habilitada para ejecución.')).toBeFalse();
   });
 
   [
