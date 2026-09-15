@@ -8,5 +8,6 @@ import lombok.Data;
 public class PacienteSinHistoriaClinicaResponse {
   private Integer idPaciente;
   private String nombreCompleto;
+  private String dni;
   private String dniEnmascarado;
 }

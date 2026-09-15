@@ -29,12 +29,14 @@ PACIENTES
 - BUSCAR_PACIENTE: cuando se desea buscar o mostrar un paciente por DNI o nombre.
 - VERIFICAR_EXISTENCIA: cuando se pregunta si un paciente existe o está registrado.
 - PACIENTES_DUPLICADOS: cuando se pregunta por pacientes repetidos o duplicados.
+- ULTIMOS_PACIENTES: cuando se desean consultar los pacientes registrados más recientemente.
 - PACIENTES_SIN_HISTORIA: cuando se solicitan pacientes que aún no tienen historia clínica.
 - ELIMINAR_DUPLICADO: cuando se desea eliminar un paciente duplicado.
 
 HISTORIAS_CLINICAS
 - CONSULTAR_HISTORIAS: cuando se desean ver o consultar las historias clínicas de un paciente.
 - HISTORIAS_DUPLICADAS: cuando se consultan historias clínicas repetidas o duplicadas.
+- ULTIMAS_HISTORIAS: cuando se desean consultar las historias clínicas registradas más recientemente.
 - CREAR_HISTORIA: cuando se desea crear una historia clínica.
 - FUSIONAR_HISTORIAS: cuando se desea fusionar historias clínicas duplicadas.
 
@@ -81,13 +83,35 @@ usa exactamente:
 
 10. Si no proporciona dni o nombre, utiliza null.
 
+11. El campo limite solo se utiliza para ULTIMOS_PACIENTES o ULTIMAS_HISTORIAS.
+Para las demás intenciones, utiliza null.
+
+REGLA PRIORITARIA SOBRE PACIENTES E HISTORIAS CLÍNICAS:
+
+- Si pregunta si un paciente tiene, posee, cuenta con, muestra o desea consultar una
+  historia clínica o historias clínicas, usa HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS.
+- Si pregunta por historias clínicas repetidas o duplicadas, usa
+  HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS.
+- Si pregunta si el paciente está registrado o existe, sin preguntar por historias
+  clínicas, usa PACIENTES / VERIFICAR_EXISTENCIA.
+- Si pregunta por pacientes duplicados, usa PACIENTES / PACIENTES_DUPLICADOS.
+- Si pregunta por pacientes que no tienen historia clínica, usa
+  PACIENTES / PACIENTES_SIN_HISTORIA.
+
+Ejemplos prioritarios:
+- "¿El DNI 72845292 está registrado?" -> PACIENTES / VERIFICAR_EXISTENCIA
+- "¿El DNI 72845292 tiene historia clínica?" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS
+- "¿El DNI 72845292 está duplicado?" -> PACIENTES / PACIENTES_DUPLICADOS
+- "¿El DNI 72845292 tiene historias clínicas duplicadas?" -> HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS
+
 Devuelve exclusivamente este formato:
 
 {
   "categoria": "",
   "intencion": "",
   "dni": null,
-  "nombre": null
+  "nombre": null,
+  "limite": null
 }
 
 No agregues explicaciones.
@@ -123,7 +147,8 @@ Respuesta correcta:
   "categoria": "PACIENTES",
   "intencion": "PACIENTES_SIN_HISTORIA",
   "dni": null,
-  "nombre": null
+  "nombre": null,
+  "limite": null
 }
 
 Reglas especiales para consultas:
@@ -158,6 +183,82 @@ Reglas especiales para pacientes duplicados:
 
 - No confundas una consulta general de pacientes duplicados con una búsqueda por nombre.
   Si no se menciona una persona específica, nombre debe ser null.
+
+PACIENTES - ULTIMOS_PACIENTES
+
+Utiliza ULTIMOS_PACIENTES cuando el usuario quiera consultar
+los pacientes registrados más recientemente.
+
+Ejemplos:
+- "Muéstrame los últimos pacientes registrados"
+- "¿Cuáles son los pacientes más recientes?"
+- "Quiero ver los últimos 5 pacientes"
+- "Dame los pacientes registrados recientemente"
+- "Muéstrame los 6 últimos pacientes"
+
+Devuelve:
+categoria = PACIENTES
+intencion = ULTIMOS_PACIENTES
+dni = null
+nombre = null
+limite = cantidad solicitada
+
+Si no se indica cantidad, limite = 3.
+El mínimo es 3 y el máximo es 6.
+Si se solicita 1 o 2, limite = 3.
+Si se solicita 7 o más, limite = 6.
+
+No confundas esta intención con BUSCAR_PACIENTE,
+VERIFICAR_EXISTENCIA ni PACIENTES_DUPLICADOS.
+
+Ejemplos diferenciadores:
+- "Busca a Rafael Velasquez Morales" -> BUSCAR_PACIENTE
+- "¿Existe Rafael Velasquez Morales?" -> VERIFICAR_EXISTENCIA
+- "¿Existen pacientes duplicados?" -> PACIENTES_DUPLICADOS
+- "Muéstrame los últimos pacientes registrados" -> ULTIMOS_PACIENTES
+
+HISTORIAS CLÍNICAS - REGLAS DE CONSULTA
+
+- Usa CONSULTAR_HISTORIAS cuando el usuario pida las historias clínicas asociadas
+  a un paciente. Extrae su DNI o nombre completo. No lo clasifiques como BUSCAR_PACIENTE.
+- Usa HISTORIAS_DUPLICADAS cuando pregunte por historias clínicas o HC duplicadas.
+  La consulta puede ser general, con dni = null y nombre = null, o específica por DNI o nombre.
+- Usa PACIENTES_SIN_HISTORIA cuando solicite pacientes activos que todavía no tienen
+  historia clínica. Esta intención pertenece a la categoría PACIENTES.
+- Estas consultas son únicamente informativas. No uses CREAR_HISTORIA ni
+  FUSIONAR_HISTORIAS salvo que el usuario solicite explícitamente esas acciones.
+
+HISTORIAS CLÍNICAS - ULTIMAS_HISTORIAS
+
+Usa ULTIMAS_HISTORIAS cuando el usuario quiera consultar las historias clínicas
+registradas más recientemente.
+
+Ejemplos:
+- "Muéstrame las últimas historias clínicas registradas"
+- "¿Cuáles son las historias clínicas más recientes?"
+- "Quiero ver las últimas 5 historias clínicas"
+- "Dame las 4 HC más recientes"
+
+Devuelve:
+categoria = HISTORIAS_CLINICAS
+intencion = ULTIMAS_HISTORIAS
+dni = null
+nombre = null
+limite = cantidad solicitada
+
+Si no se indica cantidad, limite = 3.
+El mínimo es 3 y el máximo es 6.
+Si se solicita 1 o 2, limite = 3.
+Si se solicita 7 o más, limite = 6.
+
+Ejemplos diferenciadores obligatorios:
+- "Busca a Rafael" -> PACIENTES / BUSCAR_PACIENTE
+- "Muéstrame las historias clínicas de Rafael" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS
+- "¿Existen pacientes duplicados?" -> PACIENTES / PACIENTES_DUPLICADOS
+- "¿Existen historias clínicas duplicadas?" -> HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS
+- "Muéstrame los últimos pacientes" -> PACIENTES / ULTIMOS_PACIENTES
+- "Muéstrame las últimas historias clínicas" -> HISTORIAS_CLINICAS / ULTIMAS_HISTORIAS
+- "Muéstrame pacientes sin historia clínica" -> PACIENTES / PACIENTES_SIN_HISTORIA
 """;
 
   private final RestClient restClient;

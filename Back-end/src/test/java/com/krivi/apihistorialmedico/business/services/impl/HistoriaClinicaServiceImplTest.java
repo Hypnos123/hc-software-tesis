@@ -655,6 +655,43 @@ class HistoriaClinicaServiceImplTest {
     assertEquals(7, recomendada("10000004", idMayor, idMenor, new Object[]{8, 0L, null}, new Object[]{7, 0L, null}));
   }
 
+  @Test
+  void ultimasHistoriasUsaActivosOrdenadosPorFechaEIdYNormalizaLimites() {
+    HistoriaClinica primera = historia(12, 1, "12345678", "Ana", "Lima");
+    HistoriaClinica segunda = historia(11, 2, "87654321", "Beto", "Paz");
+    when(historiaClinicaRepository
+        .findTop6ByPacienteEstadoRegistroOrderByFechaCreacionDescIdHistoriaClinicaDesc(
+            EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(primera, segunda));
+    when(consultaRepository.resumirPorHistoriasClinicas(List.of(12, 11)))
+        .thenReturn(List.of(new Object[]{12, 3L, null}, new Object[]{11, 1L, null}));
+
+    BusquedaHistoriasClinicasResponse response =
+        historiaClinicaService.obtenerUltimasParaIntegracion(1);
+
+    assertEquals(List.of(12, 11), response.getHistoriasClinicas().stream()
+        .map(item -> item.getIdHistoriaClinica()).toList());
+    assertEquals(3L, response.getHistoriasClinicas().getFirst().getCantidadConsultas());
+    verify(historiaClinicaRepository)
+        .findTop6ByPacienteEstadoRegistroOrderByFechaCreacionDescIdHistoriaClinicaDesc(
+            EstadoRegistroPaciente.ACTIVO);
+  }
+
+  @Test
+  void duplicadasPorNombreReutilizaBusquedaNormalizada() {
+    HistoriaClinica primera = historia(1, 10, "11111111", "Ana María", "Lima Paz");
+    HistoriaClinica segunda = historia(2, 10, "11111111", "Ana María", "Lima Paz");
+    when(historiaClinicaRepository.findAllForIntegracion())
+        .thenReturn(List.of(primera, segunda));
+    when(consultaRepository.resumirPorHistoriasClinicas(List.of(1, 2)))
+        .thenReturn(List.of());
+
+    DuplicadosHistoriasClinicasResponse response = historiaClinicaService
+        .obtenerDuplicadosPorNombreParaIntegracion("ana maria lima paz");
+
+    assertTrue(response.isHayDuplicados());
+    assertEquals(2, response.getDuplicados().getFirst().getCantidad());
+  }
+
   private Integer recomendada(String dni, HistoriaClinica primera, HistoriaClinica segunda, Object[] primerResumen, Object[] segundoResumen) {
     when(pacienteRepository.findByDniNormalizado(dni)).thenReturn(List.of(primera.getPaciente()));
     when(historiaClinicaRepository.findForIntegracionByDni(dni)).thenReturn(List.of(primera, segunda));

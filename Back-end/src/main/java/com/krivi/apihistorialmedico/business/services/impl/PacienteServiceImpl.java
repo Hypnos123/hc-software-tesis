@@ -164,7 +164,10 @@ public class PacienteServiceImpl implements PacienteService {
   @Override
   public UltimosPacientesResponse obtenerUltimosParaIntegracion(Integer limite) {
     int limiteValidado = validarLimiteUltimos(limite);
-    List<PacienteRegistroResponse> pacientes = pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO).stream()
+    List<PacienteRegistroResponse> pacientes = pacienteRepository
+        .findTop10ByEstadoRegistroOrderByFechaCreacionDescIdPacienteDesc(
+            EstadoRegistroPaciente.ACTIVO)
+        .stream()
         .limit(limiteValidado)
         .map(this::toPacienteRegistroResponse)
         .toList();

@@ -1875,6 +1875,33 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
   });
 
+  it('debe enviar a Ollama una consulta informativa sobre existencia de historia clínica', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'HISTORIAS_CLINICAS', intencion: 'CONSULTAR_HISTORIAS',
+      mensaje: 'El paciente se encuentra registrado, pero no tiene historias clínicas asociadas.',
+      historias: []
+    }));
+
+    component.userMessage = '¿existe una historia clínica para el DNI 74125638?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith(
+      '¿existe una historia clínica para el DNI 74125638?');
+    expect(component.clinicalHistoryFlow.step).toBe('idle');
+    expect(historiaClinicaService.buscarPacientesPorDni).not.toHaveBeenCalled();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el flujo guiado para una solicitud explícita de crear historia clínica', () => {
+    component.userMessage = 'quiero crear una historia clínica';
+    component.sendMessage();
+
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingDni');
+    expect(component.messages.some(mensaje => mensaje.text?.includes(
+      'Ingresa el DNI del paciente para crear su historia clínica'))).toBeTrue();
+    expect(ollamaEjecucionService.ejecutar).not.toHaveBeenCalled();
+  });
+
   it('debe mostrar los datos de un paciente encontrado por BUSCAR_PACIENTE', () => {
     ollamaEjecucionService.ejecutar.and.returnValue(of({
       categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',
@@ -1922,6 +1949,137 @@ describe('InterfazChatComponent', () => {
 
     expect(component.messages.some(mensaje => mensaje.text === 'Se encontraron 2 pacientes que coinciden con la búsqueda.')).toBeTrue();
     expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(2);
+  });
+
+  it('debe mostrar una card compacta por cada paciente reciente', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', mensaje: 'Resultados.',
+      pacientes: [
+        { idPaciente: 24, nombreCompleto: 'Daniela Alejandra Ramirez Soto',
+          numDocumento: '74296831', fechaCreacion: '2026-08-14T10:30:00' },
+        { idPaciente: 23, nombreCompleto: 'Rafael Velasquez Morales',
+          numDocumento: DNI_PRUEBA, fechaCreacion: '2026-08-13T09:00:00' }
+      ]
+    }));
+
+    component.userMessage = 'Muéstrame los últimos pacientes'; component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje =>
+      mensaje.text === 'Últimos 2 pacientes registrados')).toBeTrue();
+    const cards = fixture.nativeElement.querySelectorAll('.ollama-recent-patient-card');
+    expect(cards.length).toBe(2);
+    expect(cards[0].textContent).toContain('Paciente #24');
+    expect(cards[0].textContent).toContain('Daniela Alejandra Ramirez Soto');
+    expect(cards[0].textContent).toContain('DNI: 74296831');
+    expect(cards[0].textContent).toContain('Fecha de registro: 14/08/2026');
+    expect(fixture.nativeElement.querySelectorAll('.ollama-patient-card').length).toBe(0);
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe omitir los campos ausentes en pacientes recientes', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'ULTIMOS_PACIENTES', mensaje: 'Resultados.',
+      pacientes: [{ idPaciente: 24, nombreCompleto: undefined,
+        numDocumento: undefined, fechaCreacion: undefined }]
+    }));
+
+    component.userMessage = 'Muéstrame el último paciente'; component.sendMessage();
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.ollama-recent-patient-card');
+    expect(card.textContent).toContain('Paciente #24');
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('Fecha de registro');
+    expect(card.textContent).not.toContain('undefined');
+  });
+
+  it('debe mostrar cards de historias clínicas consultadas sin activar el flujo guiado', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'HISTORIAS_CLINICAS', intencion: 'CONSULTAR_HISTORIAS',
+      mensaje: 'Se encontraron 2 historias clínicas para Rafael Velasquez Morales.',
+      nombre: 'Rafael Velasquez Morales', historias: [
+        { idHistoriaClinica: 3, nombreCompleto: 'Rafael Velasquez Morales',
+          dni: DNI_PRUEBA, cantidadConsultas: 4, fechaCreacion: '2026-08-03',
+          ultimaActualizacion: '2026-09-12' },
+        { idHistoriaClinica: 4, nombreCompleto: 'Rafael Velasquez Morales',
+          dni: DNI_PRUEBA, cantidadConsultas: 0 }
+      ]
+    }));
+
+    component.userMessage = 'Muéstrame las historias clínicas de Rafael'; component.sendMessage();
+    fixture.detectChanges();
+
+    const cards = fixture.nativeElement.querySelectorAll('.ollama-clinical-history-card');
+    expect(cards.length).toBe(2);
+    expect(cards[0].textContent).toContain('Historia Clínica #3');
+    expect(cards[0].textContent).toContain('Consultas: 4');
+    expect(cards[0].textContent).toContain('Última actualización: 12/09/2026');
+    expect(component.messages.some(mensaje =>
+      mensaje.type === 'clinical-history-duplicate-management')).toBeFalse();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar grupos de historias duplicadas sin recomendación ni fusión automática', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'HISTORIAS_CLINICAS', intencion: 'HISTORIAS_DUPLICADAS',
+      mensaje: 'Se encontró un grupo.', gruposHistoriasDuplicadas: {
+        hayDuplicados: true, totalGrupos: 1, duplicados: [{ cantidad: 2,
+          historiasClinicas: [
+            { idHistoriaClinica: 8, nombreCompleto: 'Daniela Ramirez', cantidadConsultas: 2 },
+            { idHistoriaClinica: 9, nombreCompleto: 'Daniela Ramirez', cantidadConsultas: 1 }
+          ] }]
+      }
+    }));
+
+    component.userMessage = '¿Existen historias clínicas duplicadas?'; component.sendMessage();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.ollama-history-duplicate-group').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('.ollama-clinical-history-card').length).toBe(2);
+    expect(fixture.nativeElement.textContent).not.toContain('recomienda conservar');
+    expect(component.messages.some(mensaje =>
+      mensaje.type === 'clinical-history-duplicate-management')).toBeFalse();
+  });
+
+  it('debe mostrar últimas historias en cards compactas y omitir campos ausentes', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'HISTORIAS_CLINICAS', intencion: 'ULTIMAS_HISTORIAS', mensaje: 'Últimas.',
+      historias: [{ idHistoriaClinica: 12, nombreCompleto: 'Rafael Velasquez Morales',
+        dni: undefined, cantidadConsultas: 3, fechaCreacion: '2026-08-31' }]
+    }));
+
+    component.userMessage = 'Muéstrame las últimas historias clínicas'; component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages.some(mensaje =>
+      mensaje.text === 'Últimas 1 historias clínicas registradas')).toBeTrue();
+    const card = fixture.nativeElement.querySelector('.ollama-recent-patient-card');
+    expect(card.textContent).toContain('Historia Clínica #12');
+    expect(card.textContent).toContain('Fecha de creación: 31/08/2026');
+    expect(card.textContent).not.toContain('DNI');
+    expect(card.textContent).not.toContain('undefined');
+  });
+
+  it('debe mostrar como máximo seis pacientes sin historia en cards compactas', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'PACIENTES', intencion: 'PACIENTES_SIN_HISTORIA',
+      mensaje: 'Se encontraron 8 pacientes activos sin historia clínica.',
+      pacientes: Array.from({ length: 6 }, (_, indice) => ({
+        idPaciente: indice + 1, nombreCompleto: `Paciente ${indice + 1}`,
+        numDocumento: indice === 0 ? undefined : `1234567${indice}`
+      }))
+    }));
+
+    component.userMessage = 'Muéstrame pacientes sin historia clínica'; component.sendMessage();
+    fixture.detectChanges();
+
+    const cards = fixture.nativeElement.querySelectorAll('.ollama-recent-patient-card');
+    expect(cards.length).toBe(6);
+    expect(cards[0].textContent).not.toContain('DNI');
+    expect(cards[0].textContent).not.toContain('undefined');
+    expect(component.messages.some(mensaje =>
+      mensaje.type === 'missing-clinical-histories')).toBeFalse();
   });
 
   it('debe mostrar todos los grupos de pacientes duplicados', () => {
