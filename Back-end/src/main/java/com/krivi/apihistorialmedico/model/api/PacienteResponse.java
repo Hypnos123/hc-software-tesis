@@ -3,6 +3,7 @@ package com.krivi.apihistorialmedico.model.api;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 
@@ -23,6 +24,8 @@ public class PacienteResponse {
   private String direccion;
   private String distrito;
   private String traidoPor;
+  private String nombreCompleto;
+  private LocalDateTime fechaCreacion;
 
 
 }

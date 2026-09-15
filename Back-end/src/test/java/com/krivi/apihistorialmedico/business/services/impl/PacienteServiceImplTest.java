@@ -153,7 +153,8 @@ class PacienteServiceImplTest {
     reciente.setFechaCreacion(LocalDateTime.of(2026, 7, 22, 10, 0));
     Paciente anterior = paciente(1, "11111111", "Bruno", "Paz");
     anterior.setFechaCreacion(LocalDateTime.of(2026, 7, 21, 10, 0));
-    when(pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDesc(EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(reciente, anterior));
+    when(pacienteRepository.findTop10ByEstadoRegistroOrderByFechaCreacionDescIdPacienteDesc(
+        EstadoRegistroPaciente.ACTIVO)).thenReturn(List.of(reciente, anterior));
 
     UltimosPacientesResponse response = pacienteService.obtenerUltimosParaIntegracion(1);
 

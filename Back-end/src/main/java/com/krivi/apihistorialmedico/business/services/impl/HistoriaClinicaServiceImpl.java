@@ -27,6 +27,8 @@ import java.util.regex.Pattern;
 public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   private static final ZoneId ZONA_HORARIA_LIMA = ZoneId.of("America/Lima");
   private static final int LIMITE_BUSQUEDA_INTEGRACION = 10;
+  private static final int LIMITE_RECIENTES_POR_DEFECTO = 3;
+  private static final int LIMITE_RECIENTES_MAXIMO = 6;
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
   private static final Pattern ID_PATTERN = Pattern.compile("[1-9]\\d{0,6}");
   private static final Pattern SOLO_DIGITOS_PATTERN = Pattern.compile("\\d+");
@@ -79,6 +81,7 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
     return PacienteSinHistoriaClinicaResponse.builder()
         .idPaciente(paciente.getIdPaciente())
         .nombreCompleto(nombreCompletoSeguro(paciente))
+        .dni(paciente.getNumDocumento())
         .dniEnmascarado(enmascararDni(paciente.getNumDocumento()))
         .build();
   }
@@ -325,9 +328,15 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
   @Override
   public BusquedaHistoriasClinicasResponse buscarParaIntegracion(String criterio) {
     List<HistoriaClinica> historias = buscarHistorias(validarCriterioBusqueda(criterio));
-    List<HistoriaClinicaIntegracionItemResponse> resultados = historias.stream()
-        .collect(java.util.stream.Collectors.toMap(HistoriaClinica::getIdHistoriaClinica, this::toIntegracionResponse, (primera, segunda) -> primera, LinkedHashMap::new))
+    List<HistoriaClinica> historiasUnicas = historias.stream()
+        .collect(java.util.stream.Collectors.toMap(HistoriaClinica::getIdHistoriaClinica,
+            historia -> historia, (primera, segunda) -> primera, LinkedHashMap::new))
         .values().stream().limit(LIMITE_BUSQUEDA_INTEGRACION).toList();
+    Map<Integer, ResumenConsultasHistoria> resumenes = resumenesConsultas(historiasUnicas);
+    List<HistoriaClinicaIntegracionItemResponse> resultados = historiasUnicas.stream()
+        .map(historia -> toIntegracionResponse(historia, resumenes.getOrDefault(
+            historia.getIdHistoriaClinica(), ResumenConsultasHistoria.VACIO)))
+        .toList();
 
     if (resultados.isEmpty()) {
       return BusquedaHistoriasClinicasResponse.builder().encontrado(false).tipoResultado("sin_resultados")
@@ -366,6 +375,47 @@ public class HistoriaClinicaServiceImpl implements HistoriaClinicaService {
       historias = historiaClinicaRepository.findForIntegracionByDni(dniNormalizado);
     }
 
+    return agruparDuplicados(historias, dniNormalizado);
+  }
+
+  @Override
+  public DuplicadosHistoriasClinicasResponse obtenerDuplicadosPorNombreParaIntegracion(
+      String nombre
+  ) {
+    List<HistoriaClinica> historias = buscarHistorias(validarCriterioBusqueda(nombre));
+    return agruparDuplicados(historias, null);
+  }
+
+  @Override
+  public BusquedaHistoriasClinicasResponse obtenerUltimasParaIntegracion(Integer limite) {
+    int limiteNormalizado = limite == null || limite < LIMITE_RECIENTES_POR_DEFECTO
+        ? LIMITE_RECIENTES_POR_DEFECTO
+        : Math.min(limite, LIMITE_RECIENTES_MAXIMO);
+    List<HistoriaClinica> historias = historiaClinicaRepository
+        .findTop6ByPacienteEstadoRegistroOrderByFechaCreacionDescIdHistoriaClinicaDesc(
+            EstadoRegistroPaciente.ACTIVO)
+        .stream()
+        .limit(limiteNormalizado)
+        .toList();
+    Map<Integer, ResumenConsultasHistoria> resumenes = resumenesConsultas(historias);
+    List<HistoriaClinicaIntegracionItemResponse> items = historias.stream()
+        .map(historia -> toIntegracionResponse(
+            historia,
+            resumenes.getOrDefault(
+                historia.getIdHistoriaClinica(), ResumenConsultasHistoria.VACIO)
+        ))
+        .toList();
+    return BusquedaHistoriasClinicasResponse.builder()
+        .encontrado(!items.isEmpty())
+        .tipoResultado(items.isEmpty() ? "sin_resultados" : "multiple")
+        .historiasClinicas(items)
+        .build();
+  }
+
+  private DuplicadosHistoriasClinicasResponse agruparDuplicados(
+      List<HistoriaClinica> historias,
+      String dniNormalizado
+  ) {
     Map<String, List<HistoriaClinica>> candidatos = new LinkedHashMap<>();
     historias.forEach(historia -> {
       String historiaDni = normalizarDni(historia.getPaciente().getNumDocumento());
