@@ -24,6 +24,44 @@
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
       <div #conversationBlock *ngIf="message.type === 'ollama-result' && message.ollamaResult as result" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message ollama-result-block">
+        <div *ngIf="result.historias?.length" class="ollama-card-list"
+          [class.ollama-recent-list]="result.intencion === 'ULTIMAS_HISTORIAS'">
+          <article *ngFor="let historia of result.historias"
+            [class]="result.intencion === 'ULTIMAS_HISTORIAS' ? 'ollama-recent-patient-card' : 'ollama-clinical-history-card'">
+            <strong *ngIf="tieneValorOllama(historia.idHistoriaClinica)">Historia Clínica #{{ historia.idHistoriaClinica }}</strong>
+            <span *ngIf="result.intencion === 'ULTIMAS_HISTORIAS' && tieneValorOllama(historia.nombreCompleto)">{{ historia.nombreCompleto }}</span>
+            <span *ngIf="result.intencion !== 'ULTIMAS_HISTORIAS' && tieneValorOllama(historia.nombreCompleto)">Paciente: {{ historia.nombreCompleto }}</span>
+            <small *ngIf="tieneValorOllama(historia.dni)">DNI: {{ historia.dni }}</small>
+            <small *ngIf="tieneValorOllama(historia.cantidadConsultas)">Consultas: {{ historia.cantidadConsultas }}</small>
+            <small *ngIf="tieneValorOllama(historia.fechaCreacion)">Fecha de creación: {{ fechaOllama(historia.fechaCreacion) }}</small>
+            <small *ngIf="result.intencion !== 'ULTIMAS_HISTORIAS' && tieneValorOllama(historia.ultimaActualizacion)">Última actualización: {{ fechaOllama(historia.ultimaActualizacion) }}</small>
+          </article>
+        </div>
+
+        <section *ngFor="let grupo of result.gruposHistoriasDuplicadas?.duplicados; let indice = index"
+          class="ollama-duplicate-group ollama-history-duplicate-group">
+          <strong>Grupo {{ indice + 1 }} · {{ grupo.cantidad ?? grupo.historiasClinicas?.length ?? 0 }} historias</strong>
+          <div class="ollama-card-list">
+            <article *ngFor="let historia of grupo.historiasClinicas" class="ollama-clinical-history-card">
+              <strong *ngIf="tieneValorOllama(historia.idHistoriaClinica)">Historia Clínica #{{ historia.idHistoriaClinica }}</strong>
+              <span *ngIf="tieneValorOllama(historia.nombreCompleto)">Paciente: {{ historia.nombreCompleto }}</span>
+              <small *ngIf="tieneValorOllama(historia.dni)">DNI: {{ historia.dni }}</small>
+              <small *ngIf="tieneValorOllama(historia.cantidadConsultas)">Consultas: {{ historia.cantidadConsultas }}</small>
+              <small *ngIf="tieneValorOllama(historia.fechaCreacion)">Fecha de creación: {{ fechaOllama(historia.fechaCreacion) }}</small>
+              <small *ngIf="tieneValorOllama(historia.ultimaActualizacion)">Última actualización: {{ fechaOllama(historia.ultimaActualizacion) }}</small>
+            </article>
+          </div>
+        </section>
+
+        <div *ngIf="result.intencion === 'PACIENTES_SIN_HISTORIA' && result.pacientes?.length"
+          class="ollama-card-list ollama-recent-list">
+          <article *ngFor="let paciente of result.pacientes" class="ollama-recent-patient-card">
+            <strong *ngIf="tieneValorOllama(paciente.idPaciente)">Paciente #{{ paciente.idPaciente }}</strong>
+            <span *ngIf="nombreCompletoOllama(paciente)">{{ nombreCompletoOllama(paciente) }}</span>
+            <small *ngIf="tieneValorOllama(paciente.numDocumento)">DNI: {{ paciente.numDocumento }}</small>
+          </article>
+        </div>
+
         <div *ngIf="result.intencion === 'ULTIMOS_PACIENTES' && result.pacientes?.length"
           class="ollama-card-list ollama-recent-list">
           <article *ngFor="let paciente of result.pacientes" class="ollama-recent-patient-card">
@@ -34,7 +72,7 @@
           </article>
         </div>
 
-        <div *ngIf="result.intencion !== 'ULTIMOS_PACIENTES' && result.pacientes?.length" class="ollama-card-list">
+        <div *ngIf="!['ULTIMOS_PACIENTES', 'PACIENTES_SIN_HISTORIA'].includes(result.intencion) && result.pacientes?.length" class="ollama-card-list">
           <article *ngFor="let paciente of result.pacientes" class="ollama-patient-card">
             <strong *ngIf="nombreCompletoOllama(paciente)">{{ nombreCompletoOllama(paciente) }}</strong>
             <dl>

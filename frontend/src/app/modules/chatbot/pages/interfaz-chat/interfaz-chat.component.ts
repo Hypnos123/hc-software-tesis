@@ -1007,8 +1007,7 @@ export class InterfazChatComponent implements OnDestroy {
   private askOllamaWithFallback(pregunta: string, scrollAfterResponse: boolean): void {
     const request = this.ollamaEjecucionService.ejecutar(pregunta).pipe(
       catchError(() => of(null)),
-      switchMap(response => response?.categoria === 'PACIENTES'
-          && ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS', 'ULTIMOS_PACIENTES'].includes(response.intencion)
+      switchMap(response => this.esRespuestaOllamaSoportada(response)
         ? of({
             intencion: response.intencion,
             respuesta: response.mensaje,
@@ -1072,15 +1071,27 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private getOllamaResult(response: IAsistenteResponse): IOllamaEjecucionResponse | undefined {
     const data = response.datos as unknown as IOllamaEjecucionResponse | undefined;
-    return data?.categoria === 'PACIENTES' && data.intencion === response.intencion ? data : undefined;
+    return data && ['PACIENTES', 'HISTORIAS_CLINICAS'].includes(data.categoria)
+        && data.intencion === response.intencion ? data : undefined;
   }
   private hasOllamaResultCards(response: IOllamaEjecucionResponse): boolean {
     return !!response.pacientes?.length
+      || !!response.historias?.length
+      || !!response.gruposHistoriasDuplicadas?.duplicados?.length
       || !!response.gruposDuplicados?.duplicados?.length
       || !!response.comparacionDuplicados?.pacientes?.length;
   }
   private getOllamaResultSummary(response?: IOllamaEjecucionResponse): string | undefined {
     if (!response) return undefined;
+    if (response.intencion === 'ULTIMAS_HISTORIAS' && response.historias?.length) {
+      return `Últimas ${response.historias.length} historias clínicas registradas`;
+    }
+    if (response.intencion === 'CONSULTAR_HISTORIAS' && response.historias?.length) {
+      const referencia = response.nombre || (response.dni ? `el paciente con DNI ${response.dni}` : 'el paciente');
+      return `Se encontraron ${response.historias.length} historias clínicas para ${referencia}.`;
+    }
+    if (response.intencion === 'PACIENTES_SIN_HISTORIA') return response.mensaje;
+    if (response.intencion === 'HISTORIAS_DUPLICADAS') return response.mensaje;
     if (response.intencion === 'ULTIMOS_PACIENTES' && response.pacientes?.length) {
       return `Últimos ${response.pacientes.length} pacientes registrados`;
     }
@@ -1116,6 +1127,16 @@ export class InterfazChatComponent implements OnDestroy {
   }
   fechaOllama(value?: string): string {
     return value ? this.formatDate(value) : '';
+  }
+  private esRespuestaOllamaSoportada(
+      response: IOllamaEjecucionResponse | null
+  ): response is IOllamaEjecucionResponse {
+    if (!response) return false;
+    const pacientes = ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS',
+      'ULTIMOS_PACIENTES', 'PACIENTES_SIN_HISTORIA'];
+    const historias = ['CONSULTAR_HISTORIAS', 'HISTORIAS_DUPLICADAS', 'ULTIMAS_HISTORIAS'];
+    return response.categoria === 'PACIENTES' && pacientes.includes(response.intencion)
+      || response.categoria === 'HISTORIAS_CLINICAS' && historias.includes(response.intencion);
   }
   private esResultadoDuplicadoExtenso(response: IAsistenteResponse): boolean {
     if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES' || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') return true;

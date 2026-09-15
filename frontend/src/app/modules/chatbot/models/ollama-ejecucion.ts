@@ -12,6 +12,33 @@ export interface IOllamaEjecucionResponse {
   pacientes?: IOllamaPaciente[];
   gruposDuplicados?: IOllamaGruposDuplicados;
   comparacionDuplicados?: IOllamaComparacionDuplicados;
+  historias?: IOllamaHistoriaClinica[];
+  gruposHistoriasDuplicadas?: IOllamaHistoriasDuplicadas;
+}
+
+export interface IOllamaHistoriaClinica {
+  idHistoriaClinica?: number;
+  idPaciente?: number;
+  dni?: string;
+  nombreCompleto?: string;
+  fechaCreacion?: string;
+  ultimaActualizacion?: string;
+  cantidadConsultas?: number;
+}
+
+export interface IOllamaGrupoHistoriasDuplicadas {
+  tipo?: string;
+  valorCoincidente?: string;
+  cantidad?: number;
+  historiasClinicas?: IOllamaHistoriaClinica[];
+}
+
+export interface IOllamaHistoriasDuplicadas {
+  hayDuplicados: boolean;
+  totalGrupos: number;
+  duplicados?: IOllamaGrupoHistoriasDuplicadas[];
+  dniConsultado?: string;
+  mensaje?: string;
 }
 
 export interface IOllamaPaciente {

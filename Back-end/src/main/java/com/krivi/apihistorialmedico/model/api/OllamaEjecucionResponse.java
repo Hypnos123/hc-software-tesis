@@ -13,6 +13,8 @@ public record OllamaEjecucionResponse(
     List<PacienteResponse> pacientes,
     DuplicadosPacientesResponse gruposDuplicados,
     PacienteDuplicadoComparacionResponse comparacionDuplicados,
+    List<HistoriaClinicaIntegracionItemResponse> historias,
+    DuplicadosHistoriasClinicasResponse gruposHistoriasDuplicadas,
     String mensaje
 ) {
   public OllamaEjecucionResponse(
@@ -22,7 +24,7 @@ public record OllamaEjecucionResponse(
       String dni,
       String mensaje
   ) {
-    this(categoria, intencion, encontrado, dni, null, null, null, null, mensaje);
+    this(categoria, intencion, encontrado, dni, null, null, null, null, null, null, mensaje);
   }
 
   public OllamaEjecucionResponse(
@@ -34,6 +36,7 @@ public record OllamaEjecucionResponse(
       List<PacienteResponse> pacientes,
       String mensaje
   ) {
-    this(categoria, intencion, encontrado, dni, nombre, pacientes, null, null, mensaje);
+    this(categoria, intencion, encontrado, dni, nombre, pacientes, null, null, null, null,
+        mensaje);
   }
 }

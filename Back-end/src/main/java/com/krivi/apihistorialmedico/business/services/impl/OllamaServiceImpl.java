@@ -36,6 +36,7 @@ PACIENTES
 HISTORIAS_CLINICAS
 - CONSULTAR_HISTORIAS: cuando se desean ver o consultar las historias clínicas de un paciente.
 - HISTORIAS_DUPLICADAS: cuando se consultan historias clínicas repetidas o duplicadas.
+- ULTIMAS_HISTORIAS: cuando se desean consultar las historias clínicas registradas más recientemente.
 - CREAR_HISTORIA: cuando se desea crear una historia clínica.
 - FUSIONAR_HISTORIAS: cuando se desea fusionar historias clínicas duplicadas.
 
@@ -82,8 +83,8 @@ usa exactamente:
 
 10. Si no proporciona dni o nombre, utiliza null.
 
-11. El campo limite solo se utiliza para ULTIMOS_PACIENTES. Para las demás intenciones,
-utiliza null.
+11. El campo limite solo se utiliza para ULTIMOS_PACIENTES o ULTIMAS_HISTORIAS.
+Para las demás intenciones, utiliza null.
 
 Devuelve exclusivamente este formato:
 
@@ -197,6 +198,49 @@ Ejemplos diferenciadores:
 - "¿Existe Rafael Velasquez Morales?" -> VERIFICAR_EXISTENCIA
 - "¿Existen pacientes duplicados?" -> PACIENTES_DUPLICADOS
 - "Muéstrame los últimos pacientes registrados" -> ULTIMOS_PACIENTES
+
+HISTORIAS CLÍNICAS - REGLAS DE CONSULTA
+
+- Usa CONSULTAR_HISTORIAS cuando el usuario pida las historias clínicas asociadas
+  a un paciente. Extrae su DNI o nombre completo. No lo clasifiques como BUSCAR_PACIENTE.
+- Usa HISTORIAS_DUPLICADAS cuando pregunte por historias clínicas o HC duplicadas.
+  La consulta puede ser general, con dni = null y nombre = null, o específica por DNI o nombre.
+- Usa PACIENTES_SIN_HISTORIA cuando solicite pacientes activos que todavía no tienen
+  historia clínica. Esta intención pertenece a la categoría PACIENTES.
+- Estas consultas son únicamente informativas. No uses CREAR_HISTORIA ni
+  FUSIONAR_HISTORIAS salvo que el usuario solicite explícitamente esas acciones.
+
+HISTORIAS CLÍNICAS - ULTIMAS_HISTORIAS
+
+Usa ULTIMAS_HISTORIAS cuando el usuario quiera consultar las historias clínicas
+registradas más recientemente.
+
+Ejemplos:
+- "Muéstrame las últimas historias clínicas registradas"
+- "¿Cuáles son las historias clínicas más recientes?"
+- "Quiero ver las últimas 5 historias clínicas"
+- "Dame las 4 HC más recientes"
+
+Devuelve:
+categoria = HISTORIAS_CLINICAS
+intencion = ULTIMAS_HISTORIAS
+dni = null
+nombre = null
+limite = cantidad solicitada
+
+Si no se indica cantidad, limite = 3.
+El mínimo es 3 y el máximo es 6.
+Si se solicita 1 o 2, limite = 3.
+Si se solicita 7 o más, limite = 6.
+
+Ejemplos diferenciadores obligatorios:
+- "Busca a Rafael" -> PACIENTES / BUSCAR_PACIENTE
+- "Muéstrame las historias clínicas de Rafael" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS
+- "¿Existen pacientes duplicados?" -> PACIENTES / PACIENTES_DUPLICADOS
+- "¿Existen historias clínicas duplicadas?" -> HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS
+- "Muéstrame los últimos pacientes" -> PACIENTES / ULTIMOS_PACIENTES
+- "Muéstrame las últimas historias clínicas" -> HISTORIAS_CLINICAS / ULTIMAS_HISTORIAS
+- "Muéstrame pacientes sin historia clínica" -> PACIENTES / PACIENTES_SIN_HISTORIA
 """;
 
   private final RestClient restClient;

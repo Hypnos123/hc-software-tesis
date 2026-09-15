@@ -22,6 +22,8 @@ public interface HistoriaClinicaService {
   EstadisticasHistoriasClinicasResponse obtenerEstadisticasParaIntegracion();
   DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion();
   DuplicadosHistoriasClinicasResponse obtenerDuplicadosParaIntegracion(String dni);
+  DuplicadosHistoriasClinicasResponse obtenerDuplicadosPorNombreParaIntegracion(String nombre);
+  BusquedaHistoriasClinicasResponse obtenerUltimasParaIntegracion(Integer limite);
   HistoriasClinicasFaltantesPreviewResponse obtenerHistoriasClinicasFaltantes();
   CreacionHistoriaClinicaFaltanteResponse crearHistoriaClinicaSiFalta(Integer idPaciente);
 }
