@@ -14,6 +14,22 @@ export interface IOllamaEjecucionResponse {
   comparacionDuplicados?: IOllamaComparacionDuplicados;
   historias?: IOllamaHistoriaClinica[];
   gruposHistoriasDuplicadas?: IOllamaHistoriasDuplicadas;
+  consultas?: IOllamaConsulta[];
+  totalConsultas?: number;
+}
+
+export interface IOllamaConsulta {
+  idConsulta?: number;
+  idPaciente?: number;
+  idHistoriaClinica?: number;
+  dni?: string;
+  nombreCompleto?: string;
+  idEmpleado?: number;
+  nombreMedico?: string;
+  especialidad?: string;
+  fechaCreacion?: string;
+  fechaAtencion?: string;
+  estado?: string;
 }
 
 export interface IOllamaHistoriaClinica {

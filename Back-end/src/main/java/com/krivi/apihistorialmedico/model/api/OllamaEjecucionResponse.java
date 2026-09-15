@@ -15,6 +15,8 @@ public record OllamaEjecucionResponse(
     PacienteDuplicadoComparacionResponse comparacionDuplicados,
     List<HistoriaClinicaIntegracionItemResponse> historias,
     DuplicadosHistoriasClinicasResponse gruposHistoriasDuplicadas,
+    List<ConsultaMedicaAdministrativaResponse> consultas,
+    Long totalConsultas,
     String mensaje
 ) {
   public OllamaEjecucionResponse(
@@ -22,9 +24,27 @@ public record OllamaEjecucionResponse(
       String intencion,
       Boolean encontrado,
       String dni,
+      String nombre,
+      List<PacienteResponse> pacientes,
+      DuplicadosPacientesResponse gruposDuplicados,
+      PacienteDuplicadoComparacionResponse comparacionDuplicados,
+      List<HistoriaClinicaIntegracionItemResponse> historias,
+      DuplicadosHistoriasClinicasResponse gruposHistoriasDuplicadas,
       String mensaje
   ) {
-    this(categoria, intencion, encontrado, dni, null, null, null, null, null, null, mensaje);
+    this(categoria, intencion, encontrado, dni, nombre, pacientes, gruposDuplicados,
+        comparacionDuplicados, historias, gruposHistoriasDuplicadas, null, null, mensaje);
+  }
+
+  public OllamaEjecucionResponse(
+      String categoria,
+      String intencion,
+      Boolean encontrado,
+      String dni,
+      String mensaje
+  ) {
+    this(categoria, intencion, encontrado, dni, null, null, null, null, null, null, null, null,
+        mensaje);
   }
 
   public OllamaEjecucionResponse(
@@ -36,7 +56,7 @@ public record OllamaEjecucionResponse(
       List<PacienteResponse> pacientes,
       String mensaje
   ) {
-    this(categoria, intencion, encontrado, dni, nombre, pacientes, null, null, null, null,
-        mensaje);
+    this(categoria, intencion, encontrado, dni, nombre, pacientes, null, null, null, null, null,
+        null, mensaje);
   }
 }

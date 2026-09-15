@@ -6,6 +6,7 @@ import com.krivi.apihistorialmedico.business.services.OllamaService;
 import com.krivi.apihistorialmedico.business.services.HistoriaClinicaService;
 import com.krivi.apihistorialmedico.business.services.PacienteDuplicadoService;
 import com.krivi.apihistorialmedico.business.services.PacienteService;
+import com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService;
 import com.krivi.apihistorialmedico.model.api.DuplicadosPacientesResponse;
 import com.krivi.apihistorialmedico.model.api.BusquedaHistoriasClinicasResponse;
 import com.krivi.apihistorialmedico.model.api.DuplicadosHistoriasClinicasResponse;
@@ -24,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private static final String CATEGORIA_PACIENTES = "PACIENTES";
   private static final String CATEGORIA_HISTORIAS = "HISTORIAS_CLINICAS";
+  private static final String CATEGORIA_CONSULTAS = "CONSULTAS";
   private static final String INTENCION_VERIFICAR_EXISTENCIA = "VERIFICAR_EXISTENCIA";
   private static final String INTENCION_BUSCAR_PACIENTE = "BUSCAR_PACIENTE";
   private static final String INTENCION_PACIENTES_DUPLICADOS = "PACIENTES_DUPLICADOS";
@@ -39,6 +43,13 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private static final String INTENCION_HISTORIAS_DUPLICADAS = "HISTORIAS_DUPLICADAS";
   private static final String INTENCION_ULTIMAS_HISTORIAS = "ULTIMAS_HISTORIAS";
   private static final String INTENCION_PACIENTES_SIN_HISTORIA = "PACIENTES_SIN_HISTORIA";
+  private static final String INTENCION_CONSULTAR_CONSULTAS = "CONSULTAR_CONSULTAS";
+  private static final String INTENCION_ULTIMA_CONSULTA = "ULTIMA_CONSULTA";
+  private static final String INTENCION_CONSULTAS_PENDIENTES = "CONSULTAS_PENDIENTES";
+  private static final String INTENCION_CONSULTAS_ATENDIDAS = "CONSULTAS_ATENDIDAS";
+  private static final String INTENCION_CONSULTAS_POR_FECHA = "CONSULTAS_POR_FECHA";
+  private static final String INTENCION_RESUMEN_CONSULTAS = "RESUMEN_CONSULTAS";
+  private static final int LIMITE_CARDS_CONSULTAS = 6;
   private static final int LIMITE_ULTIMOS_POR_DEFECTO = 3;
   private static final int LIMITE_ULTIMOS_MAXIMO = 6;
   private static final Pattern DNI_PATTERN = Pattern.compile("\\d{8}");
@@ -47,17 +58,20 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
   private final PacienteService pacienteService;
   private final PacienteDuplicadoService pacienteDuplicadoService;
   private final HistoriaClinicaService historiaClinicaService;
+  private final ConsultaMedicaIntegracionService consultaMedicaService;
 
   public OllamaEjecucionServiceImpl(
       OllamaService ollamaService,
       PacienteService pacienteService,
       PacienteDuplicadoService pacienteDuplicadoService,
-      HistoriaClinicaService historiaClinicaService
+      HistoriaClinicaService historiaClinicaService,
+      ConsultaMedicaIntegracionService consultaMedicaService
   ) {
     this.ollamaService = ollamaService;
     this.pacienteService = pacienteService;
     this.pacienteDuplicadoService = pacienteDuplicadoService;
     this.historiaClinicaService = historiaClinicaService;
+    this.consultaMedicaService = consultaMedicaService;
   }
 
   @Override
@@ -89,6 +103,22 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     if (esIntencion(interpretacion, CATEGORIA_PACIENTES, INTENCION_PACIENTES_SIN_HISTORIA)) {
       return consultarPacientesSinHistoria();
     }
+    if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAR_CONSULTAS)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_ULTIMA_CONSULTA)) {
+      return consultarConsultasPaciente(interpretacion);
+    }
+    if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_PENDIENTES)) {
+      return consultarPorEstado(interpretacion.intencion(), "PENDIENTE");
+    }
+    if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_ATENDIDAS)) {
+      return consultarPorEstado(interpretacion.intencion(), "ATENDIDO");
+    }
+    if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_POR_FECHA)) {
+      return consultarPorFecha(interpretacion);
+    }
+    if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_RESUMEN_CONSULTAS)) {
+      return enrutarResumenConsultas(interpretacion);
+    }
     return new OllamaEjecucionResponse(
         interpretacion.categoria(),
         interpretacion.intencion(),
@@ -113,7 +143,10 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
     if (esBusquedaDePaciente(interpretacion) || esVerificacionDePaciente(interpretacion)
         || esIntencion(interpretacion, CATEGORIA_HISTORIAS, INTENCION_CONSULTAR_HISTORIAS)
-        || esIntencion(interpretacion, CATEGORIA_HISTORIAS, INTENCION_HISTORIAS_DUPLICADAS)) {
+        || esIntencion(interpretacion, CATEGORIA_HISTORIAS, INTENCION_HISTORIAS_DUPLICADAS)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAR_CONSULTAS)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_ULTIMA_CONSULTA)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_RESUMEN_CONSULTAS)) {
       String dni = normalizar(interpretacion.dni());
       String nombre = normalizar(interpretacion.nombre());
       if (dni != null && !dni.chars().allMatch(Character::isDigit) && nombre == null) {
@@ -130,6 +163,82 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
       }
     }
     return interpretacion;
+  }
+
+  private OllamaEjecucionResponse consultarConsultasPaciente(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    List<PacienteResponse> pacientes = resolverPacientes(interpretacion);
+    if (pacientes.isEmpty()) return respuestaConsultas(interpretacion.intencion(), false,
+        interpretacion.dni(), interpretacion.nombre(), List.of(), 0,
+        "No se encontró ningún paciente activo con ese criterio.", List.of());
+    if (pacientes.size() > 1) return respuestaConsultas(interpretacion.intencion(), true,
+        interpretacion.dni(), interpretacion.nombre(), List.of(), 0,
+        "Se encontraron varios pacientes. Selecciona uno de los candidatos.", pacientes);
+    var listado = INTENCION_ULTIMA_CONSULTA.equals(interpretacion.intencion())
+        ? consultaMedicaService.obtenerUltimaPorPaciente(pacientes.getFirst().getIdPaciente())
+        : consultaMedicaService.obtenerPorPaciente(pacientes.getFirst().getIdPaciente());
+    if (listado.getCantidad() == 0) return respuestaConsultas(interpretacion.intencion(), false,
+        interpretacion.dni(), interpretacion.nombre(), List.of(), 0,
+        "El paciente se encuentra registrado, pero todavía no tiene consultas.", List.of());
+    return respuestaConsultas(interpretacion.intencion(), true, interpretacion.dni(),
+        interpretacion.nombre(), listado.getConsultas(), listado.getCantidad(),
+        INTENCION_ULTIMA_CONSULTA.equals(interpretacion.intencion())
+            ? "Esta es la consulta más reciente del paciente."
+            : "Se encontraron " + listado.getCantidad() + " consultas para el paciente.", List.of());
+  }
+
+  private OllamaEjecucionResponse consultarPorEstado(String intencion, String estado) {
+    var listado = consultaMedicaService.obtenerPorEstado(estado);
+    return respuestaConsultas(intencion, listado.getCantidad() > 0, null, null,
+        listado.getConsultas(), listado.getCantidad(), "Se encontraron " + listado.getCantidad()
+            + " consultas " + ("PENDIENTE".equals(estado) ? "pendientes." : "atendidas."), List.of());
+  }
+
+  private OllamaEjecucionResponse consultarPorFecha(OllamaInterpretacionResponse interpretacion) {
+    try {
+      LocalDate inicio = LocalDate.parse(interpretacion.fechaInicio());
+      LocalDate fin = LocalDate.parse(interpretacion.fechaFin() == null
+          ? interpretacion.fechaInicio() : interpretacion.fechaFin());
+      var listado = consultaMedicaService.obtenerPorFecha(inicio, fin);
+      return respuestaConsultas(interpretacion.intencion(), listado.getCantidad() > 0, null, null,
+          listado.getConsultas(), listado.getCantidad(), "Se encontraron " + listado.getCantidad()
+              + " consultas en el periodo indicado.", List.of());
+    } catch (DateTimeParseException | NullPointerException exception) {
+      return respuestaConsultas(interpretacion.intencion(), null, null, null, List.of(), 0,
+          "Indica una fecha válida en formato día/mes/año.", List.of());
+    }
+  }
+
+  private OllamaEjecucionResponse enrutarResumenConsultas(
+      OllamaInterpretacionResponse interpretacion
+  ) {
+    List<PacienteResponse> pacientes = resolverPacientes(interpretacion);
+    String mensaje = pacientes.isEmpty()
+        ? "No se encontró ningún paciente activo con ese criterio."
+        : pacientes.size() == 1
+            ? "Paciente validado. Puedes continuar con el resumen de consultas."
+            : "Se encontraron varios pacientes. Selecciona uno para continuar con el resumen.";
+    return respuestaConsultas(interpretacion.intencion(), !pacientes.isEmpty(),
+        interpretacion.dni(), interpretacion.nombre(), List.of(), 0, mensaje, pacientes);
+  }
+
+  private List<PacienteResponse> resolverPacientes(OllamaInterpretacionResponse interpretacion) {
+    String dni = normalizar(interpretacion.dni());
+    String nombre = normalizar(interpretacion.nombre());
+    if (dni == null && nombre == null) return List.of();
+    if (dni != null && !DNI_PATTERN.matcher(dni).matches()) return List.of();
+    return filtrarPacientesPorNombre(datos(pacienteService.search(nombre, dni, 25)), nombre);
+  }
+
+  private OllamaEjecucionResponse respuestaConsultas(String intencion, Boolean encontrado,
+      String dni, String nombre,
+      List<com.krivi.apihistorialmedico.model.api.ConsultaMedicaAdministrativaResponse> consultas,
+      long total, String mensaje, List<PacienteResponse> pacientes) {
+    List<com.krivi.apihistorialmedico.model.api.ConsultaMedicaAdministrativaResponse> cards =
+        consultas == null ? List.of() : consultas.stream().limit(LIMITE_CARDS_CONSULTAS).toList();
+    return new OllamaEjecucionResponse(CATEGORIA_CONSULTAS, intencion, encontrado, dni, nombre,
+        pacientes, null, null, null, null, cards, total, mensaje);
   }
 
   private OllamaEjecucionResponse verificarExistencia(
