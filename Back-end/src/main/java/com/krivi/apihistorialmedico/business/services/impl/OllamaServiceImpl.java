@@ -86,6 +86,24 @@ usa exactamente:
 11. El campo limite solo se utiliza para ULTIMOS_PACIENTES o ULTIMAS_HISTORIAS.
 Para las demás intenciones, utiliza null.
 
+REGLA PRIORITARIA SOBRE PACIENTES E HISTORIAS CLÍNICAS:
+
+- Si pregunta si un paciente tiene, posee, cuenta con, muestra o desea consultar una
+  historia clínica o historias clínicas, usa HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS.
+- Si pregunta por historias clínicas repetidas o duplicadas, usa
+  HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS.
+- Si pregunta si el paciente está registrado o existe, sin preguntar por historias
+  clínicas, usa PACIENTES / VERIFICAR_EXISTENCIA.
+- Si pregunta por pacientes duplicados, usa PACIENTES / PACIENTES_DUPLICADOS.
+- Si pregunta por pacientes que no tienen historia clínica, usa
+  PACIENTES / PACIENTES_SIN_HISTORIA.
+
+Ejemplos prioritarios:
+- "¿El DNI 72845292 está registrado?" -> PACIENTES / VERIFICAR_EXISTENCIA
+- "¿El DNI 72845292 tiene historia clínica?" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS
+- "¿El DNI 72845292 está duplicado?" -> PACIENTES / PACIENTES_DUPLICADOS
+- "¿El DNI 72845292 tiene historias clínicas duplicadas?" -> HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS
+
 Devuelve exclusivamente este formato:
 
 {

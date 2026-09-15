@@ -1875,6 +1875,33 @@ describe('InterfazChatComponent', () => {
     expect(component.messages.some(mensaje => mensaje.text === 'Paciente encontrado')).toBeTrue();
   });
 
+  it('debe enviar a Ollama una consulta informativa sobre existencia de historia clínica', () => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'HISTORIAS_CLINICAS', intencion: 'CONSULTAR_HISTORIAS',
+      mensaje: 'El paciente se encuentra registrado, pero no tiene historias clínicas asociadas.',
+      historias: []
+    }));
+
+    component.userMessage = '¿existe una historia clínica para el DNI 74125638?';
+    component.sendMessage();
+
+    expect(ollamaEjecucionService.ejecutar).toHaveBeenCalledOnceWith(
+      '¿existe una historia clínica para el DNI 74125638?');
+    expect(component.clinicalHistoryFlow.step).toBe('idle');
+    expect(historiaClinicaService.buscarPacientesPorDni).not.toHaveBeenCalled();
+    expect(asistenteService.preguntar).not.toHaveBeenCalled();
+  });
+
+  it('debe conservar el flujo guiado para una solicitud explícita de crear historia clínica', () => {
+    component.userMessage = 'quiero crear una historia clínica';
+    component.sendMessage();
+
+    expect(component.clinicalHistoryFlow.step).toBe('awaitingDni');
+    expect(component.messages.some(mensaje => mensaje.text?.includes(
+      'Ingresa el DNI del paciente para crear su historia clínica'))).toBeTrue();
+    expect(ollamaEjecucionService.ejecutar).not.toHaveBeenCalled();
+  });
+
   it('debe mostrar los datos de un paciente encontrado por BUSCAR_PACIENTE', () => {
     ollamaEjecucionService.ejecutar.and.returnValue(of({
       categoria: 'PACIENTES', intencion: 'BUSCAR_PACIENTE', mensaje: 'Resultado.',

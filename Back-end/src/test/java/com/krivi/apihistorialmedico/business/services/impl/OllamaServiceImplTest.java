@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
 class OllamaServiceImplTest {
@@ -76,5 +77,17 @@ class OllamaServiceImplTest {
     assertThatThrownBy(() -> service.interpretar("mensaje"))
         .isInstanceOf(OllamaException.class)
         .hasMessage("Ollama devolvió una interpretación con formato inválido.");
+  }
+
+  @Test
+  void promptPriorizaHistoriasClinicasSobreVerificacionDePaciente() {
+    String prompt = (String) ReflectionTestUtils.getField(OllamaServiceImpl.class,
+        "SYSTEM_PROMPT");
+
+    assertThat(prompt)
+        .contains("¿El DNI 72845292 está registrado?\" -> PACIENTES / VERIFICAR_EXISTENCIA")
+        .contains("¿El DNI 72845292 tiene historia clínica?\" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS")
+        .contains("¿El DNI 72845292 está duplicado?\" -> PACIENTES / PACIENTES_DUPLICADOS")
+        .contains("¿El DNI 72845292 tiene historias clínicas duplicadas?\" -> HISTORIAS_CLINICAS / HISTORIAS_DUPLICADAS");
   }
 }

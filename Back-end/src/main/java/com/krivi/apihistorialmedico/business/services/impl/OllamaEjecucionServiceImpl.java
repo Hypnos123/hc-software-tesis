@@ -19,6 +19,8 @@ import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionRespon
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
 import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
 import java.text.Normalizer;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -303,22 +305,24 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     try {
       ResponseModelGet<PacienteResponse> pacientesEncontrados = pacienteService.search(
           nombre, dni, 25);
-      List<PacienteResponse> pacientes = datos(pacientesEncontrados);
+      List<PacienteResponse> pacientes = filtrarPacientesPorNombre(
+          datos(pacientesEncontrados), nombre);
       if (pacientes.isEmpty()) {
         return respuestaHistorias(interpretacion.intencion(), false, dni, nombre, List.of(),
             "No se encontró ningún paciente activo con ese "
                 + (dni == null ? "nombre." : "DNI."));
       }
-      BusquedaHistoriasClinicasResponse resultado = historiaClinicaService
-          .buscarParaIntegracion(dni == null ? nombre : dni);
-      if (resultado.getHistoriasClinicas() == null || resultado.getHistoriasClinicas().isEmpty()) {
+      List<HistoriaClinicaIntegracionItemResponse> historias = dni == null
+          ? buscarHistoriasDePacientes(pacientes)
+          : historias(historiaClinicaService.buscarParaIntegracion(dni));
+      if (historias.isEmpty()) {
         return respuestaHistorias(interpretacion.intencion(), false, dni, nombre, List.of(),
             "El paciente se encuentra registrado, pero no tiene historias clínicas asociadas.");
       }
-      int cantidad = resultado.getHistoriasClinicas().size();
+      int cantidad = historias.size();
       String referencia = nombre != null ? nombre : "el paciente con DNI " + dni;
       return respuestaHistorias(interpretacion.intencion(), true, dni, nombre,
-          resultado.getHistoriasClinicas(), "Se encontraron " + cantidad
+          historias, "Se encontraron " + cantidad
               + " historias clínicas para " + referencia + ".");
     } catch (DataAccessException exception) {
       throw errorConsultaHistorias(exception);
@@ -336,7 +340,8 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
     }
     try {
       if (dni != null || nombre != null) {
-        List<PacienteResponse> pacientes = datos(pacienteService.search(nombre, dni, 25));
+        List<PacienteResponse> pacientes = filtrarPacientesPorNombre(
+            datos(pacienteService.search(nombre, dni, 25)), nombre);
         if (pacientes.isEmpty()) {
           return respuestaHistoriasDuplicadas(dni, nombre, null,
               "No se encontró ningún paciente activo con ese "
@@ -466,6 +471,42 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
 
   private <T> List<T> datos(ResponseModelGet<T> resultado) {
     return resultado.getData() == null ? List.of() : resultado.getData();
+  }
+
+  private List<PacienteResponse> filtrarPacientesPorNombre(
+      List<PacienteResponse> pacientes,
+      String nombre
+  ) {
+    if (nombre == null) {
+      return pacientes;
+    }
+    List<String> palabrasBuscadas = Arrays.asList(normalizarNombre(nombre).split(" "));
+    return pacientes.stream()
+        .filter(paciente -> {
+          List<String> palabrasPaciente = Arrays.asList(
+              normalizarNombreCompleto(paciente).split(" "));
+          return palabrasBuscadas.stream().allMatch(palabrasPaciente::contains);
+        })
+        .toList();
+  }
+
+  private List<HistoriaClinicaIntegracionItemResponse> buscarHistoriasDePacientes(
+      List<PacienteResponse> pacientes
+  ) {
+    LinkedHashMap<Integer, HistoriaClinicaIntegracionItemResponse> unicas = new LinkedHashMap<>();
+    pacientes.stream()
+        .map(PacienteResponse::getIdPaciente)
+        .filter(java.util.Objects::nonNull)
+        .map(id -> historiaClinicaService.buscarParaIntegracion("paciente:" + id))
+        .flatMap(resultado -> historias(resultado).stream())
+        .forEach(historia -> unicas.putIfAbsent(historia.getIdHistoriaClinica(), historia));
+    return List.copyOf(unicas.values());
+  }
+
+  private List<HistoriaClinicaIntegracionItemResponse> historias(
+      BusquedaHistoriasClinicasResponse resultado
+  ) {
+    return resultado.getHistoriasClinicas() == null ? List.of() : resultado.getHistoriasClinicas();
   }
 
   private OllamaEjecucionException errorConsultaHistorias(DataAccessException exception) {

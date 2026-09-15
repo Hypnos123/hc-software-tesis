@@ -313,6 +313,10 @@ export class InterfazChatComponent implements OnDestroy {
     if (this.clinicalHistoryFlow.step !== 'idle' || this.hayGestionDuplicadosActiva() || this.hayGestionHistoriasDuplicadasActiva() || !pregunta) return;
     this.addUserMessage(pregunta);
     this.userMessage = '';
+    if (this.esIntencionCrearHistoria(pregunta)) {
+      this.iniciarCreacionHistoriaDesdeTexto();
+      return;
+    }
     if (this.esIntencionGestionDuplicados(pregunta)) {
       this.iniciarGestionDuplicadosDesdeTexto();
       return;
@@ -1284,6 +1288,20 @@ export class InterfazChatComponent implements OnDestroy {
     const mencionaObjetoGestionable = /(duplicad|repetid|paciente|registro)/.test(normalizado);
     const accionGestion = /\b(gestionar|eliminar|archivar|decidir|conservar)\b/.test(normalizado);
     return mencionaObjetoGestionable && accionGestion;
+  }
+  private esIntencionCrearHistoria(texto: string): boolean {
+    const normalizado = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+    return /\bhistorias? clinicas?\b/.test(normalizado)
+      && /\b(crear|registrar|agregar|generar)\b/.test(normalizado);
+  }
+  private iniciarCreacionHistoriaDesdeTexto(): void {
+    this.clinicalHistoryFlow = { step: 'awaitingDni' };
+    this.clinicalHistoryConfirmationActionsVisible = false;
+    this.addBotMessage(
+      'Ingresa el DNI del paciente para crear su historia clínica o pulsa el botón cancelar para finalizar.'
+    );
+    this.scrollToBottom();
   }
   private puedeGestionarDuplicados(): boolean {
     const cargo = this.normalizarCargo(this.authService.usuario?.cargo);

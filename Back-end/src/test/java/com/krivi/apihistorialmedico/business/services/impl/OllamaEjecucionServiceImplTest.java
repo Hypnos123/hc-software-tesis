@@ -140,26 +140,62 @@ class OllamaEjecucionServiceImplTest {
   }
 
   @Test
-  void consultaHistoriasPorNombreSinElegirUnPacienteArbitrariamente() {
-    String nombre = "Rafael Velasquez Morales";
+  void filtraConsultaDeHistoriasPorTodasLasPalabrasCompletasDelNombre() {
+    String nombre = "Fernando Vargas Rios";
     when(ollamaService.interpretar("mensaje")).thenReturn(
         new OllamaInterpretacionResponse(
             "HISTORIAS_CLINICAS", "CONSULTAR_HISTORIAS", null, nombre, null));
     ResponseModelGet<PacienteResponse> pacientes = new ResponseModelGet<>();
-    pacientes.setData(List.of(PacienteResponse.builder().idPaciente(7).build(),
-        PacienteResponse.builder().idPaciente(8).build()));
+    pacientes.setData(List.of(
+        PacienteResponse.builder().idPaciente(7).nombres("Fernando Josset")
+            .apellidos("Vargas Ríos").build(),
+        PacienteResponse.builder().idPaciente(8).nombres("Elena Beatriz")
+            .apellidos("Vargas Huamán").build()));
     when(pacienteService.search(nombre, null, 25)).thenReturn(pacientes);
-    when(historiaClinicaService.buscarParaIntegracion(nombre)).thenReturn(
+    when(historiaClinicaService.buscarParaIntegracion("paciente:7")).thenReturn(
         BusquedaHistoriasClinicasResponse.builder().encontrado(true)
-            .historiasClinicas(List.of(
-                HistoriaClinicaIntegracionItemResponse.builder().idPaciente(7).build(),
-                HistoriaClinicaIntegracionItemResponse.builder().idPaciente(8).build()))
+            .historiasClinicas(List.of(HistoriaClinicaIntegracionItemResponse.builder()
+                .idHistoriaClinica(70).idPaciente(7).build()))
             .build());
 
     OllamaEjecucionResponse response = service.ejecutar("mensaje");
 
     assertThat(response.historias()).extracting(
-        HistoriaClinicaIntegracionItemResponse::getIdPaciente).containsExactly(7, 8);
+        HistoriaClinicaIntegracionItemResponse::getIdPaciente).containsExactly(7);
+    verify(historiaClinicaService, never()).buscarParaIntegracion("paciente:8");
+  }
+
+  @Test
+  void conservaVariasCoincidenciasValidasPorNombreYOmiteTodasCuandoNingunaCoincide() {
+    String nombre = "Fernando Vargas Rios";
+    when(ollamaService.interpretar("varias")).thenReturn(new OllamaInterpretacionResponse(
+        "HISTORIAS_CLINICAS", "CONSULTAR_HISTORIAS", null, nombre, null));
+    ResponseModelGet<PacienteResponse> varias = new ResponseModelGet<>();
+    varias.setData(List.of(
+        PacienteResponse.builder().idPaciente(7).nombres("Fernando Josset")
+            .apellidos("Vargas Ríos").build(),
+        PacienteResponse.builder().idPaciente(9).nombres("Fernando")
+            .apellidos("Vargas de los Ríos").build()));
+    when(pacienteService.search(nombre, null, 25)).thenReturn(varias);
+    when(historiaClinicaService.buscarParaIntegracion("paciente:7")).thenReturn(
+        BusquedaHistoriasClinicasResponse.builder().historiasClinicas(List.of(
+            HistoriaClinicaIntegracionItemResponse.builder().idHistoriaClinica(70).idPaciente(7).build())).build());
+    when(historiaClinicaService.buscarParaIntegracion("paciente:9")).thenReturn(
+        BusquedaHistoriasClinicasResponse.builder().historiasClinicas(List.of(
+            HistoriaClinicaIntegracionItemResponse.builder().idHistoriaClinica(90).idPaciente(9).build())).build());
+
+    assertThat(service.ejecutar("varias").historias()).extracting(
+        HistoriaClinicaIntegracionItemResponse::getIdPaciente).containsExactly(7, 9);
+
+    when(ollamaService.interpretar("ninguna")).thenReturn(new OllamaInterpretacionResponse(
+        "HISTORIAS_CLINICAS", "CONSULTAR_HISTORIAS", null, nombre, null));
+    ResponseModelGet<PacienteResponse> ninguna = new ResponseModelGet<>();
+    ninguna.setData(List.of(PacienteResponse.builder().idPaciente(8).nombres("Elena Beatriz")
+        .apellidos("Vargas Huamán").build()));
+    when(pacienteService.search(nombre, null, 25)).thenReturn(ninguna);
+
+    assertThat(service.ejecutar("ninguna").mensaje()).isEqualTo(
+        "No se encontró ningún paciente activo con ese nombre.");
   }
 
   @Test
@@ -202,7 +238,8 @@ class OllamaEjecucionServiceImplTest {
     when(ollamaService.interpretar("nombre")).thenReturn(new OllamaInterpretacionResponse(
         "HISTORIAS_CLINICAS", "HISTORIAS_DUPLICADAS", null, nombre, null));
     ResponseModelGet<PacienteResponse> pacientes = new ResponseModelGet<>();
-    pacientes.setData(List.of(PacienteResponse.builder().build()));
+    pacientes.setData(List.of(PacienteResponse.builder().nombres("Daniela Alejandra")
+        .apellidos("Ramirez Soto").build()));
     when(pacienteService.search(nombre, null, 25)).thenReturn(pacientes);
     when(historiaClinicaService.obtenerDuplicadosPorNombreParaIntegracion(nombre))
         .thenReturn(duplicados);
