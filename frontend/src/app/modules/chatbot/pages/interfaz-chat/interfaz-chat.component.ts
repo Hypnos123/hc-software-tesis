@@ -1027,6 +1027,10 @@ export class InterfazChatComponent implements OnDestroy {
       next: (response) => {
         this.removeTypingMessage();
         const ollamaResult = this.getOllamaResult(response);
+        if (ollamaResult?.intencion === 'RESUMEN_CONSULTAS' && ollamaResult.pacientes?.length) {
+          this.iniciarResumenDesdeOllama(ollamaResult);
+          return;
+        }
         const resultado = this.addBotMessage(
           this.getOllamaResultSummary(ollamaResult) ?? this.formatResponse(response)
         );
@@ -1075,7 +1079,7 @@ export class InterfazChatComponent implements OnDestroy {
   }
   private getOllamaResult(response: IAsistenteResponse): IOllamaEjecucionResponse | undefined {
     const data = response.datos as unknown as IOllamaEjecucionResponse | undefined;
-    return data && ['PACIENTES', 'HISTORIAS_CLINICAS'].includes(data.categoria)
+    return data && ['PACIENTES', 'HISTORIAS_CLINICAS', 'CONSULTAS'].includes(data.categoria)
         && data.intencion === response.intencion ? data : undefined;
   }
   private hasOllamaResultCards(response: IOllamaEjecucionResponse): boolean {
@@ -1083,10 +1087,12 @@ export class InterfazChatComponent implements OnDestroy {
       || !!response.historias?.length
       || !!response.gruposHistoriasDuplicadas?.duplicados?.length
       || !!response.gruposDuplicados?.duplicados?.length
-      || !!response.comparacionDuplicados?.pacientes?.length;
+      || !!response.comparacionDuplicados?.pacientes?.length
+      || !!response.consultas?.length;
   }
   private getOllamaResultSummary(response?: IOllamaEjecucionResponse): string | undefined {
     if (!response) return undefined;
+    if (response.categoria === 'CONSULTAS') return response.mensaje;
     if (response.intencion === 'ULTIMAS_HISTORIAS' && response.historias?.length) {
       return `Últimas ${response.historias.length} historias clínicas registradas`;
     }
@@ -1139,8 +1145,32 @@ export class InterfazChatComponent implements OnDestroy {
     const pacientes = ['VERIFICAR_EXISTENCIA', 'BUSCAR_PACIENTE', 'PACIENTES_DUPLICADOS',
       'ULTIMOS_PACIENTES', 'PACIENTES_SIN_HISTORIA'];
     const historias = ['CONSULTAR_HISTORIAS', 'HISTORIAS_DUPLICADAS', 'ULTIMAS_HISTORIAS'];
+    const consultas = ['CONSULTAR_CONSULTAS', 'ULTIMA_CONSULTA', 'CONSULTAS_PENDIENTES',
+      'CONSULTAS_ATENDIDAS', 'CONSULTAS_POR_FECHA', 'RESUMEN_CONSULTAS'];
     return response.categoria === 'PACIENTES' && pacientes.includes(response.intencion)
-      || response.categoria === 'HISTORIAS_CLINICAS' && historias.includes(response.intencion);
+      || response.categoria === 'HISTORIAS_CLINICAS' && historias.includes(response.intencion)
+      || response.categoria === 'CONSULTAS' && consultas.includes(response.intencion);
+  }
+
+  private iniciarResumenDesdeOllama(resultado: IOllamaEjecucionResponse): void {
+    if (!this.puedeUsarResumenConsultas()) {
+      this.addBotMessage('No tienes permiso para consultar el resumen clínico de pacientes.');
+      return;
+    }
+    const candidatos = (resultado.pacientes ?? []).filter(p => !!p.idPaciente).map(p => ({
+      idPaciente: p.idPaciente!, nombreCompleto: this.nombreCompletoOllama(p),
+      dni: p.numDocumento ?? '', edad: p.edad, estado: 'ACTIVO'
+    }));
+    const state = crearResumenConsultasState();
+    state.candidatos = candidatos;
+    this.resumenConsultasState = state;
+    if (candidatos.length > 1) {
+      state.vista = 'multiple'; state.accionesHabilitadas = true;
+      this.addBotMessage('Se encontraron varios pacientes. Selecciona uno para continuar con el resumen.');
+      this.addSummaryBlock(state, 'multiple', true);
+      return;
+    }
+    this.completarPacienteResumen(candidatos[0]);
   }
   private esResultadoDuplicadoExtenso(response: IAsistenteResponse): boolean {
     if (response.intencion === 'ANALISIS_DUPLICADOS_PACIENTES' || response.intencion === 'BUSQUEDA_DUPLICADO_DNI_MULTIPLE') return true;
