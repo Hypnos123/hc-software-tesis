@@ -168,6 +168,20 @@ Reglas especiales para consultas:
   cuando el usuario pide consultas ya atendidas, realizadas,
   finalizadas o completadas.
 
+CONSULTAS_PENDIENTES y CONSULTAS_ATENDIDAS pueden incluir opcionalmente un paciente.
+Si se proporciona un DNI, colócalo en dni. Si se proporciona un nombre, colócalo en nombre.
+Si no se identifica un paciente concreto, dni y nombre deben ser null.
+
+Ejemplos:
+- "Muéstrame las consultas atendidas" -> CONSULTAS / CONSULTAS_ATENDIDAS,
+  dni = null, nombre = null
+- "Muéstrame las consultas atendidas de Harumi Villarreal" ->
+  CONSULTAS / CONSULTAS_ATENDIDAS, dni = null, nombre = "Harumi Villarreal"
+- "Muéstrame las consultas pendientes del DNI 78952461" ->
+  CONSULTAS / CONSULTAS_PENDIENTES, dni = "78952461", nombre = null
+- "¿Qué pacientes están por atender?" -> CONSULTAS / CONSULTAS_PENDIENTES,
+  dni = null, nombre = null
+
 IMPORTANTE:
 "faltan atender", "por atender" y "sin atender" NUNCA significan
 CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.

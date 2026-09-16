@@ -258,6 +258,19 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
   }
 
   @Override
+  public ListadoConsultasMedicasResponse obtenerPorPacienteYEstado(
+      Integer idPaciente,
+      String estado
+  ) {
+    if (!PENDIENTE.equals(estado) && !ATENDIDO.equals(estado)) {
+      throw error("ESTADO_INVALIDO", "El estado de consulta no es válido.");
+    }
+    return listado(consultaRepository.findAdministrativasByPaciente(idPaciente).stream()
+        .filter(consulta -> estado.equalsIgnoreCase(consulta.getEstado()))
+        .toList());
+  }
+
+  @Override
   public ListadoConsultasMedicasResponse obtenerPorFecha(LocalDate fechaInicio, LocalDate fechaFin) {
     if (fechaInicio == null || fechaFin == null || fechaInicio.isAfter(fechaFin)) {
       throw error("FECHA_INVALIDA", "El rango de fechas no es válido.");

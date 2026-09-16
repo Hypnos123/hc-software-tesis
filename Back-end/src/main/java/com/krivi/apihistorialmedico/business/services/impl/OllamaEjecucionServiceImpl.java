@@ -108,10 +108,10 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
       return consultarConsultasPaciente(interpretacion);
     }
     if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_PENDIENTES)) {
-      return consultarPorEstado(interpretacion.intencion(), "PENDIENTE");
+      return consultarPorEstado(interpretacion, "PENDIENTE");
     }
     if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_ATENDIDAS)) {
-      return consultarPorEstado(interpretacion.intencion(), "ATENDIDO");
+      return consultarPorEstado(interpretacion, "ATENDIDO");
     }
     if (esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_POR_FECHA)) {
       return consultarPorFecha(interpretacion);
@@ -146,6 +146,8 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
         || esIntencion(interpretacion, CATEGORIA_HISTORIAS, INTENCION_HISTORIAS_DUPLICADAS)
         || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAR_CONSULTAS)
         || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_ULTIMA_CONSULTA)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_PENDIENTES)
+        || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_CONSULTAS_ATENDIDAS)
         || esIntencion(interpretacion, CATEGORIA_CONSULTAS, INTENCION_RESUMEN_CONSULTAS)) {
       String dni = normalizar(interpretacion.dni());
       String nombre = normalizar(interpretacion.nombre());
@@ -188,11 +190,38 @@ public class OllamaEjecucionServiceImpl implements OllamaEjecucionService {
             : "Se encontraron " + listado.getCantidad() + " consultas para el paciente.", List.of());
   }
 
-  private OllamaEjecucionResponse consultarPorEstado(String intencion, String estado) {
-    var listado = consultaMedicaService.obtenerPorEstado(estado);
-    return respuestaConsultas(intencion, listado.getCantidad() > 0, null, null,
+  private OllamaEjecucionResponse consultarPorEstado(
+      OllamaInterpretacionResponse interpretacion,
+      String estado
+  ) {
+    String dni = normalizar(interpretacion.dni());
+    String nombre = normalizar(interpretacion.nombre());
+    String descripcion = "PENDIENTE".equals(estado) ? "pendientes" : "atendidas";
+    if (dni == null && nombre == null) {
+      var listado = consultaMedicaService.obtenerPorEstado(estado);
+      return respuestaConsultas(interpretacion.intencion(), listado.getCantidad() > 0, null, null,
+          listado.getConsultas(), listado.getCantidad(), "Se encontraron " + listado.getCantidad()
+              + " consultas " + descripcion + ".", List.of());
+    }
+    List<PacienteResponse> pacientes = resolverPacientes(interpretacion);
+    if (pacientes.isEmpty()) return respuestaConsultas(interpretacion.intencion(), false,
+        dni, nombre, List.of(), 0,
+        "No se encontró ningún paciente activo con ese criterio.", List.of());
+    if (pacientes.size() > 1) return respuestaConsultas(interpretacion.intencion(), true,
+        dni, nombre, List.of(), 0,
+        "Se encontraron varios pacientes. Selecciona uno de los candidatos.", pacientes);
+    PacienteResponse paciente = pacientes.getFirst();
+    var listado = consultaMedicaService.obtenerPorPacienteYEstado(
+        paciente.getIdPaciente(), estado);
+    if (listado.getCantidad() == 0) return respuestaConsultas(interpretacion.intencion(), false,
+        dni, nombre, List.of(), 0, "El paciente se encuentra registrado, pero no tiene consultas "
+            + descripcion + ".", List.of());
+    String referencia = paciente.getNombreCompleto() == null
+        ? normalizarNombreCompleto(paciente)
+        : paciente.getNombreCompleto();
+    return respuestaConsultas(interpretacion.intencion(), true, dni, nombre,
         listado.getConsultas(), listado.getCantidad(), "Se encontraron " + listado.getCantidad()
-            + " consultas " + ("PENDIENTE".equals(estado) ? "pendientes." : "atendidas."), List.of());
+            + " consultas " + descripcion + " para " + referencia + ".", List.of());
   }
 
   private OllamaEjecucionResponse consultarPorFecha(OllamaInterpretacionResponse interpretacion) {

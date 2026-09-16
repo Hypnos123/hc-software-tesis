@@ -12,6 +12,7 @@ public interface ConsultaMedicaIntegracionService {
   ListadoConsultasMedicasResponse obtenerPendientes();
   ListadoConsultasMedicasResponse obtenerUltimas(Integer limite);
   ListadoConsultasMedicasResponse obtenerPorEstado(String estado);
+  ListadoConsultasMedicasResponse obtenerPorPacienteYEstado(Integer idPaciente, String estado);
   ListadoConsultasMedicasResponse obtenerPorFecha(LocalDate fechaInicio, LocalDate fechaFin);
   ListadoConsultasMedicasResponse obtenerPorPaciente(Integer idPaciente);
   ListadoConsultasMedicasResponse obtenerUltimaPorPaciente(Integer idPaciente);
