@@ -24,6 +24,19 @@
         <p *ngIf="(message.options || []).length === 0" class="menu-options-completed">Ya revisaste todas las opciones disponibles de esta sección.</p>
       </div>
       <div #conversationBlock *ngIf="message.type === 'ollama-result' && message.ollamaResult as result" [hidden]="message.presentationState !== 'visible'" [attr.data-block-id]="message.id" class="bot-message ollama-result-block">
+        <div *ngIf="result.consultas?.length" class="ollama-card-list ollama-consultation-list">
+          <article *ngFor="let consulta of result.consultas" class="ollama-consultation-card">
+            <strong *ngIf="tieneValorOllama(consulta.idConsulta)">Consulta #{{ consulta.idConsulta }}</strong>
+            <span *ngIf="tieneValorOllama(consulta.nombreCompleto)">{{ consulta.nombreCompleto }}</span>
+            <dl>
+              <div *ngIf="tieneValorOllama(consulta.dni)"><dt>DNI</dt><dd>{{ consulta.dni }}</dd></div>
+              <div *ngIf="tieneValorOllama(consulta.fechaAtencion || consulta.fechaCreacion)"><dt>Fecha</dt><dd>{{ fechaOllama(consulta.fechaAtencion || consulta.fechaCreacion) }}</dd></div>
+              <div *ngIf="tieneValorOllama(consulta.estado)"><dt>Estado</dt><dd>{{ consulta.estado }}</dd></div>
+              <div *ngIf="tieneValorOllama(consulta.especialidad)"><dt>Especialidad</dt><dd>{{ consulta.especialidad }}</dd></div>
+              <div *ngIf="tieneValorOllama(consulta.nombreMedico)"><dt>Doctor</dt><dd>{{ consulta.nombreMedico }}</dd></div>
+            </dl>
+          </article>
+        </div>
         <div *ngIf="result.historias?.length" class="ollama-card-list"
           [class.ollama-recent-list]="result.intencion === 'ULTIMAS_HISTORIAS'">
           <article *ngFor="let historia of result.historias"

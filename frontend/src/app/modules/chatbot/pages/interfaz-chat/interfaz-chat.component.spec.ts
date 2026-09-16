@@ -2776,6 +2776,35 @@ describe('InterfazChatComponent', () => {
     tick(20_000);
   }));
 
+  it('enriquece la card previa de RESUMEN_CONSULTAS y conserva el flujo de generación', fakeAsync(() => {
+    ollamaEjecucionService.ejecutar.and.returnValue(of({
+      categoria: 'CONSULTAS', intencion: 'RESUMEN_CONSULTAS',
+      mensaje: 'Paciente validado.',
+      pacientes: [{ idPaciente: 8, nombres: 'Harumi Lucia', apellidos: 'Villarreal Mendez',
+        numDocumento: DNI_PRUEBA, edad: 30 }]
+    }));
+    historiaClinicaService.getByPaciente.and.returnValue(of([
+      { idHistoriaClinica: 4, cantidadConsultas: 3 } as any
+    ]));
+
+    component.userMessage = 'Resume las consultas de Harumi Lucia Villarreal Mendez';
+    component.sendMessage();
+    tick(5_000);
+    fixture.detectChanges();
+
+    expect(component.resumenConsultasState?.vista).toBe('confirmation');
+    expect(component.resumenConsultasState?.paciente?.cantidadHistoriasClinicas).toBe(1);
+    expect(component.resumenConsultasState?.paciente?.cantidadConsultas).toBe(3);
+    expect(fixture.nativeElement.textContent).toContain('Consultas');
+    expect(fixture.nativeElement.textContent).toContain('3');
+
+    component.generarResumenConsultas();
+    tick(5_000);
+    expect(resumenConsultasService.obtener).toHaveBeenCalledOnceWith(8);
+    expect(component.messages.some(mensaje => mensaje.summaryView === 'summary')).toBeTrue();
+    tick(20_000);
+  }));
+
   it('oculta la opción de resumen al personal de enfermería', () => {
     authServiceMock.usuario = { idUsuario: 9, tipoUsuario: 'ENFERMERO', cargo: 'ENFERMERO' };
     const opciones = (component as any).createMenuOptions('asistencia-consultas');

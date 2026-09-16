@@ -108,6 +108,13 @@ public interface ConsultaRepository extends CrudRepository<Consulta, Integer> {
   List<Consulta> findPendientesAdministrativas();
   @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable order by c.fechaCreacion desc")
   List<Consulta> findUltimasAdministrativas(Pageable pageable);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where c.paciente.idPaciente = :idPaciente order by coalesce(c.fechaAtencion, c.fechaCreacion) desc, c.idConsulta desc")
+  List<Consulta> findAdministrativasByPaciente(@Param("idPaciente") Integer idPaciente);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where upper(trim(c.estado)) = upper(:estado) order by coalesce(c.fechaAtencion, c.fechaCreacion) desc, c.idConsulta desc")
+  List<Consulta> findAdministrativasByEstado(@Param("estado") String estado);
+  @Query("select c from Consulta c join fetch c.paciente left join fetch c.historiaClinica left join fetch c.doctorResponsable where coalesce(c.fechaAtencion, c.fechaCreacion) >= :inicio and coalesce(c.fechaAtencion, c.fechaCreacion) < :fin order by coalesce(c.fechaAtencion, c.fechaCreacion) desc, c.idConsulta desc")
+  List<Consulta> findAdministrativasPorFecha(@Param("inicio") LocalDateTime inicio,
+      @Param("fin") LocalDateTime fin);
   @Query("select count(c) from Consulta c where c.estado = 'PENDIENTE' or c.diagnostico is null or trim(c.diagnostico) = '' or c.tratamiento is null or trim(c.tratamiento) = ''") long countIncompletas();
   @Query("select c from Consulta c where c.estado = 'PENDIENTE' or c.diagnostico is null or trim(c.diagnostico) = '' or c.tratamiento is null or trim(c.tratamiento) = '' order by c.fechaCreacion desc") List<Consulta> findIncompletas();
   @Query("select c.especialidadRequerida, count(c) from Consulta c where c.especialidadRequerida is not null and trim(c.especialidadRequerida) <> '' group by c.especialidadRequerida order by count(c) desc") List<Object[]> rankingEspecialidades();

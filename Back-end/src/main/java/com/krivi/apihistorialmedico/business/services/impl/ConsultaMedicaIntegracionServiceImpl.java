@@ -249,6 +249,54 @@ public class ConsultaMedicaIntegracionServiceImpl implements ConsultaMedicaInteg
     return ListadoConsultasMedicasResponse.builder().cantidad(consultas.size()).consultas(consultas).build();
   }
 
+  @Override
+  public ListadoConsultasMedicasResponse obtenerPorEstado(String estado) {
+    if (!PENDIENTE.equals(estado) && !ATENDIDO.equals(estado)) {
+      throw error("ESTADO_INVALIDO", "El estado de consulta no es válido.");
+    }
+    return listado(consultaRepository.findAdministrativasByEstado(estado));
+  }
+
+  @Override
+  public ListadoConsultasMedicasResponse obtenerPorPacienteYEstado(
+      Integer idPaciente,
+      String estado
+  ) {
+    if (!PENDIENTE.equals(estado) && !ATENDIDO.equals(estado)) {
+      throw error("ESTADO_INVALIDO", "El estado de consulta no es válido.");
+    }
+    return listado(consultaRepository.findAdministrativasByPaciente(idPaciente).stream()
+        .filter(consulta -> estado.equalsIgnoreCase(consulta.getEstado()))
+        .toList());
+  }
+
+  @Override
+  public ListadoConsultasMedicasResponse obtenerPorFecha(LocalDate fechaInicio, LocalDate fechaFin) {
+    if (fechaInicio == null || fechaFin == null || fechaInicio.isAfter(fechaFin)) {
+      throw error("FECHA_INVALIDA", "El rango de fechas no es válido.");
+    }
+    return listado(consultaRepository.findAdministrativasPorFecha(
+        fechaInicio.atStartOfDay(), fechaFin.plusDays(1).atStartOfDay()));
+  }
+
+  @Override
+  public ListadoConsultasMedicasResponse obtenerPorPaciente(Integer idPaciente) {
+    return listado(consultaRepository.findAdministrativasByPaciente(idPaciente));
+  }
+
+  @Override
+  public ListadoConsultasMedicasResponse obtenerUltimaPorPaciente(Integer idPaciente) {
+    List<Consulta> consultas = consultaRepository.findAdministrativasByPaciente(idPaciente);
+    return listado(consultas.isEmpty() ? List.of() : List.of(consultas.getFirst()));
+  }
+
+  private ListadoConsultasMedicasResponse listado(List<Consulta> entidades) {
+    List<ConsultaMedicaAdministrativaResponse> consultas = entidades.stream()
+        .map(this::consultaAdministrativa).toList();
+    return ListadoConsultasMedicasResponse.builder().cantidad(consultas.size())
+        .consultas(consultas).build();
+  }
+
   private List<Paciente> resolverPacientes(String criterio) {
     if (criterio == null || criterio.trim().isEmpty()) throw error("CRITERIO_VACIO", "El criterio de búsqueda es obligatorio.");
     String valor = criterio.trim();

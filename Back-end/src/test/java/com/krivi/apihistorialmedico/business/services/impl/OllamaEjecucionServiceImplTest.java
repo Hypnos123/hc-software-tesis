@@ -22,6 +22,8 @@ import com.krivi.apihistorialmedico.model.api.PacienteDuplicadoComparacionRespon
 import com.krivi.apihistorialmedico.model.api.ResponseModelGet;
 import com.krivi.apihistorialmedico.model.api.PacienteRegistroResponse;
 import com.krivi.apihistorialmedico.model.api.UltimosPacientesResponse;
+import com.krivi.apihistorialmedico.model.api.ConsultaMedicaAdministrativaResponse;
+import com.krivi.apihistorialmedico.model.api.ListadoConsultasMedicasResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,7 @@ class OllamaEjecucionServiceImplTest {
   private PacienteService pacienteService;
   private PacienteDuplicadoService pacienteDuplicadoService;
   private HistoriaClinicaService historiaClinicaService;
+  private com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService consultaMedicaService;
   private OllamaEjecucionServiceImpl service;
 
   @BeforeEach
@@ -41,11 +44,14 @@ class OllamaEjecucionServiceImplTest {
     pacienteService = Mockito.mock(PacienteService.class);
     pacienteDuplicadoService = Mockito.mock(PacienteDuplicadoService.class);
     historiaClinicaService = Mockito.mock(HistoriaClinicaService.class);
+    consultaMedicaService = Mockito.mock(
+        com.krivi.apihistorialmedico.business.services.ConsultaMedicaIntegracionService.class);
     service = new OllamaEjecucionServiceImpl(
         ollamaService,
         pacienteService,
         pacienteDuplicadoService,
-        historiaClinicaService
+        historiaClinicaService,
+        consultaMedicaService
     );
   }
 
@@ -731,5 +737,199 @@ class OllamaEjecucionServiceImplTest {
         "Indica el DNI o el nombre del paciente que deseas consultar."
     );
     verify(pacienteService, never()).search(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void consultaPorDniConservaTotalRealYLimitaCardsASeis() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("CONSULTAS", "CONSULTAR_CONSULTAS", "72845292", null));
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(PacienteResponse.builder().idPaciente(7)
+        .numDocumento("72845292").build()));
+    when(pacienteService.search(null, "72845292", 25)).thenReturn(busqueda);
+    List<ConsultaMedicaAdministrativaResponse> consultas = java.util.stream.IntStream.range(0, 14)
+        .mapToObj(i -> ConsultaMedicaAdministrativaResponse.builder().idConsulta(i + 1).build())
+        .toList();
+    when(consultaMedicaService.obtenerPorPaciente(7)).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(14).consultas(consultas).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.totalConsultas()).isEqualTo(14);
+    assertThat(response.consultas()).hasSize(6);
+  }
+
+  @Test
+  void nombreParcialSoloConservaCoincidenciasPorPalabrasCompletas() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("CONSULTAS", "CONSULTAR_CONSULTAS", null, "Rafael"));
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(
+        PacienteResponse.builder().idPaciente(1).nombres("Rafael").apellidos("Velasquez").build(),
+        PacienteResponse.builder().idPaciente(2).nombres("Rafaela").apellidos("Torres").build()));
+    when(pacienteService.search("Rafael", null, 25)).thenReturn(busqueda);
+    when(consultaMedicaService.obtenerPorPaciente(1)).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.mensaje()).contains("todavía no tiene consultas");
+    verify(consultaMedicaService).obtenerPorPaciente(1);
+    verify(consultaMedicaService, never()).obtenerPorPaciente(2);
+  }
+
+  @Test
+  void consultaPendientesReutilizaEstadoReal() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("CONSULTAS", "CONSULTAS_PENDIENTES", null, null));
+    when(consultaMedicaService.obtenerPorEstado("PENDIENTE")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+    service.ejecutar("mensaje");
+    verify(consultaMedicaService).obtenerPorEstado("PENDIENTE");
+  }
+
+  @Test
+  void consultaAtendidasGeneralesConservaElListadoGlobal() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("CONSULTAS", "CONSULTAS_ATENDIDAS", null, null));
+    when(consultaMedicaService.obtenerPorEstado("ATENDIDO")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+    service.ejecutar("mensaje");
+    verify(consultaMedicaService).obtenerPorEstado("ATENDIDO");
+    verify(consultaMedicaService, never()).obtenerPorPacienteYEstado(Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void consultaAtendidasPorNombreFiltraPacienteYEstado() {
+    prepararPaciente("Harumi Lucia Villarreal Mendez", null, 6,
+        "Harumi Lucia", "Villarreal Mendez", "78952461");
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_ATENDIDAS", null, "Harumi Lucia Villarreal Mendez"));
+    when(consultaMedicaService.obtenerPorPacienteYEstado(6, "ATENDIDO")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(2).consultas(List.of(
+            ConsultaMedicaAdministrativaResponse.builder().idConsulta(1).estado("ATENDIDO").build(),
+            ConsultaMedicaAdministrativaResponse.builder().idConsulta(2).estado("ATENDIDO").build())).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.totalConsultas()).isEqualTo(2);
+    assertThat(response.mensaje()).contains("atendidas para Harumi Lucia Villarreal Mendez");
+    verify(consultaMedicaService).obtenerPorPacienteYEstado(6, "ATENDIDO");
+  }
+
+  @Test
+  void consultaAtendidasPorDniFiltraPacienteYEstado() {
+    prepararPaciente(null, "78952461", 6, "Harumi Lucia", "Villarreal Mendez", "78952461");
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_ATENDIDAS", "78952461", null));
+    when(consultaMedicaService.obtenerPorPacienteYEstado(6, "ATENDIDO")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.mensaje()).isEqualTo(
+        "El paciente se encuentra registrado, pero no tiene consultas atendidas.");
+  }
+
+  @Test
+  void consultaPendientesPorNombreFiltraPacienteYEstadoYLimitaCards() {
+    prepararPaciente("Harumi Lucia Villarreal Mendez", null, 6,
+        "Harumi Lucia", "Villarreal Mendez", "78952461");
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_PENDIENTES", null, "Harumi Lucia Villarreal Mendez"));
+    List<ConsultaMedicaAdministrativaResponse> consultas = java.util.stream.IntStream.range(0, 8)
+        .mapToObj(i -> ConsultaMedicaAdministrativaResponse.builder()
+            .idConsulta(i + 1).estado("PENDIENTE").build()).toList();
+    when(consultaMedicaService.obtenerPorPacienteYEstado(6, "PENDIENTE")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(8).consultas(consultas).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.totalConsultas()).isEqualTo(8);
+    assertThat(response.consultas()).hasSize(6);
+  }
+
+  @Test
+  void consultaPendientesPorDniInformaCuandoNoHayConsultasDelEstado() {
+    prepararPaciente(null, "78952461", 6, "Harumi Lucia", "Villarreal Mendez", "78952461");
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_PENDIENTES", "78952461", null));
+    when(consultaMedicaService.obtenerPorPacienteYEstado(6, "PENDIENTE")).thenReturn(
+        ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.mensaje()).isEqualTo(
+        "El paciente se encuentra registrado, pero no tiene consultas pendientes.");
+  }
+
+  @Test
+  void estadoPorPacienteNoSeleccionaUnaCoincidenciaArbitraria() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_ATENDIDAS", null, "Harumi"));
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(
+        PacienteResponse.builder().idPaciente(6).nombres("Harumi").apellidos("Villarreal").build(),
+        PacienteResponse.builder().idPaciente(9).nombres("Harumi").apellidos("Mendez").build(),
+        PacienteResponse.builder().idPaciente(10).nombres("Harumita").apellidos("Ruiz").build()));
+    when(pacienteService.search("Harumi", null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).extracting(PacienteResponse::getIdPaciente)
+        .containsExactly(6, 9);
+    verify(consultaMedicaService, never()).obtenerPorPacienteYEstado(Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void estadoPorPacienteInexistenteNoConsultaListados() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_PENDIENTES", null, "Inexistente"));
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of());
+    when(pacienteService.search("Inexistente", null, 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.encontrado()).isFalse();
+    verify(consultaMedicaService, never()).obtenerPorPacienteYEstado(Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  void consultaRangoDeFechasIso() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(new OllamaInterpretacionResponse(
+        "CONSULTAS", "CONSULTAS_POR_FECHA", null, null, null,
+        "2026-08-10", "2026-08-15"));
+    when(consultaMedicaService.obtenerPorFecha(
+        java.time.LocalDate.of(2026, 8, 10), java.time.LocalDate.of(2026, 8, 15)))
+        .thenReturn(ListadoConsultasMedicasResponse.builder().cantidad(0).consultas(List.of()).build());
+    service.ejecutar("mensaje");
+    verify(consultaMedicaService).obtenerPorFecha(
+        java.time.LocalDate.of(2026, 8, 10), java.time.LocalDate.of(2026, 8, 15));
+  }
+
+  @Test
+  void resumenSoloDevuelveCandidatosSinGenerarContenidoMedico() {
+    when(ollamaService.interpretar("mensaje")).thenReturn(
+        new OllamaInterpretacionResponse("CONSULTAS", "RESUMEN_CONSULTAS", "72845292", null));
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(PacienteResponse.builder().idPaciente(7)
+        .numDocumento("72845292").build()));
+    when(pacienteService.search(null, "72845292", 25)).thenReturn(busqueda);
+
+    OllamaEjecucionResponse response = service.ejecutar("mensaje");
+
+    assertThat(response.pacientes()).hasSize(1);
+    assertThat(response.consultas()).isEmpty();
+    verify(consultaMedicaService, never()).obtenerResumenPaciente(Mockito.any(), Mockito.any());
+  }
+
+  private void prepararPaciente(String nombreBuscado, String dniBuscado, int id,
+      String nombres, String apellidos, String dni) {
+    ResponseModelGet<PacienteResponse> busqueda = new ResponseModelGet<>();
+    busqueda.setData(List.of(PacienteResponse.builder().idPaciente(id).nombres(nombres)
+        .apellidos(apellidos).nombreCompleto(nombres + " " + apellidos)
+        .numDocumento(dni).build()));
+    when(pacienteService.search(nombreBuscado, dniBuscado, 25)).thenReturn(busqueda);
   }
 }

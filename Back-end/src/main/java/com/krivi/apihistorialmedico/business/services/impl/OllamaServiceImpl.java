@@ -46,6 +46,7 @@ CONSULTAS
 - CONSULTAS_PENDIENTES: cuando se solicitan consultas pendientes.
 - CONSULTAS_ATENDIDAS: cuando se solicitan consultas ya atendidas.
 - CONSULTAS_POR_FECHA: cuando se buscan consultas por una fecha o rango de fechas.
+- RESUMEN_CONSULTAS: cuando se solicita abrir o ver el resumen de consultas de un paciente.
 
 Reglas importantes:
 
@@ -86,6 +87,9 @@ usa exactamente:
 11. El campo limite solo se utiliza para ULTIMOS_PACIENTES o ULTIMAS_HISTORIAS.
 Para las demás intenciones, utiliza null.
 
+12. Para CONSULTAS_POR_FECHA devuelve fechaInicio y fechaFin en formato ISO YYYY-MM-DD.
+Si se solicita un solo día, ambas fechas deben ser iguales. Para las demás intenciones son null.
+
 REGLA PRIORITARIA SOBRE PACIENTES E HISTORIAS CLÍNICAS:
 
 - Si pregunta si un paciente tiene, posee, cuenta con, muestra o desea consultar una
@@ -111,7 +115,9 @@ Devuelve exclusivamente este formato:
   "intencion": "",
   "dni": null,
   "nombre": null,
-  "limite": null
+  "limite": null,
+  "fechaInicio": null,
+  "fechaFin": null
 }
 
 No agregues explicaciones.
@@ -162,9 +168,40 @@ Reglas especiales para consultas:
   cuando el usuario pide consultas ya atendidas, realizadas,
   finalizadas o completadas.
 
+CONSULTAS_PENDIENTES y CONSULTAS_ATENDIDAS pueden incluir opcionalmente un paciente.
+Si se proporciona un DNI, colócalo en dni. Si se proporciona un nombre, colócalo en nombre.
+Si no se identifica un paciente concreto, dni y nombre deben ser null.
+
+Ejemplos:
+- "Muéstrame las consultas atendidas" -> CONSULTAS / CONSULTAS_ATENDIDAS,
+  dni = null, nombre = null
+- "Muéstrame las consultas atendidas de Harumi Villarreal" ->
+  CONSULTAS / CONSULTAS_ATENDIDAS, dni = null, nombre = "Harumi Villarreal"
+- "Muéstrame las consultas pendientes del DNI 78952461" ->
+  CONSULTAS / CONSULTAS_PENDIENTES, dni = "78952461", nombre = null
+- "¿Qué pacientes están por atender?" -> CONSULTAS / CONSULTAS_PENDIENTES,
+  dni = null, nombre = null
+
 IMPORTANTE:
 "faltan atender", "por atender" y "sin atender" NUNCA significan
 CONSULTAS_ATENDIDAS. Deben clasificarse como CONSULTAS_PENDIENTES.
+
+CONSULTAS - REGLAS DE CONSULTA
+
+- "Busca al paciente Rafael" -> PACIENTES / BUSCAR_PACIENTE
+- "Muéstrame las historias clínicas de Rafael" -> HISTORIAS_CLINICAS / CONSULTAR_HISTORIAS
+- "Muéstrame las consultas de Rafael" -> CONSULTAS / CONSULTAR_CONSULTAS
+- "Muéstrame la última consulta de Rafael" -> CONSULTAS / ULTIMA_CONSULTA
+- "Muéstrame las consultas pendientes" -> CONSULTAS / CONSULTAS_PENDIENTES
+- "Muéstrame las consultas atendidas" -> CONSULTAS / CONSULTAS_ATENDIDAS
+- "Muéstrame las consultas del 15/08/2026" -> CONSULTAS / CONSULTAS_POR_FECHA,
+  fechaInicio = "2026-08-15", fechaFin = "2026-08-15"
+- "Muéstrame el resumen de consultas de Rafael" -> CONSULTAS / RESUMEN_CONSULTAS
+
+Para CONSULTAR_CONSULTAS, ULTIMA_CONSULTA y RESUMEN_CONSULTAS extrae el DNI o nombre.
+RESUMEN_CONSULTAS solo enruta al resumen existente; no redactes ni inventes información médica.
+No clasifiques solicitudes de creación, eliminación, modificación, cambio de estado, evaluación,
+reporte o edición clínica como una operación ejecutable de consultas.
   
 Reglas especiales para pacientes duplicados:
 

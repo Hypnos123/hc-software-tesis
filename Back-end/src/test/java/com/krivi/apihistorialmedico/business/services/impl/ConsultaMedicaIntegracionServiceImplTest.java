@@ -55,6 +55,22 @@ class ConsultaMedicaIntegracionServiceImplTest {
     assertThrows(NoSuchFieldException.class, () -> response.getPacientes().getFirst().getConsultas().getFirst().getClass().getDeclaredField("tratamiento"));
   }
 
+  @Test void filtraLasConsultasExistentesDelPacientePorEstadoSinNuevaConsultaSql() {
+    Paciente paciente = paciente(6, "78952461", "Harumi", "Villarreal");
+    when(consultaRepository.findAdministrativasByPaciente(6)).thenReturn(List.of(
+        consulta(1, paciente, "ATENDIDO"), consulta(2, paciente, "PENDIENTE"),
+        consulta(3, paciente, "atendido")));
+
+    ListadoConsultasMedicasResponse response =
+        service.obtenerPorPacienteYEstado(6, "ATENDIDO");
+
+    assertEquals(2, response.getCantidad());
+    assertTrue(response.getConsultas().stream()
+        .allMatch(consulta -> "ATENDIDO".equalsIgnoreCase(consulta.getEstado())));
+    verify(consultaRepository).findAdministrativasByPaciente(6);
+    verifyNoMoreInteractions(consultaRepository);
+  }
+
   @Test void buscaPorIdYFormatoPacienteId() {
     Paciente paciente = paciente(8, "12345678", "Ana", "Lima");
     when(pacienteRepository.findByIdPacienteAndEstadoRegistro(8, EstadoRegistroPaciente.ACTIVO)).thenReturn(Optional.of(paciente));
